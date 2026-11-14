@@ -64,6 +64,11 @@ def ios():
 if __name__ == "__main__":
     flutter = shutil.which("flutter") or "flutter"
     sh(flutter, "create", "--platforms=android,ios", "--org", "uz.kengash", "--project-name", "kengash", ".")
+    # `flutter create` namuna testini qo‘shadi (MyApp hisoblagich) — u bizga tegishli emas.
+    # `flutter create` добавляет пример теста (счётчик MyApp) — он не наш.
+    sample = APP / "test/widget_test.dart"
+    if sample.exists() and "MyApp" in sample.read_text(encoding="utf-8"):
+        sample.unlink()
     android()
     ios()
     sh(flutter, "pub", "get")
