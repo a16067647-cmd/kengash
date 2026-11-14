@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../brand.dart';
 import '../main.dart' show openTool;
+import 'channels.dart' show ChannelIcon, channelTitle, openChannel, previewText;
 import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -116,11 +117,63 @@ class TodayTab extends StatelessWidget {
                 sub: s.t('quick_admin'),
                 onTap: () => openTool(context, 'admin')),
         ], 2),
+        const _ChannelsCard(),
         SectionHeader(s.t('soon')),
-        _SoonCard(icon: Icons.forum_rounded, title: s.t('tab_channels'), text: s.t('soon_channels')),
         _SoonCard(icon: Icons.task_alt_rounded, title: s.t('tab_tasks'), text: s.t('soon_tasks')),
         _SoonCard(icon: Icons.event_rounded, title: s.t('tab_calendar'), text: s.t('soon_calendar')),
       ],
+    );
+  }
+}
+
+/// Yangi xabarlar / новые сообщения.
+class _ChannelsCard extends StatelessWidget {
+  const _ChannelsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final c = s.c;
+    return ListenableBuilder(
+      listenable: s.chat,
+      builder: (context, _) {
+        final list = s.chat.channels;
+        final unread = s.chat.unreadTotal;
+        final top = (list ?? []).where((x) => (x['unread'] as num? ?? 0) > 0 && x['muted'] != true).take(3).toList();
+        return AppCard(
+          key: const ValueKey('today-channels'),
+          onTap: () => s.go('channels'),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              IconTile(Icons.forum_rounded, size: 40, bg: c.accentSoft, color: c.accentText),
+              const SizedBox(width: S.x3),
+              Expanded(child: Text(s.t('tab_channels'), style: AppType.headline.copyWith(color: c.text))),
+              AppPill(unread == 0 ? s.t('ch_all_read') : '$unread ${s.t('ch_new_msgs')}',
+                  tone: unread == 0 ? Tone.neutral : Tone.accent, small: true),
+            ]),
+            for (final ch in top) ...[
+              const SizedBox(height: S.x3),
+              Pressable(
+                onTap: () => openChannel(context, ch['id'] as String),
+                scale: 0.99,
+                child: Row(children: [
+                  ChannelIcon(ch, size: 32),
+                  const SizedBox(width: S.x3),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(channelTitle(s, ch),
+                          maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.subhead.copyWith(color: c.text)),
+                      Text(previewText(s, (ch['last'] as Map?)?.cast<String, dynamic>()),
+                          maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.footnote.copyWith(color: c.text2)),
+                    ]),
+                  ),
+                  AppPill('${ch['unread']}', tone: Tone.accent, small: true),
+                ]),
+              ),
+            ],
+          ]),
+        );
+      },
     );
   }
 }
@@ -196,13 +249,6 @@ class _ComingTab extends StatelessWidget {
       EmptyState(icon: icon, title: s.t('soon_title'), message: s.t(textKey)),
     ]);
   }
-}
-
-class ChannelsTab extends StatelessWidget {
-  const ChannelsTab({super.key});
-  @override
-  Widget build(BuildContext context) =>
-      const _ComingTab(titleKey: 'tab_channels', icon: Icons.forum_rounded, textKey: 'soon_channels');
 }
 
 class TasksTab extends StatelessWidget {

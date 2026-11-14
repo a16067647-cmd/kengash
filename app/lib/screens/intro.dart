@@ -103,8 +103,8 @@ class _IntroScreenState extends State<IntroScreen> with SingleTickerProviderStat
                   offset: Offset(0, 18 * (1 - word)),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
                     Text('Kengash',
-                        style: AppType.largeTitle.copyWith(
-                            color: kWhite, fontSize: 44, letterSpacing: -1.4, shadows: kTextShadow)),
+                        style:
+                            AppType.largeTitle.copyWith(color: kWhite, fontSize: 44, letterSpacing: -1.4, shadows: kTextShadow)),
                     const SizedBox(height: S.x3),
                     Opacity(
                       opacity: lockup,

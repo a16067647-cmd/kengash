@@ -8,6 +8,153 @@ class FakeServer {
   Map<String, dynamic> me;
   int statusPolls = 0;
   final List<String> calls = [];
+  final List<Map<String, dynamic>> sent = [];
+  final List<Map<String, dynamic>> created = [];
+
+  static Map<String, dynamic> ch(String id, String key, String uz, String ru,
+          {String mode = 'group',
+          int unread = 0,
+          bool canPost = true,
+          String kind = 'auto',
+          String role = 'member',
+          String text = ''}) =>
+      {
+        'id': id,
+        'kind': kind,
+        'auto_key': kind == 'auto' ? key : null,
+        'title_uz': uz,
+        'title_ru': ru,
+        'description': '',
+        'icon': kind == 'custom' ? '🏆' : '',
+        'mode': mode,
+        'members': 12,
+        'created_by': 'u1',
+        'last_msg_at': 1794600000 - unread,
+        'seq': 10,
+        'unread': unread,
+        'muted': false,
+        'role': role,
+        'member': true,
+        'can_post': canPost,
+        'can_manage': kind == 'custom',
+        'is_mod': role != 'member',
+        'pinned': null,
+        'last': text.isEmpty
+            ? null
+            : {
+                'text': text,
+                'deleted': false,
+                'kind': '',
+                'user_name': 'Karimova Madina',
+                'user_id': 'm59it',
+                'created_at': 1794600000
+              },
+      };
+
+  List<Map<String, dynamic>> channels() => [
+        ch('c-all', 'all', 'Kengash e’lonlari', 'Объявления Kengash',
+            mode: 'announce',
+            unread: 2,
+            canPost: me['role'] == 'admin',
+            role: me['role'] == 'admin' ? 'admin' : 'member',
+            text: 'Ertaga yig‘ilish soat 14:00 da'),
+        ch('c-dd', 'dd:asaka:it', 'Asaka tumani · IT va sun’iy intellekt', 'Асакинский район · IT и искусственный интеллект',
+            unread: 5, text: 'Kim tanlovga tayyor?'),
+        ch('c-sch', 'school:s59', '59-maktab jamoasi', 'Команда: Школа №59', text: 'Rahmat!'),
+        ch('c-cu', '', 'IT tanlovi 2026', 'IT tanlovi 2026',
+            kind: 'custom', role: 'owner', mode: 'announce', text: 'Ro‘yxat tayyor'),
+      ];
+
+  List<Map<String, dynamic>> messagesFor(String cid) {
+    final madina = {'id': 'm59it', 'name': 'Karimova Madina', 'photo': '', 'direction': 'it', 'level': 'school', 'role': 'user'};
+    final sardor = {
+      'id': 'm59l',
+      'name': 'Toshpo‘latov Sardorbek',
+      'photo': '',
+      'direction': 'lider',
+      'level': 'school',
+      'role': 'user'
+    };
+    final mine = {
+      'id': me['id'],
+      'name': me['name'],
+      'photo': '',
+      'direction': me['direction'],
+      'level': me['level'],
+      'role': me['role']
+    };
+    final t = 1794600000;
+    return [
+      for (final m in sent.reversed) m,
+      {
+        'id': 'x5',
+        'channel_id': cid,
+        'seq': 5,
+        'created_at': t,
+        'user': mine,
+        'text': 'Men tayyorman 👍',
+        'attachments': [],
+        'reply': {'id': 'x3', 'text': 'Kim tanlovga tayyor?', 'user': madina},
+        'edited': false,
+        'deleted': false,
+        'seen': 9
+      },
+      {
+        'id': 'x4',
+        'channel_id': cid,
+        'seq': 4,
+        'created_at': t - 60,
+        'user': sardor,
+        'text': '',
+        'attachments': [
+          {'kind': 'file', 'path': '$cid/a.pdf', 'name': 'Tanlov nizomi.pdf', 'size': 248000, 'url': ''}
+        ],
+        'reply': null,
+        'edited': false,
+        'deleted': false,
+        'seen': 8
+      },
+      {
+        'id': 'x3',
+        'channel_id': cid,
+        'seq': 3,
+        'created_at': t - 120,
+        'user': madina,
+        'text': 'Kim tanlovga tayyor? Batafsil: https://kelajak.uz',
+        'attachments': [],
+        'reply': null,
+        'edited': true,
+        'deleted': false,
+        'seen': 10
+      },
+      {
+        'id': 'x2',
+        'channel_id': cid,
+        'seq': 2,
+        'created_at': t - 180,
+        'user': madina,
+        'text': '',
+        'attachments': [
+          {'kind': 'voice', 'path': '$cid/v.m4a', 'name': 'voice.m4a', 'size': 40000, 'duration': 14, 'url': ''}
+        ],
+        'reply': null,
+        'edited': false,
+        'deleted': false
+      },
+      {
+        'id': 'x1',
+        'channel_id': cid,
+        'seq': 1,
+        'created_at': t - 86400,
+        'user': sardor,
+        'text': '',
+        'attachments': [],
+        'reply': null,
+        'edited': false,
+        'deleted': true
+      },
+    ];
+  }
 
   FakeServer({Map<String, dynamic>? me}) : me = me ?? newUser();
 
@@ -282,10 +429,66 @@ class FakeServer {
                 {...newUser(), 'id': 'x', 'name': 'Yangi bola', 'status': 'blocked'}
               ],
             };
+          case 'GET /api/channels':
+            out = {
+              'channels': [...channels(), ...created],
+              'can_create': me['role'] == 'admin' || me['level'] == 'district' || me['level'] == 'region'
+            };
+          case 'POST /api/channels':
+            final c = ch('c-new', '', body['title'] as String, body['title'] as String,
+                kind: 'custom', role: 'owner', mode: body['mode'] as String);
+            c['members'] = 7;
+            created.add(c);
+            out = c;
+          case 'GET /api/admin/reports':
+            out = {
+              'reports': [
+                {
+                  'id': 'r1',
+                  'reason': 'insult',
+                  'note': '',
+                  'created_at': 1794600000,
+                  'channel_id': 'c-sch',
+                  'status': 'open',
+                  'channel': {'title_uz': '59-maktab jamoasi', 'title_ru': 'Команда: Школа №59'},
+                  'message': messagesFor('c-sch')[2],
+                  'reporter': person('m59l', 'Toshpo‘latov Sardorbek', 'school', 'lider')
+                },
+              ]
+            };
           case 'POST /api/auth/logout':
             out = {'ok': true};
           default:
-            out = {'ok': true};
+            final seg = path.split('/');
+            if (req.method == 'GET' && seg.length == 4 && seg[2] == 'channels') {
+              out = [...channels(), ...created].firstWhere((c) => c['id'] == seg[3]);
+            } else if (req.method == 'GET' && path.endsWith('/messages')) {
+              out = {'messages': messagesFor(seg[3]), 'has_more': false, 'my_read': 5};
+            } else if (req.method == 'GET' && path.endsWith('/members')) {
+              out = {
+                'members': [
+                  {...person('m59it', 'Karimova Madina', 'school', 'it'), 'channel_role': 'member'},
+                  {...me, 'channel_role': 'owner'},
+                ]
+              };
+            } else if (req.method == 'POST' && path.endsWith('/messages')) {
+              final m = {
+                'id': 'new${sent.length}',
+                'channel_id': seg[3],
+                'seq': 100 + sent.length,
+                'created_at': 1794600100,
+                'user': {'id': me['id'], 'name': me['name'], 'photo': '', 'direction': me['direction']},
+                'text': body['text'],
+                'attachments': body['attachments'] ?? [],
+                'reply': null,
+                'edited': false,
+                'deleted': false,
+              };
+              sent.add(m);
+              out = m;
+            } else {
+              out = {'ok': true};
+            }
         }
         return http.Response.bytes(utf8.encode(jsonEncode(out)), 200, headers: {'content-type': 'application/json'});
       });

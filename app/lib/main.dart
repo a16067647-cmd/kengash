@@ -9,6 +9,7 @@ import 'config.dart';
 import 'motion_lab.dart' show MotionLevel;
 import 'screens/admin.dart';
 import 'screens/auth.dart';
+import 'screens/channels.dart';
 import 'screens/directory.dart';
 import 'screens/intro.dart';
 import 'screens/keys.dart';

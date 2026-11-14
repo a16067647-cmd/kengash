@@ -299,6 +299,81 @@ void main() {
     });
   }
 
+  for (final (size, sizeName) in [(phone, 'phone'), (desktop, 'desktop')]) {
+    testWidgets('kanallar $sizeName: ro‘yxat, suhbat, yozish, amallar', (tester) async {
+      final server = FakeServer(me: FakeServer.seated('school', 'it'));
+      final s = await boot(tester, server, size: size);
+      // «Bugun»dagi kanallar kartasi / карточка каналов на «Сегодня»
+      expect(find.byKey(const ValueKey('today-channels')), findsOneWidget);
+      expect(find.text('7 ${tr('uz', 'ch_new_msgs')}'), findsOneWidget);
+      if (size == phone) {
+        await tap(tester, find.byKey(const ValueKey('nav-channels')));
+      } else {
+        await tap(tester, find.byKey(const ValueKey('side-channels')));
+      }
+      expect(find.text('Asaka tumani · IT va sun’iy intellekt'), findsOneWidget);
+      expect(find.byKey(const ValueKey('new-channel')), findsNothing);
+      await shot(tester, '$sizeName-light-uz-channels');
+      await tap(tester, find.byKey(const ValueKey('ch-dd:asaka:it')));
+      expect(find.text('Men tayyorman 👍'), findsOneWidget);
+      expect(find.text('Tanlov nizomi.pdf'), findsOneWidget);
+      expect(find.text(tr('uz', 'msg_deleted')), findsOneWidget);
+      await shot(tester, '$sizeName-light-uz-chat');
+      await tester.enterText(find.byKey(const ValueKey('composer')), 'Salom hammaga!');
+      await tap(tester, find.byKey(const ValueKey('send')));
+      expect(server.sent.single['text'], 'Salom hammaga!');
+      expect(find.text('Salom hammaga!'), findsOneWidget);
+      // xabar amallari / действия с сообщением
+      await tester.longPress(find.textContaining('Batafsil', findRichText: true));
+      await settle(tester);
+      expect(find.byKey(const ValueKey('act-report')), findsOneWidget);
+      expect(find.byKey(const ValueKey('act-delete')), findsNothing);
+      await shot(tester, '$sizeName-light-uz-actions');
+      await tap(tester, find.byKey(const ValueKey('act-reply')));
+      expect(find.byKey(const ValueKey('cancel-ctx')), findsOneWidget);
+      await shot(tester, '$sizeName-light-uz-reply');
+      expect(s.chat.openChannel, 'c-dd');
+      await back(tester);
+      // e’lon kanali: yozib bo‘lmaydi / канал объявлений: писать нельзя
+      await tap(tester, find.byKey(const ValueKey('ch-all')));
+      expect(find.byKey(const ValueKey('composer')), findsNothing);
+      expect(find.text(tr('uz', 'read_only')), findsOneWidget);
+      await shot(tester, '$sizeName-light-uz-announce');
+    });
+  }
+
+  testWidgets('tuman koordinatori kanal yaratadi', (tester) async {
+    final server = FakeServer(me: FakeServer.seated('district', 'it'));
+    await boot(tester, server, theme: 'dark', lang: 'ru');
+    await tap(tester, find.byKey(const ValueKey('nav-channels')));
+    await tap(tester, find.byKey(const ValueKey('new-channel')));
+    await tester.enterText(find.byKey(const ValueKey('ch-title')).first, 'Robototexnika');
+    await tap(tester, find.byKey(const ValueKey('ch-create')));
+    expect(find.text(tr('ru', 'err_pick_mode')), findsOneWidget);
+    await tap(tester, find.byKey(const ValueKey('mode-announce')));
+    await tap(tester, find.byKey(const ValueKey('ch-audience')));
+    await tap(tester, find.byKey(const ValueKey('aud-dir-it')));
+    await tap(tester, find.byKey(const ValueKey('aud-add')));
+    await shot(tester, 'phone-dark-ru-audience');
+    await tap(tester, find.byKey(const ValueKey('aud-done')));
+    await shot(tester, 'phone-dark-ru-create-channel');
+    await tap(tester, find.byKey(const ValueKey('ch-create')));
+    expect(server.created.single['title_uz'], 'Robototexnika');
+    expect(server.calls.where((c) => c == 'POST /api/channels').length, 1);
+    await shot(tester, 'phone-dark-ru-new-channel-chat');
+  });
+
+  testWidgets('admin shikoyatlarni ko‘radi', (tester) async {
+    final server = FakeServer(me: FakeServer.admin());
+    await boot(tester, server, size: desktop);
+    await tap(tester, find.byKey(const ValueKey('side-admin')));
+    await tap(tester, find.text(tr('uz', 'reports')));
+    expect(find.byKey(const ValueKey('report-r1')), findsOneWidget);
+    await shot(tester, 'desktop-light-uz-admin-reports');
+    await tap(tester, find.byKey(const ValueKey('rep-del-r1')));
+    expect(server.calls, contains('POST /api/admin/reports/r1'));
+  });
+
   testWidgets('maktab koordinatori: kalit va admin yo‘q', (tester) async {
     final server = FakeServer(me: FakeServer.seated('school', 'it'));
     final s = await boot(tester, server);

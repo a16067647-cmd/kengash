@@ -6,8 +6,9 @@ To‘liq talablar: [`KENGASH-PROMPT.md`](KENGASH-PROMPT.md). Dizayn asosi: [`IDR
 ## Holat / статус
 | Bosqich | Nima | Holat |
 |---|---|---|
-| 1 | Telegram orqali kirish, kalitlar, profil, koordinatorlar, admin paneli, huquqiy sahifalar | ✅ kod tayyor |
-| 2 | Kanallar (chat), xabarlar, fayllar, shikoyat, push | ⏳ |
+| 1 | Telegram orqali kirish, kalitlar, profil, koordinatorlar, admin paneli, huquqiy sahifalar, ochilish animatsiyasi | ✅ ishlamoqda |
+| 2 | Kanallar: avtomatik + yaratiladigan, matn, surat, video, fayl, ovozli xabar, javob, tahrir, mahkamlash, shikoyat, jonli yangilanish | ✅ |
+| 2b | Push-bildirishnomalar (Firebase) | ⏳ Firebase loyihasi kerak |
 | 3 | Vazifalar + fotohisobot, taqvim, «Bugun» | ⏳ |
 | 4 | To‘lov (Click/Payme), promo-kod, QR | ⏳ (YaTT/MChJ kerak) |
 
@@ -21,7 +22,8 @@ app/                      Flutter ilova (Android, iOS, web)
   lib/state.dart          holat, sozlamalar, sessiya
   lib/api.dart            server bilan aloqa
   lib/i18n.dart           uz + ru matnlar (kalitlar bir xil — test tekshiradi)
-  lib/screens/            auth, onboarding (kalit, profil), today, directory, keys, profile, admin, legal
+  lib/chat.dart           kanallar holati, yuborish/yuklash, WebSocket (uzilsa — 20 soniyada yangilash)
+  lib/screens/            auth, onboarding, intro, today, channels, audience, media, directory, keys, profile, admin, legal
   assets/legal.json       Biz haqimizda, Maxfiylik, Shartlar, Cookie, Hisobni o‘chirish (ilova VA sayt uchun yagona manba)
   test/                   ekran testlari (soxta server bilan), skrinshotlar
   tool/setup_platforms.py android/ios papkalarini yaratadi
@@ -29,6 +31,10 @@ server/                   Python (FastAPI) + Postgres (Supabase) / SQLite (lokal
   app.py                  API
   model.py                yo‘nalishlar, «kim kimdan yuqori» (is_above) — kalit, telefon, o‘rin bo‘shatish shu qoidaga tayanadi
   telegram.py             bot: kirish va raqamni tasdiqlash
+  channels.py             kanallar: avtomatik kanallar (sync_user), auditoriya, xabarlar, fayllar, shikoyatlar, WebSocket
+  storage.py              Supabase Storage, yopiq «kengash-media» bucket, imzolangan havolalar
+  realtime.py             jonli ulanishlar (xotirada, bitta server)
+  core_limits.py          chegaralar: video 50 MB, fayl 20 MB, ovoz 5 daqiqa, 20 xabar/daqiqa
   seed.py                 Andijon viloyati va 16 tuman/shahar
   legal.py                ochiq huquqiy sahifalar (GitHub Pages)
   tests/                  server testlari
@@ -57,6 +63,8 @@ flutter run -d chrome --dart-define=SERVER=http://localhost:8787
 - Server: Render **kengash-api** (bepul, Singapur) — https://kengash-api.onrender.com
 - Baza: mavjud Supabase loyihasi (ap-south-1), alohida **kengash** sxemasi va **kengash_app** foydalanuvchisi — Idrok jadvallaridan ajratilgan.
 - Bot: **@KengashAppBot**; admin Telegram ID `ADMIN_TG_IDS` da.
+- Fayllar: o‘sha Supabase loyihasidagi yopiq **kengash-media** bucket (bepul 1 GB — Idrok bilan umumiy). Render’da `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`.
+- Shaxsiy xabar yo‘q (egasining qarori): faqat kanallar; shaxsiy gap — profildagi Telegram havolasi orqali.
 - Bepul server 15 daqiqadan keyin uxlaydi: birinchi ochilish 30–60 soniya. Investitsiyadan keyin Render’da Starter’ga o‘ting (~7$/oy).
 
 ## Ishga tushirishdan oldin (egasi qiladi) / до запуска (делает владелец)
