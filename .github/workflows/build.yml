@@ -7,6 +7,7 @@ name: Build Kengash
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -67,7 +68,7 @@ jobs:
           gh release create latest Kengash.apk -R "${{ github.repository }}" --target "${{ github.sha }}" \
             --title "Kengash (Android)" --notes "Build ${{ github.run_number }} · ${{ github.sha }}" --latest
       - name: Save logs
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         working-directory: ${{ github.workspace }}/ci-logs
         run: |
           echo "run ${{ github.run_id }} · ${{ job.status }}" > STATUS.txt
@@ -178,7 +179,7 @@ jobs:
       - name: Build iOS (no signing)
         run: set -o pipefail; flutter build ios --release --no-codesign 2>&1 | tee "$GITHUB_WORKSPACE/ci-logs/2-build-ios.txt"
       - name: Save logs
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         working-directory: ${{ github.workspace }}/ci-logs
         run: |
           echo "run ${{ github.run_id }} · ${{ job.status }}" > STATUS.txt
