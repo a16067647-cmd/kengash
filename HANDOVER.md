@@ -53,6 +53,12 @@ cd app && flutter pub get && flutter test
 flutter run -d chrome --dart-define=SERVER=http://localhost:8787
 ```
 
+## Hozirgi o‘rnatish / текущая установка
+- Server: Render **kengash-api** (bepul, Singapur) — https://kengash-api.onrender.com
+- Baza: mavjud Supabase loyihasi (ap-south-1), alohida **kengash** sxemasi va **kengash_app** foydalanuvchisi — Idrok jadvallaridan ajratilgan.
+- Bot: **@KengashAppBot**; admin Telegram ID `ADMIN_TG_IDS` da.
+- Bepul server 15 daqiqadan keyin uxlaydi: birinchi ochilish 30–60 soniya. Investitsiyadan keyin Render’da Starter’ga o‘ting (~7$/oy).
+
 ## Ishga tushirishdan oldin (egasi qiladi) / до запуска (делает владелец)
 1. **Telegram bot**: @BotFather → `/newbot` → nom `Kengash`, username masalan `KengashAppBot` → tokenni Render’ga.
 2. **Supabase**: yangi loyiha → Database → Connection string (URI, «Transaction pooler») → Render `DATABASE_URL`.

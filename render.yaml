@@ -1,17 +1,19 @@
 # Render Blueprint: Kengash serveri / сервер Kengash.
 # Render → New → Blueprint → shu repozitoriy / этот репозиторий. So‘ng Environment qiymatlarini kiriting.
-# Starter (~7$/oy): hech qachon uxlamaydi — chat uchun kerak / никогда не засыпает — нужно для чата.
+# Hozir BEPUL reja (15 daqiqa ishlatilmasa uxlaydi). Investitsiyadan keyin: plan: starter (~7$/oy, uxlamaydi).
+# Сейчас БЕСПЛАТНЫЙ план (засыпает через 15 минут простоя). После инвестиций: plan: starter (~7$/мес).
 services:
   - type: web
     name: kengash-api
     runtime: python
     rootDir: server
-    plan: starter
+    plan: free
+    region: singapore          # Supabase bazasi Mumbai’da (ap-south-1) — eng yaqini / ближе всего
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
     healthCheckPath: /api/ping
     envVars:
-      - key: DATABASE_URL            # Supabase → Project Settings → Database → Connection string (URI)
+      - key: DATABASE_URL            # Supabase pooler, foydalanuvchi kengash_app (alohida «kengash» sxemasi)
         sync: false
       - key: TELEGRAM_BOT_TOKEN      # @BotFather
         sync: false
