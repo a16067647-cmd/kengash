@@ -1,0 +1,155 @@
+"""Ma’lumotlar bazasi / база данных.
+
+Ishlab chiqarishda: Supabase Postgres (DATABASE_URL). Sinov va lokal: SQLite (KENGASH_DB, standart kengash.db).
+В продакшене: Supabase Postgres (DATABASE_URL). Тесты и локально: SQLite.
+
+SQL ikkala bazada ishlaydigan qilib yozilgan: '?' belgilar Postgres uchun '%s' ga almashtiriladi.
+SQL написан так, чтобы работать в обеих базах: '?' заменяется на '%s' для Postgres.
+"""
+
+import os
+import sqlite3
+import threading
+import time
+from contextlib import contextmanager
+
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+IS_PG = DATABASE_URL.startswith(("postgres://", "postgresql://"))
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS regions (
+  id TEXT PRIMARY KEY, name_uz TEXT NOT NULL, name_ru TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS districts (
+  id TEXT PRIMARY KEY, region_id TEXT NOT NULL, name_uz TEXT NOT NULL, name_ru TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'tuman', sort INTEGER NOT NULL DEFAULT 0, hidden INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS schools (
+  id TEXT PRIMARY KEY, district_id TEXT NOT NULL, number INTEGER, name TEXT NOT NULL DEFAULT '',
+  hidden INTEGER NOT NULL DEFAULT 0, created_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS schools_district ON schools(district_id);
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY, tg_id BIGINT UNIQUE, tg_username TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '',
+  name TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT 'user',
+  level TEXT, place_id TEXT, direction TEXT,
+  status TEXT NOT NULL DEFAULT 'active', photo_ver TEXT NOT NULL DEFAULT '',
+  paid_until BIGINT NOT NULL DEFAULT 0, consent_version TEXT NOT NULL DEFAULT '', consent_at BIGINT NOT NULL DEFAULT 0,
+  created_at BIGINT NOT NULL, last_seen BIGINT NOT NULL DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS users_seat ON users(level, place_id, direction) WHERE level IS NOT NULL;
+CREATE TABLE IF NOT EXISTS photos (user_id TEXT PRIMARY KEY, data {BLOB} NOT NULL);
+CREATE TABLE IF NOT EXISTS tokens (
+  hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS tokens_user ON tokens(user_id);
+CREATE TABLE IF NOT EXISTS login_requests (
+  id TEXT PRIMARY KEY, created_at BIGINT NOT NULL, status TEXT NOT NULL DEFAULT 'new',
+  tg_id BIGINT, tg_username TEXT NOT NULL DEFAULT '', first_name TEXT NOT NULL DEFAULT '',
+  last_name TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS invite_keys (
+  hash TEXT PRIMARY KEY, hint TEXT NOT NULL, level TEXT NOT NULL, place_id TEXT NOT NULL, direction TEXT NOT NULL,
+  created_by TEXT NOT NULL, created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL,
+  used_by TEXT, used_at BIGINT, revoked INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS keys_creator ON invite_keys(created_by);
+CREATE TABLE IF NOT EXISTS seat_contacts (
+  level TEXT NOT NULL, place_id TEXT NOT NULL, direction TEXT NOT NULL, tg_username TEXT NOT NULL,
+  PRIMARY KEY (level, place_id, direction)
+);
+CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+"""
+
+
+def now():
+    return int(time.time())
+
+
+class _Conn:
+    """Bir xil interfeys / единый интерфейс: q(), one(), x()."""
+
+    def __init__(self, raw):
+        self.raw = raw
+
+    def _sql(self, sql):
+        return sql.replace("?", "%s") if IS_PG else sql
+
+    def q(self, sql, params=()):
+        cur = self.raw.cursor()
+        cur.execute(self._sql(sql), tuple(params))
+        if cur.description is None:
+            return []
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+    def one(self, sql, params=()):
+        rows = self.q(sql, params)
+        return rows[0] if rows else None
+
+    def x(self, sql, params=()):
+        cur = self.raw.cursor()
+        cur.execute(self._sql(sql), tuple(params))
+        return cur.rowcount
+
+
+_sqlite_lock = threading.RLock()
+_sqlite = None
+_pool = None
+
+
+def _sqlite_conn():
+    global _sqlite
+    if _sqlite is None:
+        path = os.environ.get("KENGASH_DB", os.path.join(os.path.dirname(__file__), "kengash.db"))
+        _sqlite = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
+        _sqlite.execute("PRAGMA journal_mode=WAL")
+        _sqlite.execute("PRAGMA foreign_keys=ON")
+    return _sqlite
+
+
+@contextmanager
+def tx():
+    """Tranzaksiya / транзакция: `with tx() as c: c.q(...)`."""
+    if IS_PG:
+        global _pool
+        if _pool is None:
+            from psycopg_pool import ConnectionPool
+            _pool = ConnectionPool(DATABASE_URL, min_size=1, max_size=int(os.environ.get("DB_POOL", "8")),
+                                   kwargs={"autocommit": False, "prepare_threshold": None}, open=True)
+        with _pool.connection() as raw:
+            yield _Conn(raw)  # pool commits on success, rolls back on error
+    else:
+        with _sqlite_lock:
+            raw = _sqlite_conn()
+            raw.execute("BEGIN")
+            try:
+                yield _Conn(raw)
+                raw.execute("COMMIT")
+            except BaseException:
+                raw.execute("ROLLBACK")
+                raise
+
+
+def init():
+    schema = SCHEMA.replace("{BLOB}", "BYTEA" if IS_PG else "BLOB")
+    with tx() as c:
+        for stmt in [s.strip() for s in schema.split(";") if s.strip()]:
+            c.x(stmt)
+    import seed
+    seed.run()
+
+
+def close():
+    global _pool
+    if _pool is not None:
+        _pool.close()
+        _pool = None
+
+
+def reset_for_tests():
+    """Faqat testlar uchun / только для тестов."""
+    global _sqlite
+    if _sqlite is not None:
+        _sqlite.close()
+        _sqlite = None
