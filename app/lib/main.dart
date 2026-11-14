@@ -10,6 +10,7 @@ import 'motion_lab.dart' show MotionLevel;
 import 'screens/admin.dart';
 import 'screens/auth.dart';
 import 'screens/directory.dart';
+import 'screens/intro.dart';
 import 'screens/keys.dart';
 import 'screens/onboarding.dart';
 import 'screens/profile.dart';
@@ -92,7 +93,10 @@ class RootScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final Widget screen;
-    if (!s.ready) {
+    if (s.introDone == false && !s.testMode) {
+      // Faqat birinchi ochilishda; bu vaqtda server ham uyg‘onadi / только при первом запуске; заодно просыпается сервер
+      screen = IntroScreen(key: const ValueKey('intro'), onDone: s.finishIntro);
+    } else if (!s.ready) {
       screen = const SplashScreen(key: ValueKey('splash'));
     } else if (!s.loggedIn) {
       screen = const AuthScreen(key: ValueKey('auth'));
@@ -104,7 +108,7 @@ class RootScreen extends StatelessWidget {
       screen = const HomeShell(key: ValueKey('home'));
     }
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: (s.isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+      value: (s.isDark || s.introDone != true ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
           .copyWith(statusBarColor: Colors.transparent, systemNavigationBarColor: Colors.transparent),
       child: AnimatedSwitcher(
         duration: Motion.of(context, const Duration(milliseconds: 500)),

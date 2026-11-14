@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kengash/api.dart';
 import 'package:kengash/i18n.dart';
 import 'package:kengash/main.dart';
+import 'package:kengash/screens/intro.dart';
 import 'package:kengash/state.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -94,8 +95,10 @@ Future<void> tap(WidgetTester tester, Finder f) async {
 
 Future<void> shot(WidgetTester tester, String name) async {
   if (shotsDir == null) return;
-  for (var i = 0; i < 8; i++) {
-    await tester.pump(const Duration(milliseconds: 150));
+  if (!name.contains('intro')) {
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 150));
+    }
   }
   await tester.runAsync(() async {
     final layer = tester.binding.renderViews.first.debugLayer! as OffsetLayer;
@@ -274,6 +277,26 @@ void main() {
         }
       });
     }
+  }
+
+  for (final (size, sizeName) in [(phone, 'phone'), (desktop, 'desktop')]) {
+    testWidgets('ochilish animatsiyasi $sizeName: tugmasiz, o‘zi tugaydi', (tester) async {
+      tester.view.physicalSize = size * 2;
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+      var done = 0;
+      await tester.pumpWidget(MaterialApp(debugShowCheckedModeBanner: false, home: IntroScreen(onDone: () => done++)));
+      for (final (ms, name) in [(600, 'a'), (900, 'b'), (1000, 'c'), (900, 'd'), (1200, 'e')]) {
+        await tester.pump(Duration(milliseconds: ms));
+        await shot(tester, '$sizeName-intro-$name');
+      }
+      // Hech qanday tugma yo‘q / никаких кнопок
+      expect(find.byType(ButtonStyleButton), findsNothing);
+      expect(find.byType(GestureDetector), findsNothing);
+      expect(done, 0);
+      await tester.pump(const Duration(milliseconds: 1000));
+      expect(done, 1);
+    });
   }
 
   testWidgets('maktab koordinatori: kalit va admin yo‘q', (tester) async {

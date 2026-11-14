@@ -46,6 +46,9 @@ class AppState extends ChangeNotifier {
 
   // ---------------------------------------------------------------- holat / состояние
   bool ready = false;
+
+  /// Ochilish animatsiyasi ko‘rsatilganmi (null — hali bilinmaydi) / показана ли заставка (null — ещё неизвестно).
+  bool? introDone;
   bool connError = false;
   Json? me;
   List<Json> districts = [];
@@ -126,10 +129,12 @@ class AppState extends ChangeNotifier {
       theme = p.getString('theme') ?? 'system';
       bgMotion = p.getBool('bg_motion') ?? true;
       sideOpen = p.getBool('side_open') ?? true;
+      introDone = p.getBool('intro_done') ?? false;
       api.token = p.getString('token');
       final cached = p.getString('meta');
       if (cached != null) _applyMeta(jsonDecode(cached) as Json);
     }
+    introDone ??= true;
     notifyListeners();
     await loadMeta();
     if (api.token != null) await refreshMe(first: true);
@@ -234,6 +239,12 @@ class AppState extends ChangeNotifier {
 
   void setPlatformBrightness(Brightness b) {
     platformBrightness = b;
+    notifyListeners();
+  }
+
+  void finishIntro() {
+    introDone = true;
+    _prefs?.setBool('intro_done', true);
     notifyListeners();
   }
 
