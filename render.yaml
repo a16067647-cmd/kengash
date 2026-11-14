@@ -1,0 +1,33 @@
+# Render Blueprint: Kengash serveri / сервер Kengash.
+# Render → New → Blueprint → shu repozitoriy / этот репозиторий. So‘ng Environment qiymatlarini kiriting.
+# Hozir BEPUL reja (15 daqiqa ishlatilmasa uxlaydi). Investitsiyadan keyin: plan: starter (~7$/oy, uxlamaydi).
+# Сейчас БЕСПЛАТНЫЙ план (засыпает через 15 минут простоя). После инвестиций: plan: starter (~7$/мес).
+services:
+  - type: web
+    name: kengash-api
+    runtime: python
+    rootDir: server
+    plan: free
+    region: singapore          # Supabase bazasi Mumbai’da (ap-south-1) — eng yaqini / ближе всего
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
+    healthCheckPath: /api/ping
+    envVars:
+      - key: DATABASE_URL            # Supabase pooler, foydalanuvchi kengash_app (alohida «kengash» sxemasi)
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN      # @BotFather
+        sync: false
+      - key: TELEGRAM_BOT_USERNAME   # masalan / например KengashAppBot
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        generateValue: true
+      - key: ADMIN_TG_IDS            # admin Telegram ID (@userinfobot dan bilib oling / узнайте у @userinfobot)
+        sync: false
+      - key: PUBLIC_URL
+        value: https://kengash-api.onrender.com
+      - key: APP_URL
+        value: https://a16067647-cmd.github.io/kengash/
+      - key: TZ
+        value: Asia/Tashkent
+      - key: PYTHON_VERSION
+        value: 3.12.7

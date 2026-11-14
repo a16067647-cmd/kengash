@@ -1,0 +1,188 @@
+# GitHub ilovani o‘zi tekshiradi, quradi va e’lon qiladi / GitHub сам проверяет, собирает и публикует приложение.
+#   Sayt / сайт:  https://<owner>.github.io/<repo>/      APK: .../Kengash.apk
+# Loglar "ci-logs-android" / "ci-logs-ios" tarmoqlarida / логи в ветках "ci-logs-android" / "ci-logs-ios".
+
+name: Build Kengash
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt pytest
+      - name: Server testlari / тесты сервера
+        run: python -m pytest -q
+
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Prepare logs
+        run: mkdir -p "$GITHUB_WORKSPACE/ci-logs" && flutter --version 2>&1 | tee "$GITHUB_WORKSPACE/ci-logs/0-flutter-version.txt"
+      - name: Platformalar / платформы
+        run: set -o pipefail; python3 tool/setup_platforms.py 2>&1 | tee "$GITHUB_WORKSPACE/ci-logs/1-setup.txt"
+      - name: Kodni tekshirish / проверка кода
+        run: set -o pipefail; flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee "$GITHUB_WORKSPACE/ci-logs/2-analyze.txt"
+      - name: Testlar va ekran rasmlari / тесты и скриншоты
+        run: set -o pipefail; SCREENSHOTS_DIR="$GITHUB_WORKSPACE/ci-logs/shots" flutter test 2>&1 | tee "$GITHUB_WORKSPACE/ci-logs/3-test.txt"
+      - name: APK
+        run: set -o pipefail; flutter build apk --release 2>&1 | tee "$GITHUB_WORKSPACE/ci-logs/4-build-apk.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kengash-android
+          path: app/build/app/outputs/flutter-apk/app-release.apk
+      - name: APK → Release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk Kengash.apk
+          gh release delete latest --yes --cleanup-tag -R "${{ github.repository }}" || true
+          gh release create latest Kengash.apk -R "${{ github.repository }}" --target "${{ github.sha }}" \
+            --title "Kengash (Android)" --notes "Build ${{ github.run_number }} · ${{ github.sha }}" --latest
+      - name: Save logs
+        if: always() && github.event_name != 'pull_request'
+        working-directory: ${{ github.workspace }}/ci-logs
+        run: |
+          echo "run ${{ github.run_id }} · ${{ job.status }}" > STATUS.txt
+          git init -q && git checkout -q -b logs
+          git add -A && git -c user.name=ci -c user.email=ci@localhost commit -qm "android logs ${{ github.run_id }}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" HEAD:ci-logs-android
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Web papkasi / папка web
+        run: |
+          flutter create --platforms=web --project-name kengash . >/dev/null
+          python3 - <<'PY'
+          import json
+          m = json.load(open('web/manifest.json'))
+          m.update(name='Kengash', short_name='Kengash', background_color='#3A1B78', theme_color='#3A1B78',
+                   description='Kelajak O‘quvchilar Kengashi koordinatorlari uchun ilova')
+          json.dump(m, open('web/manifest.json', 'w'), ensure_ascii=False, indent=2)
+          p = 'web/index.html'
+          h = open(p, encoding='utf-8').read().replace('<html>', '<html lang="uz">', 1)
+          import re
+          h = re.sub(r'<title>.*?</title>', '<title>Kengash</title>', h)
+          desc = 'Kengash — Kelajak O‘quvchilar Kengashi koordinatorlari uchun yagona ilova: kanallar, vazifalar, tadbirlar.'
+          h = h.replace('content="A new Flutter project."', f'content="{desc}"')
+          meta = ('<meta name="theme-color" content="#3A1B78">\n'
+                  '  <meta property="og:type" content="website">\n'
+                  '  <meta property="og:site_name" content="Kengash">\n'
+                  '  <meta property="og:title" content="Kengash">\n'
+                  f'  <meta property="og:description" content="{desc}">\n'
+                  '  <meta property="og:image" content="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/icons/Icon-512.png">\n'
+                  '  <meta name="twitter:card" content="summary">\n  ')
+          if 'og:title' not in h:
+              h = h.replace('<meta name="description"', meta + '<meta name="description"', 1)
+          open(p, 'w', encoding='utf-8').write(h)
+          PY
+          pip install --quiet pillow
+          python3 - <<'PY'
+          from PIL import Image
+          im = Image.open('assets/icon/icon.png').convert('RGBA')
+          for path, n in [('web/favicon.png', 32), ('web/icons/Icon-192.png', 192), ('web/icons/Icon-512.png', 512),
+                          ('web/icons/Icon-maskable-192.png', 192), ('web/icons/Icon-maskable-512.png', 512)]:
+              im.resize((n, n), Image.LANCZOS).save(path)
+          PY
+      - name: Web
+        run: flutter build web --release --base-href "/${{ github.event.repository.name }}/"
+      - name: Huquqiy sahifalar / правовые страницы
+        run: python3 ../server/legal.py build/web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: app/build/web
+
+  web-deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: [web, android, server]
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: site
+      - uses: actions/download-artifact@v4
+        with:
+          name: kengash-android
+          path: apk
+      - run: cp apk/app-release.apk site/Kengash.apk && ls -la site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      # GitHub artefaktni kechikib ko‘rsatadi / GitHub показывает артефакт с задержкой
+      - name: Wait for the Pages artifact to be listed
+        run: sleep 45
+      - uses: actions/deploy-pages@v4
+        id: deploy
+
+  ios:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: app
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Prepare logs
+        run: mkdir -p "$GITHUB_WORKSPACE/ci-logs"
+      - name: Platforms
+        run: set -o pipefail; python3 tool/setup_platforms.py 2>&1 | tee "$GITHUB_WORKSPACE/ci-logs/1-setup.txt"
+      - name: Build iOS (no signing)
+        run: set -o pipefail; flutter build ios --release --no-codesign 2>&1 | tee "$GITHUB_WORKSPACE/ci-logs/2-build-ios.txt"
+      - name: Save logs
+        if: always() && github.event_name != 'pull_request'
+        working-directory: ${{ github.workspace }}/ci-logs
+        run: |
+          echo "run ${{ github.run_id }} · ${{ job.status }}" > STATUS.txt
+          git init -q && git checkout -q -b logs
+          git add -A && git -c user.name=ci -c user.email=ci@localhost commit -qm "ios logs ${{ github.run_id }}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" HEAD:ci-logs-ios

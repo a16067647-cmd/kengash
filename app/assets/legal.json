@@ -1,0 +1,237 @@
+{
+  "version": "2026-11-14",
+  "updated": {"uz": "14-noyabr, 2026", "ru": "14 ноября 2026"},
+  "contact": "Telegram: @behruz_sk (https://t.me/behruz_sk), email: behryzmamajon@gmail.com",
+  "team": [
+    ["bexruz", "Mamajonov Bexruz", "Asoschi", "Основатель"],
+    ["vazzohbek", "Satvaldiyev Vazzohbek", "Hammuassis", "Сооснователь"],
+    ["abdurahmon", "Rahimjonov Abdurahmon", "Hammuassis", "Сооснователь"]
+  ],
+  "titles": {
+    "about": {"uz": "Biz haqimizda", "ru": "О нас"},
+    "privacy": {"uz": "Maxfiylik siyosati", "ru": "Политика конфиденциальности"},
+    "terms": {"uz": "Foydalanish shartlari", "ru": "Условия использования"},
+    "cookies": {"uz": "Cookie va ma’lumotlarni saqlash", "ru": "Cookie и хранение данных"},
+    "delete-account": {"uz": "Hisobni o‘chirish", "ru": "Удаление аккаунта"}
+  },
+  "pages": {
+    "about": {
+      "uz": [
+        ["Kengash nima", [
+          "[ok_logo]",
+          "Kengash — Kelajak O‘quvchilar Kengashi koordinatorlari uchun yagona ilova. Maktab, tuman va viloyat koordinatorlari bir-birini topadi, kanallarda muloqot qiladi, vazifa va tadbirlarni bir joyda ko‘radi.",
+          "Endi o‘nlab Telegram guruhlari orasida adashish shart emas: kim qaysi yo‘nalishda ekani, nima qilish kerakligi va qachonligi — hammasi bir ilovada."
+        ]],
+        ["Maqsadimiz", [
+          "Kengash koordinatorlarining ishini osonlashtirish — barcha muloqot, vazifa va tadbirlar bir joyda."
+        ]],
+        ["Jamoa", ["[team]"]],
+        ["Yaratuvchi va hamkor", [
+          "Kengash ilovasini Idrok Corporation jamoasi yaratgan va qo‘llab-quvvatlaydi."
+        ]],
+        ["Kelajak Markazlari", [
+          "[kelajak]",
+          "Ilova Kelajak Markazlari va Kelajak O‘quvchilar Kengashi faoliyati uchun yaratilgan."
+        ]],
+        ["Aloqa", ["{CONTACT}"]]
+      ],
+      "ru": [
+        ["Что такое Kengash", [
+          "[ok_logo]",
+          "Kengash — единое приложение для координаторов Совета учеников «Kelajak». Координаторы школ, районов и области находят друг друга, общаются в каналах и видят задачи и мероприятия в одном месте.",
+          "Больше не нужно путаться в десятках Telegram-групп: кто за какое направление отвечает, что и когда нужно сделать — всё в одном приложении."
+        ]],
+        ["Наша цель", [
+          "Облегчить работу координаторов Совета — всё общение, задачи и мероприятия в одном месте."
+        ]],
+        ["Команда", ["[team]"]],
+        ["Создатель и партнёр", [
+          "Приложение Kengash создано и поддерживается командой Idrok Corporation."
+        ]],
+        ["Kelajak Markazlari", [
+          "[kelajak]",
+          "Приложение создано для работы центров Kelajak Markazlari и Совета учеников «Kelajak»."
+        ]],
+        ["Контакты", ["{CONTACT}"]]
+      ]
+    },
+    "privacy": {
+      "uz": [
+        ["Kim biz", [
+          "Kengash — Kelajak O‘quvchilar Kengashi koordinatorlari uchun ilova (mobil ilova va veb-sayt). Ushbu siyosat qanday ma’lumot yig‘ilishi, nima uchun ishlatilishi va uni qanday o‘chirish mumkinligini tushuntiradi. Savollar uchun: {CONTACT}."
+        ]],
+        ["Qanday ma’lumot yig‘amiz", [
+          "Telegram orqali kirishda: Telegram ID raqamingiz, Telegram foydalanuvchi nomingiz (username) va siz o‘zingiz ulashgan telefon raqamingiz.",
+          "Profil: ism-familiyangiz va profil suratingiz (surat 512×512 o‘lchamga keltiriladi, undagi joylashuv kabi qo‘shimcha ma’lumotlar o‘chiriladi).",
+          "Koordinatorlik o‘rningiz: maktab, tuman yoki viloyat va yo‘nalish (masalan, «IT va sun’iy intellekt»).",
+          "Texnik: kirish kaliti (faqat shifrlangan xesh ko‘rinishida), oxirgi kirish vaqti, qoidalarga rozilik sanasi.",
+          "Keyingi bosqichlarda: kanallardagi xabar va fayllaringiz, vazifa fotohisobotlari va tadbirlarga javoblaringiz.",
+          "Biz joylashuv (GPS), kontaktlar ro‘yxati, reklama identifikatori yoki bank kartasi ma’lumotlarini yig‘maymiz. Ilovada reklama va kuzatuv (tracking) xizmatlari yo‘q."
+        ]],
+        ["Nima uchun ishlatamiz", [
+          "Hisobingizga kirish, koordinatorlarni bir-biri bilan bog‘lash, kanallar, vazifalar va tadbirlarni ko‘rsatish uchun. Ma’lumotlaringizni sotmaymiz va reklama uchun bermaymiz."
+        ]],
+        ["Kimlar ko‘radi", [
+          "Ismingiz, suratingiz, o‘rningiz va Telegram havolangiz Kengashdagi barcha koordinatorlarga ko‘rinadi — shunda ular siz bilan bog‘lana oladi.",
+          "Telefon raqamingiz faqat sizdan yuqoridagi koordinatorlarga (tuman va viloyat koordinatorlari) va adminga ko‘rinadi.",
+          "Texnik xizmatlar: Render (server), Supabase (ma’lumotlar bazasi va fayllar), Telegram (kirish). Serverlar O‘zbekistondan tashqarida bo‘lishi mumkin."
+        ]],
+        ["Foydalanuvchilar", [
+          "Ilova Kelajak O‘quvchilar Kengashi koordinatorlari (maktab o‘quvchilari) uchun. Ro‘yxatdan faqat yuqoridagi koordinator bergan kalit bilan o‘tiladi."
+        ]],
+        ["Qancha saqlaymiz", [
+          "Hisob mavjud bo‘lguncha. Hisobni o‘chirsangiz, ma’lumotlar darhol bazadan o‘chiriladi."
+        ]],
+        ["Sizning huquqlaringiz", [
+          "Ma’lumotlaringizni ko‘rish, tuzatish (Profil bo‘limida) va to‘liq o‘chirish (Profil → «Hisobni o‘chirish»). Boshqa so‘rovlar uchun: {CONTACT}."
+        ]],
+        ["Xavfsizlik", [
+          "Ulanish HTTPS orqali shifrlanadi, kirish kalitlari xesh ko‘rinishida saqlanadi, ilova ma’lumotlar bazasiga to‘g‘ridan-to‘g‘ri ulanmaydi. Hech qanday tizim 100% xavfsiz emas, lekin biz ma’lumotlaringizni himoya qilish uchun oqilona choralar ko‘ramiz."
+        ]],
+        ["O‘zgarishlar", [
+          "Siyosat o‘zgarsa, yangi sanani shu sahifada e’lon qilamiz."
+        ]]
+      ],
+      "ru": [
+        ["Кто мы", [
+          "Kengash — приложение для координаторов Совета учеников «Kelajak» (мобильное приложение и сайт). Эта политика объясняет, какие данные собираются, зачем они нужны и как их удалить. Вопросы: {CONTACT}."
+        ]],
+        ["Какие данные мы собираем", [
+          "При входе через Telegram: ваш Telegram ID, имя пользователя (username) и номер телефона, которым вы сами поделились.",
+          "Профиль: имя и фамилия, фото профиля (фото приводится к размеру 512×512, дополнительные данные вроде геолокации из него удаляются).",
+          "Ваше место координатора: школа, район или область и направление (например, «IT и искусственный интеллект»).",
+          "Технические: ключ входа (только в виде хеша), время последнего входа, дата согласия с правилами.",
+          "На следующих этапах: ваши сообщения и файлы в каналах, фотоотчёты по задачам и ответы на мероприятия.",
+          "Мы не собираем геолокацию (GPS), список контактов, рекламный идентификатор или данные банковских карт. В приложении нет рекламы и сервисов слежения (трекинга)."
+        ]],
+        ["Зачем мы их используем", [
+          "Чтобы вы могли войти, чтобы координаторы могли связаться друг с другом, и чтобы показывать каналы, задачи и мероприятия. Мы не продаём ваши данные и не передаём их для рекламы."
+        ]],
+        ["Кто видит данные", [
+          "Ваши имя, фото, место и ссылка на Telegram видны всем координаторам Kengash — чтобы они могли с вами связаться.",
+          "Ваш номер телефона видят только вышестоящие координаторы (района и области) и админ.",
+          "Технические сервисы: Render (сервер), Supabase (база данных и файлы), Telegram (вход). Серверы могут находиться за пределами Узбекистана."
+        ]],
+        ["Пользователи", [
+          "Приложение предназначено для координаторов Совета учеников «Kelajak» (школьников). Регистрация возможна только с ключом от вышестоящего координатора."
+        ]],
+        ["Сколько храним", [
+          "Пока существует аккаунт. Если вы удалите аккаунт, данные сразу удаляются из базы."
+        ]],
+        ["Ваши права", [
+          "Просматривать данные, исправлять их (в разделе «Профиль») и полностью удалить (Профиль → «Удалить аккаунт»). Другие запросы: {CONTACT}."
+        ]],
+        ["Безопасность", [
+          "Соединение шифруется через HTTPS, ключи входа хранятся в виде хеша, приложение не подключается к базе данных напрямую. Ни одна система не защищена на 100%, но мы принимаем разумные меры для защиты ваших данных."
+        ]],
+        ["Изменения", [
+          "Если политика изменится, мы опубликуем новую дату на этой странице."
+        ]]
+      ]
+    },
+    "terms": {
+      "uz": [
+        ["Umumiy", [
+          "Kengash’dan foydalanish orqali siz ushbu shartlarga va Maxfiylik siyosatiga rozilik bildirasiz."
+        ]],
+        ["Hisob", [
+          "Haqiqiy ism-familiyangizni kiriting. Kalitni faqat o‘zingiz ishlating va boshqalarga bermang. Boshqa odam nomidan hisob ochish taqiqlanadi. Hisobingizdagi harakatlar uchun o‘zingiz javobgarsiz."
+        ]],
+        ["Muloqot qoidalari", [
+          "Hurmat bilan yozing. Haqoratli, odobsiz yoki boshqalarga zarar yetkazuvchi kontent, spam, boshqalarning suratini ruxsatsiz joylash va mualliflik huquqi bilan himoyalangan materiallarni ruxsatsiz yuklash taqiqlanadi.",
+          "Admin qoidalarni buzgan xabarlarni o‘chirishi va hisoblarni cheklashi yoki o‘chirishi mumkin."
+        ]],
+        ["Vazifalar va hisobotlar", [
+          "Vazifa bo‘yicha hisobot va suratlar haqiqiy bo‘lishi kerak."
+        ]],
+        ["Xizmat", [
+          "Ilova «boricha» taqdim etiladi. Biz uning doimiy ishlashiga harakat qilamiz, lekin uzilishlar bo‘lishi mumkin. Kelajakda ilova pullik obuna (oyiga 10 000 so‘m) bilan ishlashi mumkin — bu haqda oldindan e’lon qilamiz."
+        ]],
+        ["Hisobni o‘chirish", [
+          "Hisobingizni istalgan vaqtda Profil → «Hisobni o‘chirish» orqali o‘chirishingiz mumkin."
+        ]],
+        ["Aloqa", [
+          "{CONTACT}. Shartlar o‘zgarsa, yangi sanani shu sahifada e’lon qilamiz."
+        ]]
+      ],
+      "ru": [
+        ["Общее", [
+          "Пользуясь Kengash, вы соглашаетесь с этими условиями и Политикой конфиденциальности."
+        ]],
+        ["Аккаунт", [
+          "Указывайте настоящие имя и фамилию. Используйте ключ только сами и не передавайте его другим. Запрещено создавать аккаунт от имени другого человека. Вы отвечаете за действия в своём аккаунте."
+        ]],
+        ["Правила общения", [
+          "Пишите уважительно. Запрещены оскорбительный, непристойный или вредный для других контент, спам, размещение чужих фото без разрешения и загрузка материалов, защищённых чужим авторским правом.",
+          "Админ может удалять сообщения, нарушающие правила, а также ограничивать или удалять аккаунты."
+        ]],
+        ["Задачи и отчёты", [
+          "Отчёты и фото по задачам должны быть настоящими."
+        ]],
+        ["Сервис", [
+          "Приложение предоставляется «как есть». Мы стараемся, чтобы оно работало постоянно, но возможны перебои. В будущем приложение может стать платным (подписка 10 000 сумов в месяц) — мы сообщим об этом заранее."
+        ]],
+        ["Удаление аккаунта", [
+          "Вы можете удалить аккаунт в любой момент: Профиль → «Удалить аккаунт»."
+        ]],
+        ["Контакты", [
+          "{CONTACT}. Если условия изменятся, мы опубликуем новую дату на этой странице."
+        ]]
+      ]
+    },
+    "cookies": {
+      "uz": [
+        ["Nima saqlanadi", [
+          "Kengash qurilmangizda faqat ishlashi uchun zarur bo‘lgan ma’lumotlarni saqlaydi: kirish kaliti (siz chiqmaguningizcha hisobingizda qolishingiz uchun), til, mavzu (yorug‘/qorong‘i) va ilova sozlamalari."
+        ]],
+        ["Reklama va kuzatuv yo‘q", [
+          "Biz reklama, analitika yoki kuzatuv cookie-fayllaridan foydalanmaymiz va ma’lumotlaringizni uchinchi tomonlarga reklama uchun bermaymiz."
+        ]],
+        ["Qanday o‘chirish mumkin", [
+          "Hisobdan chiqing (Profil → «Chiqish») yoki brauzer sozlamalarida ushbu sayt ma’lumotlarini tozalang. Ilovada esa ilovani o‘chirib qayta o‘rnatish kifoya."
+        ]],
+        ["Aloqa", ["{CONTACT}"]]
+      ],
+      "ru": [
+        ["Что хранится", [
+          "Kengash хранит на вашем устройстве только то, что нужно для работы: ключ входа (чтобы вы оставались в аккаунте, пока не выйдете), язык, тему (светлая/тёмная) и настройки приложения."
+        ]],
+        ["Без рекламы и слежения", [
+          "Мы не используем рекламные, аналитические или следящие cookie и не передаём ваши данные третьим лицам для рекламы."
+        ]],
+        ["Как удалить", [
+          "Выйдите из аккаунта (Профиль → «Выйти») или очистите данные этого сайта в настройках браузера. В приложении достаточно удалить и заново установить приложение."
+        ]],
+        ["Контакты", ["{CONTACT}"]]
+      ]
+    },
+    "delete-account": {
+      "uz": [
+        ["Ilova ichida", [
+          "1. Kengash ilovasini yoki veb-saytini oching va hisobingizga kiring.",
+          "2. «Profil» bo‘limi → «Hisobni o‘chirish» ni bosing.",
+          "3. Tasdiqlash uchun O‘CHIRISH so‘zini yozing va tugmani bosing. Hisob darhol o‘chiriladi."
+        ]],
+        ["Ilovaga kira olmasangiz", [
+          "{CONTACT} ga Telegram foydalanuvchi nomingizni yozib yuboring. Hisob sizniki ekanini tekshirib, 30 kun ichida o‘chiramiz."
+        ]],
+        ["Nima o‘chiriladi", [
+          "Profil (ism, surat, telefon raqami, Telegram ma’lumotlari), koordinatorlik o‘rningiz, kirish kalitlari, rozilik yozuvi, keyingi bosqichlarda — xabarlaringiz, fayllaringiz va vazifa hisobotlaringiz. O‘rningiz bo‘sh bo‘ladi."
+        ]]
+      ],
+      "ru": [
+        ["В приложении", [
+          "1. Откройте приложение или сайт Kengash и войдите в аккаунт.",
+          "2. Раздел «Профиль» → нажмите «Удалить аккаунт».",
+          "3. Для подтверждения напишите слово УДАЛИТЬ и нажмите кнопку. Аккаунт удаляется сразу."
+        ]],
+        ["Если не можете войти", [
+          "Напишите своё имя пользователя Telegram: {CONTACT}. Мы проверим, что аккаунт ваш, и удалим его в течение 30 дней."
+        ]],
+        ["Что удаляется", [
+          "Профиль (имя, фото, номер телефона, данные Telegram), ваше место координатора, ключи входа, запись о согласии, а на следующих этапах — ваши сообщения, файлы и отчёты по задачам. Ваше место станет свободным."
+        ]]
+      ]
+    }
+  }
+}
