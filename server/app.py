@@ -47,6 +47,8 @@ PAYMENTS_ENABLED = os.environ.get("PAYMENTS_ENABLED", "") == "1"
 async def lifespan(_app):
     db.init()
     telegram.setup_webhook()
+    import storage
+    threading.Thread(target=storage.ensure_bucket, daemon=True).start()
     yield
     db.close()
 
@@ -61,7 +63,8 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 @app.middleware("http")
 async def _limits(request: Request, call_next):
     """Tana hajmi chegarasi / ограничение размера тела."""
-    limit = MAX_PHOTO_BODY if request.url.path == "/api/me/photo" else MAX_BODY
+    path = request.url.path
+    limit = MAX_PHOTO_BODY if path == "/api/me/photo" else 15_000_000 if path.endswith("/photo") else MAX_BODY
     size = request.headers.get("content-length")
     if size and size.isdigit() and int(size) > limit:
         return JSONResponse({"error": "too_large"}, status_code=413)
@@ -209,10 +212,22 @@ def body_seat(b):
 
 
 def delete_user_everything(c, uid):
+    """Qaytaradi: o‘chiriladigan fayl yo‘llari / возвращает пути файлов для удаления."""
+    import channels
+    paths = channels.remove_user(c, uid)
     c.x("DELETE FROM tokens WHERE user_id=?", (uid,))
     c.x("DELETE FROM photos WHERE user_id=?", (uid,))
     c.x("UPDATE invite_keys SET revoked=1 WHERE created_by=? AND used_by IS NULL", (uid,))
     c.x("DELETE FROM users WHERE id=?", (uid,))
+    return paths
+
+
+def seat_changed(c, uid):
+    """O‘rin o‘zgardi → avtomatik kanallar / место изменилось → автоканалы."""
+    import channels
+    import realtime
+    if channels.sync_user(c, uid):
+        realtime.send([uid], {"type": "channels.changed"})
 
 
 # ------------------------------------------------------------------ umumiy / общее
@@ -410,6 +425,7 @@ async def redeem_key(request: Request, authorization: Optional[str] = Header(def
         c.x("UPDATE users SET level=?, place_id=?, direction=? WHERE id=?",
             (k["level"], k["place_id"], k["direction"], u["id"]))
         c.x("UPDATE invite_keys SET used_by=?, used_at=? WHERE hash=?", (u["id"], db.now(), k["hash"]))
+        seat_changed(c, u["id"])
         return me_json(c, c.one("SELECT * FROM users WHERE id=?", (u["id"],)))
 
 
@@ -421,7 +437,9 @@ async def me_delete(request: Request, authorization: Optional[str] = Header(defa
         err(400, "confirm")
     with db.tx() as c:
         u = current_user(c, authorization, allow_blocked=True)
-        delete_user_everything(c, u["id"])
+        paths = delete_user_everything(c, u["id"])
+    import storage
+    storage.remove(paths)
     return {"ok": True}
 
 
@@ -511,8 +529,11 @@ async def seat_free(request: Request, authorization: Optional[str] = Header(defa
         v = current_user(c, authorization)
         if not is_above(c, v, level, place_id, direction):
             err(403, "forbidden")
+        holder = c.one("SELECT id FROM users WHERE level=? AND place_id=? AND direction=?", (level, place_id, direction))
         c.x("UPDATE users SET level=NULL, place_id=NULL, direction=NULL WHERE level=? AND place_id=? AND direction=?",
             (level, place_id, direction))
+        if holder:
+            seat_changed(c, holder["id"])
     return {"ok": True}
 
 
@@ -630,6 +651,7 @@ async def admin_block(uid: str, request: Request, authorization: Optional[str] =
         c.x("UPDATE users SET status=? WHERE id=?", ("blocked" if blocked else "active", uid))
         if blocked:
             c.x("DELETE FROM tokens WHERE user_id=?", (uid,))
+        seat_changed(c, uid)
     return {"ok": True}
 
 
@@ -640,7 +662,9 @@ def admin_delete(uid: str, authorization: Optional[str] = Header(default=None)):
         need_admin(v)
         if uid == v["id"]:
             err(400, "self")
-        delete_user_everything(c, uid)
+        paths = delete_user_everything(c, uid)
+    import storage
+    storage.remove(paths)
     return {"ok": True}
 
 
@@ -660,6 +684,7 @@ async def admin_seat(uid: str, request: Request, authorization: Optional[str] = 
             if c.one("SELECT id FROM users WHERE level=? AND place_id=? AND direction=?", (level, place_id, direction)):
                 err(409, "seat_taken")
             c.x("UPDATE users SET level=?, place_id=?, direction=? WHERE id=?", (level, place_id, direction, uid))
+        seat_changed(c, uid)
     return {"ok": True}
 
 
@@ -789,6 +814,11 @@ def admin_stats(authorization: Optional[str] = Header(default=None)):
             "FROM districts d ORDER BY d.sort")
         return {"users": total, "seated": seated, "active_week": active, "schools": schools,
                 "seats_total": (schools + len(by_district) + 1) * 8, "by_district": by_district}
+
+
+import channels  # noqa: E402  (oxirida: app yordamchilaridan foydalanadi / в конце: использует помощники app)
+
+app.include_router(channels.router)
 
 
 if __name__ == "__main__":

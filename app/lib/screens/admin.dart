@@ -5,6 +5,7 @@ import '../brand.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'channels.dart' show MessageBubble, timeLabel;
 import 'directory.dart' show confirmSheet;
 import 'pickers.dart';
 
@@ -27,14 +28,15 @@ class _AdminScreenState extends State<AdminScreen> {
       title: s.t('admin'),
       children: [
         Segmented<String>(
-          values: const ['stats', 'users', 'schools'],
-          labels: [s.t('stats'), s.t('users'), s.t('schools')],
+          values: const ['stats', 'users', 'schools', 'reports'],
+          labels: [s.t('stats'), s.t('users'), s.t('schools'), s.t('reports')],
           value: _seg,
           onChanged: (v) => setState(() => _seg = v),
         ),
         switch (_seg) {
           'users' => const _Users(),
           'schools' => const _Schools(),
+          'reports' => const _Reports(),
           _ => const _Stats(),
         },
       ],
@@ -480,5 +482,92 @@ class _SchoolsState extends State<_Schools> {
         ]),
       );
     });
+  }
+}
+
+// ------------------------------------------------------------------ shikoyatlar / жалобы
+class _Reports extends StatefulWidget {
+  const _Reports();
+
+  @override
+  State<_Reports> createState() => _ReportsState();
+}
+
+class _ReportsState extends State<_Reports> {
+  List<Json>? _list;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final s = AppScope.read(context);
+    try {
+      final r = await s.api.get('/api/admin/reports');
+      if (mounted) setState(() => _list = [for (final x in r['reports'] as List) (x as Map).cast<String, dynamic>()]);
+    } on ApiError catch (e) {
+      s.toast(s.errText(e));
+    }
+  }
+
+  Future<void> _act(Json r, String action) async {
+    final s = AppScope.read(context);
+    if (action == 'block' && !await confirmSheet(context, s.t('rep_block_q'), s.t('block'))) return;
+    try {
+      await s.api.post('/api/admin/reports/${r['id']}', {'action': action});
+      s.toast(s.t('saved'), icon: Icons.check_circle_rounded);
+      _load();
+    } on ApiError catch (e) {
+      s.toast(s.errText(e));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final c = s.c;
+    final list = _list;
+    if (list == null) return const SkeletonRows(count: 3);
+    if (list.isEmpty) return EmptyState(icon: Icons.verified_user_rounded, title: s.t('rep_none'), message: s.t('rep_none_text'));
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      for (final r in list) ...[
+        AppCard(
+          key: ValueKey('report-${r['id']}'),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              AppPill(s.t('reason_${r['reason']}'), icon: Icons.flag_rounded, tone: Tone.danger, small: true),
+              const SizedBox(width: S.x2),
+              Expanded(
+                child: Text(s.pick((r['channel'] as Map?)?.cast<String, dynamic>(), 'title'),
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.footnote.copyWith(color: c.text2)),
+              ),
+              Text(timeLabel(s, r['created_at'] as num?), style: AppType.caption.copyWith(color: c.text3)),
+            ]),
+            const SizedBox(height: S.x3),
+            if (r['message'] != null)
+              IgnorePointer(child: MessageBubble(m: (r['message'] as Map).cast<String, dynamic>()))
+            else
+              Text(s.t('msg_deleted'), style: AppType.subhead.copyWith(color: c.text3)),
+            const SizedBox(height: S.x2),
+            Text('${s.t('rep_by')}: ${((r['reporter'] as Map?)?['name'] ?? '')}',
+                style: AppType.footnote.copyWith(color: c.text2)),
+            const SizedBox(height: S.x3),
+            Row(children: [
+              Expanded(
+                  child: AppButton(s.t('delete'),
+                      key: ValueKey('rep-del-${r['id']}'), kind: BtnKind.danger, height: 44, onPressed: () => _act(r, 'delete'))),
+              const SizedBox(width: S.x2),
+              Expanded(child: AppButton(s.t('block'), kind: BtnKind.danger, height: 44, onPressed: () => _act(r, 'block'))),
+              const SizedBox(width: S.x2),
+              Expanded(
+                  child: AppButton(s.t('rep_dismiss'), kind: BtnKind.secondary, height: 44, onPressed: () => _act(r, 'dismiss'))),
+            ]),
+          ]),
+        ),
+        const SizedBox(height: S.x3),
+      ],
+    ]);
   }
 }

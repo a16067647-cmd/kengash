@@ -10,6 +10,18 @@
 
 ---
 
+## ★ The first rule: simple and easy (owner's top priority)
+
+Kengash exists to make coordinators' lives **easier**. Every screen must pass these checks:
+
+1. **One main action per screen**, obvious at a glance. Secondary things go in a list row or a "…" sheet.
+2. **Nothing that doesn't work yet**: no "coming soon" tabs, cards or buttons. A feature appears when it works.
+3. **Smart defaults over choices.** Pre-select the most common option (e.g. channel members are suggested by the person's seat); advanced options hide behind "Boshqa…".
+4. **The main tasks take ≤ 3 taps** (read new messages, write in a channel, give a key, create a channel).
+5. **Plain words** in Uzbek and Russian, no jargon; short labels; one sentence of help at most.
+6. **Calm screens**: no decoration that carries no information (no rotating tips, no filler cards, no duplicate links).
+7. When in doubt, **remove** rather than add. Ask the owner before adding a new setting or option.
+
 ## 0. The app in one paragraph
 
 **Kengash** replaces the many Telegram groups of Kelajak O‘quvchilar Kengashi with **one app**. Every

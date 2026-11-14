@@ -26,21 +26,15 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _starting = false;
   String? _error;
   Timer? _poll;
-  int _tip = 0;
-  Timer? _tipTimer;
 
   @override
   void initState() {
     super.initState();
-    _tipTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (mounted) setState(() => _tip = (_tip + 1) % 3);
-    });
   }
 
   @override
   void dispose() {
     _poll?.cancel();
-    _tipTimer?.cancel();
     super.dispose();
   }
 
@@ -103,7 +97,6 @@ class _AuthScreenState extends State<AuthScreen> {
     final s = AppScope.of(context);
     final c = s.c;
     final waiting = _reqId != null;
-    final tips = [s.t('tip1'), s.t('tip2'), s.t('tip3')];
 
     final card = Glass(
       radius: R.xl,
@@ -183,13 +176,6 @@ class _AuthScreenState extends State<AuthScreen> {
                     Text(s.t('tagline'), textAlign: TextAlign.center, style: AppType.callout.copyWith(color: c.text2)),
                     const SizedBox(height: S.x4),
                     const Center(child: KengashLockup(height: 36)),
-                    const SizedBox(height: S.x5),
-                    Center(
-                      child: AnimatedSwitcher(
-                        duration: Motion.of(context, Motion.slow),
-                        child: AppPill(tips[_tip], key: ValueKey(_tip), icon: Icons.auto_awesome_rounded, tone: Tone.accent),
-                      ),
-                    ),
                     const SizedBox(height: S.x5),
                     card,
                     const SizedBox(height: S.x6),

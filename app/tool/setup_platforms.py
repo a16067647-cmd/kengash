@@ -24,8 +24,9 @@ def android():
     m = APP / "android/app/src/main/AndroidManifest.xml"
     s = m.read_text(encoding="utf-8")
     s = re.sub(r'android:label="[^"]*"', f'android:label="{NAME}"', s)
-    if "android.permission.INTERNET" not in s:
-        s = s.replace("<application", '<uses-permission android:name="android.permission.INTERNET"/>\n    <application', 1)
+    for perm in ("INTERNET", "RECORD_AUDIO"):
+        if f"android.permission.{perm}" not in s:
+            s = s.replace("<application", f'<uses-permission android:name="android.permission.{perm}"/>\n    <application', 1)
     # url_launcher: Telegram (https) va qo‘ng‘iroq (tel) havolalari / ссылки https и tel
     if "<queries>" not in s:
         s = s.replace("</manifest>", """    <queries>
@@ -45,8 +46,9 @@ def ios():
     s = p.read_text(encoding="utf-8")
     s = re.sub(r"(<key>CFBundleDisplayName</key>\s*<string>)[^<]*", rf"\g<1>{NAME}", s)
     extra = {
-        "NSPhotoLibraryUsageDescription": "Profil surati uchun / Для фото профиля",
-        "NSCameraUsageDescription": "Profil surati uchun / Для фото профиля",
+        "NSPhotoLibraryUsageDescription": "Profil surati va kanalga rasm yuborish uchun / Для фото профиля и отправки в канал",
+        "NSCameraUsageDescription": "Surat va video yuborish uchun / Для отправки фото и видео",
+        "NSMicrophoneUsageDescription": "Ovozli xabar uchun / Для голосовых сообщений",
         "LSApplicationQueriesSchemes": None,
     }
     add = ""

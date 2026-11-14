@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../brand.dart';
 import '../main.dart' show openTool;
+import 'channels.dart' show ChannelIcon, channelTitle, openChannel, previewText;
 import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -38,7 +39,7 @@ class TodayTab extends StatelessWidget {
 
     return TabPage(
       onRefresh: s.refreshMe,
-      split: tg.isEmpty ? 4 : 3,
+      split: tg.isEmpty ? 3 : 2,
       children: [
         // Qahramon karta / карточка-герой
         Container(
@@ -62,8 +63,6 @@ class TodayTab extends StatelessWidget {
               ),
               const KengashMark(size: 40, color: kWhite),
             ]),
-            const SizedBox(height: S.x4),
-            Text(s.t('today_hero'), style: AppType.callout.copyWith(color: kWhite)),
           ]),
         ),
         if (tg.isEmpty)
@@ -83,101 +82,83 @@ class TodayTab extends StatelessWidget {
               ),
             ]),
           ),
-        SectionHeader(s.t('quick')),
-        gridOf([
-          _QuickTile(
+        const _ChannelsCard(),
+        GroupList([
+          GroupRow(
               key: const ValueKey('quick-directory'),
               icon: Icons.groups_rounded,
               color: c.accent,
               title: s.t('directory'),
-              sub: s.t('quick_directory'),
               onTap: () => openTool(context, 'directory')),
           if (s.canKeys)
-            _QuickTile(
+            GroupRow(
                 key: const ValueKey('quick-keys'),
                 icon: Icons.key_rounded,
-                color: kSun,
+                color: const Color(0xFFFF9F0A),
                 title: s.t('keys'),
-                sub: s.t('quick_keys'),
-                onTap: () => openTool(context, 'keys'))
-          else
-            _QuickTile(
-                icon: Icons.person_rounded,
-                color: const Color(0xFF0A84D6),
-                title: s.t('tab_profile'),
-                sub: s.t('quick_profile'),
-                onTap: () => s.go('profile')),
+                value: s.t('quick_keys_short'),
+                onTap: () => openTool(context, 'keys')),
           if (s.isAdmin)
-            _QuickTile(
+            GroupRow(
                 key: const ValueKey('quick-admin'),
                 icon: Icons.admin_panel_settings_rounded,
                 color: const Color(0xFF34C759),
                 title: s.t('admin'),
-                sub: s.t('quick_admin'),
                 onTap: () => openTool(context, 'admin')),
-        ], 2),
-        SectionHeader(s.t('soon')),
-        _SoonCard(icon: Icons.forum_rounded, title: s.t('tab_channels'), text: s.t('soon_channels')),
-        _SoonCard(icon: Icons.task_alt_rounded, title: s.t('tab_tasks'), text: s.t('soon_tasks')),
-        _SoonCard(icon: Icons.event_rounded, title: s.t('tab_calendar'), text: s.t('soon_calendar')),
+        ]),
       ],
     );
   }
 }
 
-class _QuickTile extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String sub;
-  final VoidCallback onTap;
-  const _QuickTile(
-      {super.key, required this.icon, required this.color, required this.title, required this.sub, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = colorsOf(context);
-    return AppCard(
-      onTap: onTap,
-      padding: const EdgeInsets.all(S.x4),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(color: color, borderRadius: R.all(R.sm)),
-          child: Icon(icon, color: color == kSun ? kBlack : kWhite, size: 22),
-        ),
-        const SizedBox(height: S.x3),
-        Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.headline.copyWith(color: c.text)),
-        Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.footnote.copyWith(color: c.text2)),
-      ]),
-    );
-  }
-}
-
-class _SoonCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String text;
-  const _SoonCard({required this.icon, required this.title, required this.text});
+/// Yangi xabarlar / новые сообщения.
+class _ChannelsCard extends StatelessWidget {
+  const _ChannelsCard();
 
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final c = s.c;
-    return AppCard(
-      kind: CardKind.inset,
-      child: Row(children: [
-        IconTile(icon, size: 44, bg: c.accentSoft, color: c.accentText),
-        const SizedBox(width: S.x3),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: AppType.headline.copyWith(color: c.text)),
-            Text(text, style: AppType.footnote.copyWith(color: c.text2)),
+    return ListenableBuilder(
+      listenable: s.chat,
+      builder: (context, _) {
+        final list = s.chat.channels;
+        final unread = s.chat.unreadTotal;
+        final top = (list ?? []).where((x) => (x['unread'] as num? ?? 0) > 0 && x['muted'] != true).take(3).toList();
+        return AppCard(
+          key: const ValueKey('today-channels'),
+          onTap: () => s.go('channels'),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              IconTile(Icons.forum_rounded, size: 40, bg: c.accentSoft, color: c.accentText),
+              const SizedBox(width: S.x3),
+              Expanded(child: Text(s.t('tab_channels'), style: AppType.headline.copyWith(color: c.text))),
+              AppPill(unread == 0 ? s.t('ch_all_read') : '$unread ${s.t('ch_new_msgs')}',
+                  tone: unread == 0 ? Tone.neutral : Tone.accent, small: true),
+            ]),
+            for (final ch in top) ...[
+              const SizedBox(height: S.x3),
+              Pressable(
+                onTap: () => openChannel(context, ch['id'] as String),
+                scale: 0.99,
+                child: Row(children: [
+                  ChannelIcon(ch, size: 32),
+                  const SizedBox(width: S.x3),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(channelTitle(s, ch),
+                          maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.subhead.copyWith(color: c.text)),
+                      Text(previewText(s, (ch['last'] as Map?)?.cast<String, dynamic>()),
+                          maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.footnote.copyWith(color: c.text2)),
+                    ]),
+                  ),
+                  AppPill('${ch['unread']}', tone: Tone.accent, small: true),
+                ]),
+              ),
+            ],
           ]),
-        ),
-        AppPill(s.t('soon_pill'), tone: Tone.accent, small: true),
-      ]),
+        );
+      },
     );
   }
 }
@@ -196,13 +177,6 @@ class _ComingTab extends StatelessWidget {
       EmptyState(icon: icon, title: s.t('soon_title'), message: s.t(textKey)),
     ]);
   }
-}
-
-class ChannelsTab extends StatelessWidget {
-  const ChannelsTab({super.key});
-  @override
-  Widget build(BuildContext context) =>
-      const _ComingTab(titleKey: 'tab_channels', icon: Icons.forum_rounded, textKey: 'soon_channels');
 }
 
 class TasksTab extends StatelessWidget {

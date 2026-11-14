@@ -59,6 +59,28 @@ CREATE TABLE IF NOT EXISTS seat_contacts (
   PRIMARY KEY (level, place_id, direction)
 );
 CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS channels (
+  id TEXT PRIMARY KEY, kind TEXT NOT NULL, auto_key TEXT UNIQUE, title_uz TEXT NOT NULL, title_ru TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '', icon TEXT NOT NULL DEFAULT '', mode TEXT NOT NULL DEFAULT 'group',
+  created_by TEXT, created_at BIGINT NOT NULL, msg_seq BIGINT NOT NULL DEFAULT 0, last_msg_at BIGINT NOT NULL DEFAULT 0,
+  pinned_msg TEXT
+);
+CREATE TABLE IF NOT EXISTS channel_members (
+  channel_id TEXT NOT NULL, user_id TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'member', joined_at BIGINT NOT NULL,
+  last_read BIGINT NOT NULL DEFAULT 0, muted INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (channel_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS members_user ON channel_members(user_id);
+CREATE TABLE IF NOT EXISTS messages (
+  id TEXT PRIMARY KEY, channel_id TEXT NOT NULL, seq BIGINT NOT NULL, user_id TEXT, created_at BIGINT NOT NULL,
+  text TEXT NOT NULL DEFAULT '', reply_to TEXT, attachments TEXT NOT NULL DEFAULT '[]',
+  edited_at BIGINT NOT NULL DEFAULT 0, deleted INTEGER NOT NULL DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS messages_seq ON messages(channel_id, seq);
+CREATE INDEX IF NOT EXISTS messages_user ON messages(user_id);
+CREATE TABLE IF NOT EXISTS reports (
+  id TEXT PRIMARY KEY, message_id TEXT NOT NULL, channel_id TEXT NOT NULL, reporter_id TEXT NOT NULL,
+  reason TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', created_at BIGINT NOT NULL, status TEXT NOT NULL DEFAULT 'open'
+);
 """
 
 

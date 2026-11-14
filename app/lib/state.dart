@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'api.dart';
+import 'chat.dart';
 import 'i18n.dart';
 import 'theme.dart';
 import 'widgets.dart' show AppToast;
@@ -25,7 +26,11 @@ const List<Map<String, dynamic>> kFallbackDirections = [
 typedef Json = Map<String, dynamic>;
 
 class AppState extends ChangeNotifier {
-  AppState({Api? api, this.testMode = false}) : api = api ?? Api();
+  AppState({Api? api, this.testMode = false}) : api = api ?? Api() {
+    chat = ChatStore(this.api, testMode: testMode);
+  }
+
+  late final ChatStore chat;
 
   final Api api;
   final bool testMode;
@@ -177,7 +182,26 @@ class AppState extends ChangeNotifier {
         if (cached != null) me = jsonDecode(cached) as Json;
       }
     }
+    _syncChat();
     notifyListeners();
+  }
+
+  bool _chatOn = false;
+
+  /// Kanallar faqat to‘liq ro‘yxatdan o‘tganda / каналы только после полной регистрации.
+  void _syncChat() {
+    final ok = loggedIn && !needsSeat && !needsProfile;
+    if (ok) {
+      chat.myId = me!['id'] as String?;
+      if (!_chatOn) {
+        _chatOn = true;
+        chat.start();
+        chat.loadChannels();
+      }
+    } else if (_chatOn) {
+      _chatOn = false;
+      chat.stop();
+    }
   }
 
   Future<void> setSession(String token, Json user) async {
@@ -186,18 +210,21 @@ class AppState extends ChangeNotifier {
     await _prefs?.setString('token', token);
     await _prefs?.setString('me', jsonEncode(user));
     tab = 'today';
+    _syncChat();
     notifyListeners();
   }
 
   void setMe(Json user) {
     me = user;
     _prefs?.setString('me', jsonEncode(user));
+    _syncChat();
     notifyListeners();
   }
 
   Future<void> _clearSession() async {
     api.token = null;
     me = null;
+    _syncChat();
     await _prefs?.remove('token');
     await _prefs?.remove('me');
   }
