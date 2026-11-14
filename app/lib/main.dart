@@ -190,7 +190,9 @@ class _WakeHintState extends State<_WakeHint> {
 }
 
 /// Bo‘limlar / разделы.
-const kMainTabs = ['today', 'channels', 'tasks', 'calendar', 'profile'];
+/// Faqat ishlaydigan bo‘limlar ko‘rinadi (soddalik). Vazifalar va taqvim 3-bosqichda qo‘shiladi.
+/// Видны только работающие разделы (простота). Задачи и календарь добавятся на 3-м этапе.
+const kMainTabs = ['today', 'channels', 'profile'];
 
 (IconData, String) tabMeta(AppState s, String id) => switch (id) {
       'today' => (Icons.wb_sunny_rounded, s.t('tab_today')),

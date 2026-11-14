@@ -10,6 +10,7 @@ class FakeServer {
   final List<String> calls = [];
   final List<Map<String, dynamic>> sent = [];
   final List<Map<String, dynamic>> created = [];
+  Map<String, dynamic> lastBody = {};
 
   static Map<String, dynamic> ch(String id, String key, String uz, String ru,
           {String mode = 'group',
@@ -435,6 +436,7 @@ class FakeServer {
               'can_create': me['role'] == 'admin' || me['level'] == 'district' || me['level'] == 'region'
             };
           case 'POST /api/channels':
+            lastBody = body;
             final c = ch('c-new', '', body['title'] as String, body['title'] as String,
                 kind: 'custom', role: 'owner', mode: body['mode'] as String);
             c['members'] = 7;

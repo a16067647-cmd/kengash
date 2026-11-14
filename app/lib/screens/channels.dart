@@ -1292,6 +1292,123 @@ class ModePicker extends StatelessWidget {
 }
 
 // ============================================================ yangi kanal / новый канал
+/// O‘rniga mos tayyor a’zolar guruhlari (eng ko‘p ishlatiladigani birinchi).
+/// Готовые группы участников по месту (самая частая — первой).
+List<(String, String, AudiencePick)> channelPresets(AppState s) {
+  final me = s.me ?? const {};
+  final lvl = me['level'] as String?;
+  final pid = me['place_id'] as String?;
+  final dir = me['direction'] as String?;
+  final lider = dir == 'lider' || s.isAdmin;
+  final dname = dir == null ? '' : s.dirName(dir);
+  AudiencePick g(Json group) => AudiencePick([group], const []);
+  final out = <(String, String, AudiencePick)>[];
+  if (lvl == 'district' && pid != null) {
+    if (lider) {
+      out.add((
+        'd-schools',
+        s.t('preset_d_schools_all'),
+        g({
+          'level': 'school',
+          'district_ids': [pid]
+        })
+      ));
+      out.add((
+        'd-liders',
+        s.t('preset_d_liders'),
+        g({
+          'level': 'school',
+          'district_ids': [pid],
+          'directions': ['lider']
+        })
+      ));
+    } else {
+      out.add((
+        'd-schools',
+        '${s.t('preset_d_schools')} — $dname',
+        g({
+          'level': 'school',
+          'district_ids': [pid],
+          'directions': [dir]
+        })
+      ));
+    }
+    out.add((
+      'd-team',
+      s.t('preset_d_team'),
+      g({
+        'level': 'district',
+        'district_ids': [pid]
+      })
+    ));
+  } else if (lvl == 'region' || s.isAdmin) {
+    if (lider) {
+      out.add(('r-districts', s.t('preset_r_districts_all'), g({'level': 'district'})));
+      out.add((
+        'r-liders',
+        s.t('preset_r_liders'),
+        g({
+          'level': 'school',
+          'directions': ['lider']
+        })
+      ));
+    } else {
+      out.add((
+        'r-districts',
+        '${s.t('preset_r_districts')} — $dname',
+        g({
+          'level': 'district',
+          'directions': [dir]
+        })
+      ));
+      out.add((
+        'r-schools',
+        '${s.t('preset_r_schools')} — $dname',
+        g({
+          'level': 'school',
+          'directions': [dir]
+        })
+      ));
+    }
+    out.add(('r-team', s.t('preset_r_team'), g({'level': 'region'})));
+  }
+  return out;
+}
+
+class _PresetTile extends StatelessWidget {
+  final String title;
+  final bool selected;
+  final IconData icon;
+  final VoidCallback onTap;
+  const _PresetTile(
+      {super.key, required this.title, required this.selected, required this.onTap, this.icon = Icons.groups_rounded});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = colorsOf(context);
+    return Pressable(
+      onTap: onTap,
+      scale: 0.98,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: S.x4, vertical: S.x3 + 2),
+        decoration: BoxDecoration(
+          color: selected ? c.accentSoft : c.surface,
+          borderRadius: R.all(R.lg),
+          border: Border.all(color: selected ? c.accent : c.hairlineStrong, width: selected ? 1.8 : 1),
+        ),
+        child: Row(children: [
+          Icon(icon, color: selected ? c.accentText : c.text2),
+          const SizedBox(width: S.x3),
+          Expanded(child: Text(title, style: AppType.bodyStrong.copyWith(color: c.text))),
+          Icon(selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+              color: selected ? c.accent : c.text3, size: 22),
+        ]),
+      ),
+    );
+  }
+}
+
 class CreateChannelScreen extends StatefulWidget {
   const CreateChannelScreen({super.key});
 
@@ -1305,6 +1422,18 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
   String _icon = '';
   String? _mode;
   AudiencePick? _audience;
+  String? _preset;
+  late final List<(String, String, AudiencePick)> presets = channelPresets(AppScope.read(context));
+
+  @override
+  void initState() {
+    super.initState();
+    if (presets.isNotEmpty) {
+      _preset = presets.first.$1;
+      _audience = presets.first.$3;
+    }
+  }
+
   bool _busy = false;
   String? _error;
 
@@ -1396,23 +1525,32 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
           ),
           SectionHeader(s.t('ch_mode_q')),
           ModePicker(value: _mode, onChanged: (v) => setState(() => _mode = v)),
-          SectionHeader(s.t('members')),
-          AppCard(
-            key: const ValueKey('ch-audience'),
+          SectionHeader(s.t('ch_who')),
+          for (final p in presets)
+            _PresetTile(
+              key: ValueKey('preset-${p.$1}'),
+              title: p.$2,
+              selected: _preset == p.$1,
+              onTap: () => setState(() {
+                _preset = p.$1;
+                _audience = p.$3;
+              }),
+            ),
+          _PresetTile(
+            key: const ValueKey('preset-custom'),
+            title: _preset == 'custom' && _audience != null && !_audience!.isEmpty ? _audience!.label(s) : s.t('preset_custom'),
+            icon: Icons.tune_rounded,
+            selected: _preset == 'custom',
             onTap: () async {
-              final pick = await Navigator.of(context)
-                  .push<AudiencePick>(AppRoute(builder: (_) => AudienceScreen(title: s.t('members'), initial: _audience)));
-              if (pick != null) setState(() => _audience = pick);
+              final pick =
+                  await Navigator.of(context).push<AudiencePick>(AppRoute(builder: (_) => AudienceScreen(title: s.t('members'))));
+              if (pick != null) {
+                setState(() {
+                  _preset = 'custom';
+                  _audience = pick;
+                });
+              }
             },
-            child: Row(children: [
-              IconTile(Icons.groups_rounded, size: 44, bg: c.accentSoft, color: c.accentText),
-              const SizedBox(width: S.x3),
-              Expanded(
-                child: Text(_audience == null || _audience!.isEmpty ? s.t('aud_pick') : _audience!.label(s),
-                    style: AppType.bodyStrong.copyWith(color: _audience == null ? c.text2 : c.text)),
-              ),
-              Icon(Icons.chevron_right_rounded, color: c.text3),
-            ]),
           ),
           if (_error != null) Text(_error!, style: AppType.footnote.copyWith(color: c.danger)),
           AppButton(s.t('ch_create'),

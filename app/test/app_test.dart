@@ -270,9 +270,10 @@ void main() {
 
         // bo‘sh bo‘limlar / пустые разделы
         if (!wide) {
-          for (final t in ['channels', 'tasks', 'calendar']) {
-            await tap(tester, find.byKey(ValueKey('nav-$t')));
-          }
+          // faqat ishlaydigan bo‘limlar / только работающие разделы
+          expect(find.byKey(const ValueKey('nav-tasks')), findsNothing);
+          expect(find.byKey(const ValueKey('nav-calendar')), findsNothing);
+          await tap(tester, find.byKey(const ValueKey('nav-channels')));
           await shot(tester, '$tag-calendar');
         }
       });
@@ -351,14 +352,15 @@ void main() {
     await tap(tester, find.byKey(const ValueKey('ch-create')));
     expect(find.text(tr('ru', 'err_pick_mode')), findsOneWidget);
     await tap(tester, find.byKey(const ValueKey('mode-announce')));
-    await tap(tester, find.byKey(const ValueKey('ch-audience')));
-    await tap(tester, find.byKey(const ValueKey('aud-dir-it')));
-    await tap(tester, find.byKey(const ValueKey('aud-add')));
-    await shot(tester, 'phone-dark-ru-audience');
-    await tap(tester, find.byKey(const ValueKey('aud-done')));
+    // tayyor guruh tanlangan: tumanimdagi maktablar — IT / готовая группа уже выбрана
+    expect(find.byKey(const ValueKey('preset-d-schools')), findsOneWidget);
+    expect(find.textContaining(tr('ru', 'preset_d_schools')), findsOneWidget);
     await shot(tester, 'phone-dark-ru-create-channel');
     await tap(tester, find.byKey(const ValueKey('ch-create')));
     expect(server.created.single['title_uz'], 'Robototexnika');
+    expect(server.lastBody['audience'], [
+      {'level': 'school', 'district_ids': ['asaka'], 'directions': ['it']}
+    ]);
     expect(server.calls.where((c) => c == 'POST /api/channels').length, 1);
     await shot(tester, 'phone-dark-ru-new-channel-chat');
   });

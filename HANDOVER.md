@@ -43,6 +43,7 @@ render.yaml               Render sozlamasi (Starter, ~7$/oy)
 ```
 
 ## Asosiy qoidalar / главные правила
+- ★ **Soddalik birinchi o‘rinda** (egasining asosiy talabi): har ekranda bitta asosiy amal; ishlamaydigan narsa ko‘rinmaydi; aqlli tanlov oldindan belgilangan; asosiy ishlar ≤ 3 bosish; shubha bo‘lsa — olib tashlang. Batafsil: `KENGASH-PROMPT.md` boshida.
 - **Kim kimdan yuqori** (`server/model.py → is_above`): admin → hammasi; viloyat koordinatori → o‘z viloyatidagi tuman va maktablar, o‘z yo‘nalishi (Lider — hammasi); tuman koordinatori → o‘z tumanidagi maktablar, o‘z yo‘nalishi (Lider — hammasi).
 - Kalit: bir martalik, 7 kun, bitta o‘ringa; bazada faqat xeshi. Admin tasdig‘i kerak emas.
 - Telefon raqami faqat yuqoridagilarga va adminga ko‘rinadi.
