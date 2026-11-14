@@ -376,14 +376,14 @@ class _ChannelScreenState extends State<ChannelScreen> {
               pendingKind: 'video',
               upload: () async => [await _chat.uploadFile(cid, 'video', name, f.mimeType ?? mimeOf(name), bytes)]);
         case 'file':
-          final r = await FilePicker.platform.pickFiles(withData: true);
-          final f = r?.files.single;
-          if (f == null || f.bytes == null) return;
-          if (f.size > 20 * 1024 * 1024) {
+          final files = await FilePicker.pickFiles();
+          if (files.isEmpty) return;
+          final f = files.first;
+          if (await f.xFile.length() > 20 * 1024 * 1024) {
             s.toast(s.t('err_too_large'));
             return;
           }
-          final bytes = f.bytes!;
+          final bytes = await f.xFile.readAsBytes();
           _text.clear();
           await _chat.send(cid, s.me!,
               text: caption,
