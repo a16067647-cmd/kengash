@@ -28,38 +28,73 @@ AppColors colorsOf(BuildContext context) => AppScope.of(context).c;
 /// dars boshlanishi/tugashi. Dars savollarida, shakllarda va ustoz jadvallarida — yo‘q.
 /// Живой фон включается только на выбранных экранах (по умолчанию выкл.): главная, курсы, вход,
 /// начало/конец урока. В вопросах урока, формах и таблицах учителя — нет.
+/// Ilovaning yagona harakatlanuvchi foni: barcha sahifalar ostida bitta (sahifa almashsa ham qayta boshlanmaydi).
+/// Ichki sahifalardagi AppBackground global fon bo‘lsa shaffof bo‘ladi.
+/// Единый живой фон приложения: один под всеми страницами (не перезапускается при смене страницы).
+/// Вложенные AppBackground при наличии глобального фона становятся прозрачными.
 class AppBackground extends StatelessWidget {
   final Widget child;
   final bool strong;
   final MotionLevel motion;
-  const AppBackground({super.key, required this.child, this.strong = false, this.motion = MotionLevel.off});
+  final bool global;
+  const AppBackground(
+      {super.key, required this.child, this.strong = false, this.motion = MotionLevel.off, this.global = false});
 
   @override
   Widget build(BuildContext context) {
+    if (!global && context.dependOnInheritedWidgetOfExactType<_GlobalBg>() != null) return child;
     final s = AppScope.of(context);
     final c = s.c;
-    if (!kMotionLab || motion == MotionLevel.off || !s.bgMotion) return ColoredBox(color: c.bg, child: child);
+    final marked = global ? _GlobalBg(child: child) : child;
+    if (!kMotionLab || motion == MotionLevel.off || !s.bgMotion) return ColoredBox(color: c.bg, child: marked);
     final dark = c.isDark;
     return ColoredBox(
       color: c.bg,
       child: Stack(fit: StackFit.passthrough, children: [
         Positioned.fill(
-          child: MotionLayer(
-            level: motion,
-            animate: !s.testMode,
-            // Brend ranglari: qorong‘ida muzdek ko‘k, yorug‘da asosiy ko‘k / бренд: тёмная — ледяной голубой, светлая — основной синий
-            dot: dark ? Color.lerp(c.accentHi, kWhite, 0.55)! : c.accent,
-            accent: dark ? kSky : c.accentHi,
-            link: dark ? c.accentHi : c.accent,
-            dotAlpha: dark ? 0.6 : 0.42,
-            linkGain: dark ? 0.9 : 0.8,
+          child: RepaintBoundary(
+            child: MotionLayer(
+              profile: kKengashMotion,
+              level: motion,
+              animate: !s.testMode,
+              // Brend ranglari: qorong‘ida muzdek ko‘k, yorug‘da asosiy ko‘k / бренд: тёмная — ледяной голубой, светлая — основной синий
+              dot: dark ? Color.lerp(c.accentHi, kWhite, 0.55)! : c.accent,
+              accent: dark ? kSky : kSun,
+              link: dark ? c.accentHi : c.accent,
+              dotAlpha: dark ? 0.75 : 0.6,
+              linkGain: dark ? 1.1 : 1.0,
+            ),
           ),
         ),
-        child,
+        marked,
       ]),
     );
   }
 }
+
+class _GlobalBg extends InheritedWidget {
+  const _GlobalBg({required super.child});
+  @override
+  bool updateShouldNotify(_GlobalBg old) => false;
+}
+
+/// Kengash foni: kattaroq va ko‘proq zarrachalar, aniqroq chiziqlar.
+/// Фон Kengash: крупнее и больше частиц, заметнее связи.
+const MotionProfile kKengashMotion = MotionProfile(
+  id: 'kengash',
+  name: 'Kengash',
+  minCount: 24,
+  maxPhone: 60,
+  maxDesktop: 130,
+  areaPerParticle: 7000,
+  sizeMin: 1.8,
+  sizeMax: 3.8,
+  layerSize: [0.8, 1.05, 1.45],
+  layerAlpha: [0.55, 0.8, 1.0],
+  linkDist: 140,
+  linkAlpha: 0.38,
+  accentShare: 0.14,
+);
 
 // ============================================================ BOSISH / НАЖАТИЕ
 /// Bosilganda yengil kichrayadi (iOS kabi, to‘lqinsiz).
@@ -1247,14 +1282,19 @@ class AppRoute<T> extends PageRouteBuilder<T> {
           transitionDuration: Motion.page,
           reverseTransitionDuration: const Duration(milliseconds: 280),
           pageBuilder: (context, _, __) => builder(context),
-          transitionsBuilder: (context, anim, _, child) {
+          transitionsBuilder: (context, anim, sec, child) {
             if (Motion.reduced(context)) return child;
             final a = CurvedAnimation(parent: anim, curve: Motion.curve, reverseCurve: Curves.easeInCubic);
+            // sahifalar shaffof (umumiy fon) — ostidagi sahifa yumshoq yo‘qoladi
+            // страницы прозрачные (общий фон) — нижняя страница плавно исчезает
             return FadeTransition(
-              opacity: a,
-              child: SlideTransition(
-                position: Tween(begin: const Offset(0, 0.05), end: Offset.zero).animate(a),
-                child: child,
+              opacity: Tween<double>(begin: 1, end: 0).animate(CurvedAnimation(parent: sec, curve: const Interval(0, 0.6))),
+              child: FadeTransition(
+                opacity: a,
+                child: SlideTransition(
+                  position: Tween(begin: const Offset(0, 0.05), end: Offset.zero).animate(a),
+                  child: child,
+                ),
               ),
             );
           },
@@ -1469,7 +1509,7 @@ class PageShell extends StatelessWidget {
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
-        backgroundColor: c.bg,
+        backgroundColor: Colors.transparent, // umumiy fon ko‘rinadi / виден общий фон
         body: SafeArea(
           bottom: false,
           child: Align(

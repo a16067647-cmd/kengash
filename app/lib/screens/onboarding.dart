@@ -143,7 +143,7 @@ class _Centered extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = colorsOf(context);
     return Scaffold(
-      backgroundColor: c.bg,
+      backgroundColor: Colors.transparent,
       body: AppBackground(
         motion: MotionLevel.low,
         child: SafeArea(

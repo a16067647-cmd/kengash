@@ -69,7 +69,8 @@ class _BooksShelfState extends State<BooksShelf> {
         child: ListView.separated(
           key: const ValueKey('books-shelf'),
           scrollDirection: Axis.horizontal,
-          clipBehavior: Clip.none,
+          // kompyuterda qo‘shni ustunga chiqib ketmasin / на компьютере не заходить на соседнюю колонку
+          clipBehavior: isWide(context) ? Clip.hardEdge : Clip.none,
           itemCount: books.length,
           separatorBuilder: (_, __) => const SizedBox(width: S.x3),
           itemBuilder: (_, i) => BookCard(
