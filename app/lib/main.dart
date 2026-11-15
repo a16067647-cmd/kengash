@@ -15,6 +15,7 @@ import 'screens/directory.dart';
 import 'screens/intro.dart';
 import 'screens/onboarding.dart';
 import 'screens/profile.dart';
+import 'screens/rating.dart';
 import 'screens/tasks.dart';
 import 'screens/today.dart';
 import 'state.dart';
@@ -202,6 +203,7 @@ const kMainTabs = ['today', 'channels', 'tasks', 'calendar', 'profile'];
       'tasks' => (Icons.task_alt_rounded, s.t('tab_tasks')),
       'calendar' => (Icons.event_rounded, s.t('tab_calendar')),
       'directory' => (Icons.groups_rounded, s.isStudent ? s.t('my_school') : s.t('directory')),
+      'rating' => (Icons.emoji_events_rounded, s.t('rating')),
       'admin' => (Icons.admin_panel_settings_rounded, s.t('admin')),
       _ => (Icons.person_rounded, s.t('tab_profile')),
     };
@@ -212,6 +214,7 @@ Widget tabBody(String id) => switch (id) {
       'calendar' => const CalendarTab(),
       'profile' => const ProfileTab(),
       'directory' => const DirectoryScreen(),
+      'rating' => const RatingScreen(),
       'admin' => const AdminScreen(),
       _ => const TodayTab(),
     };
@@ -223,7 +226,7 @@ class HomeShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final wide = isWide(context);
-    final tools = ['directory', if (s.isAdmin) 'admin'];
+    final tools = ['directory', if (!s.isStudent) 'rating', if (s.isAdmin) 'admin'];
     var tab = s.tab;
     if (!kMainTabs.contains(tab) && !(wide && tools.contains(tab))) tab = 'today';
     final sel = kMainTabs.contains(tab) ? kMainTabs.indexOf(tab) : 0;

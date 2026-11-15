@@ -487,7 +487,7 @@ class _TaskScreenState extends State<TaskScreen> {
                   color: Colors.transparent,
                   child: InkWell(
                     key: ValueKey('person-${(p['user'] as Map)['id']}'),
-                    onTap: p['status'] == 'new' ? null : () => _openReport(p),
+                    onTap: p['status'] == 'new' && !(overdue && p['can_rate'] == true) ? null : () => _openReport(p),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: S.x4, vertical: S.x3),
                       child: Row(children: [
@@ -504,6 +504,10 @@ class _TaskScreenState extends State<TaskScreen> {
                                 maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.footnote.copyWith(color: c.text2)),
                           ]),
                         ),
+                        if ((p['points'] ?? 0) != 0) ...[
+                          PointsBadge(p['points'] as int),
+                          const SizedBox(width: S.x2),
+                        ],
                         statusPill(s, p['status'] as String, overdue: overdue),
                       ]),
                     ),
@@ -557,6 +561,16 @@ class _TaskScreenState extends State<TaskScreen> {
           ]),
           const SizedBox(height: S.x4),
           _ReportView(comment: p['comment'] as String? ?? '', urls: (p['photo_urls'] as List? ?? []).cast<String>()),
+          if (p['can_rate'] == true) ...[
+            const SizedBox(height: S.x4),
+            RateRow(
+              value: (p['points'] as int?) ?? 0,
+              onChanged: (v) async {
+                await s.api.post('/api/tasks/${widget.taskId}/rate', {'user_id': user['id'], 'value': v});
+                _load();
+              },
+            ),
+          ],
           if (p['status'] == 'submitted') ...[
             const SizedBox(height: S.x4),
             AppButton(s.t('accept'),
@@ -746,5 +760,99 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         ],
       ),
     );
+  }
+}
+
+
+/// Reyting belgisi: +1 yashil, −1 qizil / значок рейтинга.
+class PointsBadge extends StatelessWidget {
+  final int value;
+  const PointsBadge(this.value, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final good = value > 0;
+    final color = good ? const Color(0xFF1F9D55) : const Color(0xFFE5484D);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: R.all(R.pill)),
+      child: Text(good ? '+$value' : '−${-value}', style: AppType.caption.copyWith(color: color, fontWeight: FontWeight.w800)),
+    );
+  }
+}
+
+/// Baho: +1 yoki −1; tanlanganini qayta bosish — olib tashlash. Baho qo‘ymaslik ham mumkin.
+/// Оценка: +1 или −1; повторное нажатие снимает. Можно не оценивать.
+class RateRow extends StatefulWidget {
+  final int value;
+  final Future<void> Function(int value) onChanged;
+  final String? plusLabel;
+  final String? minusLabel;
+  final String keyPrefix;
+  const RateRow({super.key, required this.value, required this.onChanged, this.plusLabel, this.minusLabel, this.keyPrefix = 'rate'});
+
+  @override
+  State<RateRow> createState() => _RateRowState();
+}
+
+class _RateRowState extends State<RateRow> {
+  late int _v = widget.value;
+  bool _busy = false;
+
+  Future<void> _set(int v) async {
+    if (_busy) return;
+    final s = AppScope.read(context);
+    final next = _v == v ? 0 : v;
+    setState(() => _busy = true);
+    try {
+      await widget.onChanged(next);
+      if (mounted) setState(() => _v = next);
+    } on ApiError catch (e) {
+      s.toast(s.errText(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final c = s.c;
+    Widget btn(int v, String label, IconData icon, Color color) {
+      final on = _v == v;
+      return Expanded(
+        child: Pressable(
+          key: ValueKey('${widget.keyPrefix}-${v > 0 ? 'plus' : 'minus'}'),
+          onTap: () => _set(v),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            height: 46,
+            decoration: BoxDecoration(
+              color: on ? color.withValues(alpha: 0.16) : c.surface,
+              borderRadius: R.all(R.lg),
+              border: Border.all(color: on ? color : c.hairlineStrong, width: on ? 1.8 : 1),
+            ),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(icon, size: 20, color: on ? color : c.text2),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(label,
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.bodyStrong.copyWith(color: on ? color : c.text)),
+              ),
+            ]),
+          ),
+        ),
+      );
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(s.t('rate_title'), style: AppType.footnote.copyWith(color: c.text2)),
+      const SizedBox(height: S.x2),
+      Row(children: [
+        btn(1, widget.plusLabel ?? '+1', Icons.thumb_up_alt_rounded, const Color(0xFF1F9D55)),
+        const SizedBox(width: S.x2),
+        btn(-1, widget.minusLabel ?? '−1', Icons.thumb_down_alt_rounded, const Color(0xFFE5484D)),
+      ]),
+    ]);
   }
 }

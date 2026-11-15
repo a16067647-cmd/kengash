@@ -136,13 +136,17 @@ def task_get(tid: str, authorization: Optional[str] = Header(default=None)):
         visible = [r for r in rows if can_review(c, u, t, r)]
         if not mine and not visible:
             err(403, "forbidden")
+        import rating
         paths = []
         people = []
+        giver = t["created_by"] == u["id"] or u["role"] == "admin"
+        pts = rating.points_of(c, "task", tid) if giver else {}
         for r in visible:
             photos = json.loads(r["a_photos"] or "[]")
             paths += photos
             people.append({"user": _mini(c, r["a_user"]), "status": r["a_status"], "comment": r["a_comment"],
-                           "review_note": r["a_note"], "photos": photos, "submitted_at": r["a_sub"]})
+                           "review_note": r["a_note"], "photos": photos, "submitted_at": r["a_sub"],
+                           "can_rate": giver and rating.rated(r), "points": pts.get(r["a_user"], 0)})
         if mine:
             paths += out["my"]["photos"]
         urls = _sign_photos(paths)
@@ -312,8 +316,13 @@ def event_get(eid: str, authorization: Optional[str] = Header(default=None)):
             err(403, "forbidden")
         out = event_json(c, e, u)
         if out["is_organizer"]:
-            rows = c.q("SELECT g.rsvp, g.user_id FROM event_guests g JOIN users u ON u.id=g.user_id WHERE g.event_id=? ORDER BY u.name", (eid,))
-            out["people"] = [{"user": _mini(c, r["user_id"]), "rsvp": r["rsvp"]} for r in rows]
+            import rating
+            rows = c.q("SELECT g.rsvp, g.user_id AS g_user, u.* FROM event_guests g JOIN users u ON u.id=g.user_id "
+                       "WHERE g.event_id=? ORDER BY u.name", (eid,))
+            pts = rating.points_of(c, "event", eid)
+            started = e["starts_at"] <= db.now()
+            out["people"] = [{"user": _mini(c, r["g_user"]), "rsvp": r["rsvp"], "can_mark": started and rating.rated(r),
+                              "came": None if r["g_user"] not in pts else pts[r["g_user"]] > 0} for r in rows]
         return out
 
 

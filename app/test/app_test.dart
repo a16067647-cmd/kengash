@@ -441,6 +441,62 @@ void main() {
     await shot(tester, 'phone-dark-ru-calendar');
   });
 
+  testWidgets('reyting: vazifaga baho, yig‘ilishga davomat, ochiq reyting', (tester) async {
+    final server = FakeServer(me: FakeServer.seated('district', 'it'));
+    await boot(tester, server);
+    // vazifa: +1 qo‘yish, qayta bosish — olib tashlash / задача: +1, повторно — снять
+    await tap(tester, find.byKey(const ValueKey('nav-tasks')));
+    await tap(tester, find.text(tr('uz', 'box_given')));
+    await tap(tester, find.byKey(const ValueKey('task-t1')));
+    await tap(tester, find.byKey(const ValueKey('person-m59it')));
+    await tap(tester, find.byKey(const ValueKey('rate-plus')));
+    expect(server.posts.last['path'], '/api/tasks/t1/rate');
+    expect(server.posts.last['value'], 1);
+    await shot(tester, 'phone-light-uz-10-task-rate');
+    await tap(tester, find.byKey(const ValueKey('rate-plus')));
+    expect(server.posts.last['value'], 0);
+    await tester.tapAt(const Offset(10, 10));
+    await settle(tester);
+    await back(tester);
+
+    // yig‘ilish: keldi / kelmadi
+    await tap(tester, find.byKey(const ValueKey('nav-calendar')));
+    await tap(tester, find.byKey(const ValueKey('event-e1')));
+    expect(find.text(tr('uz', 'attendance')), findsOneWidget);
+    await tap(tester, find.descendant(of: find.byKey(const ValueKey('attend-m59it')), matching: find.byKey(const ValueKey('came'))));
+    expect(server.posts.last['path'], '/api/events/e1/attendance');
+    expect(server.posts.last['came'], true);
+    await shot(tester, 'phone-light-uz-11-attendance');
+    await back(tester);
+
+    // ochiq reyting / открытый рейтинг
+    await tap(tester, find.byKey(const ValueKey('nav-today')));
+    await tap(tester, find.byKey(const ValueKey('quick-rating')));
+    expect(find.byKey(const ValueKey('my-rating')), findsOneWidget);
+    expect(find.text('Karimova Madina'), findsOneWidget);
+    expect(find.text('+7'), findsOneWidget);
+    await shot(tester, 'phone-light-uz-12-rating');
+  });
+
+  testWidgets('o‘quvchi: chatda faqat matn va ovoz, reyting yo‘q', (tester) async {
+    final server = FakeServer(me: FakeServer.student());
+    await boot(tester, server);
+    expect(find.byKey(const ValueKey('quick-rating')), findsNothing);
+    await tap(tester, find.byKey(const ValueKey('nav-channels')));
+    await tap(tester, find.byKey(const ValueKey('ch-school:s59')));
+    expect(find.byKey(const ValueKey('attach')), findsNothing);
+    await shot(tester, 'phone-light-uz-13-student-chat');
+  });
+
+  testWidgets('admin hamma kanallarni ko‘radi', (tester) async {
+    final server = FakeServer(me: FakeServer.admin());
+    await boot(tester, server);
+    await tap(tester, find.byKey(const ValueKey('nav-channels')));
+    expect(find.text('60-maktab chati'), findsOneWidget);
+    expect(find.byKey(const ValueKey('ch-watch')), findsOneWidget);
+    await shot(tester, 'phone-light-uz-14-admin-channels');
+  });
+
   testWidgets('admin shikoyatlarni ko‘radi', (tester) async {
     final server = FakeServer(me: FakeServer.admin());
     await boot(tester, server, size: desktop);

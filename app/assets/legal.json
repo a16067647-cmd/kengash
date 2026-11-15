@@ -63,7 +63,7 @@
         ["Qanday ma’lumot yig‘amiz", [
           "Telegram orqali kirishda: Telegram ID raqamingiz, Telegram foydalanuvchi nomingiz (username) va siz o‘zingiz ulashgan telefon raqamingiz.",
           "Profil: ism-familiyangiz va profil suratingiz (surat 512×512 o‘lchamga keltiriladi, undagi joylashuv kabi qo‘shimcha ma’lumotlar o‘chiriladi).",
-          "Rolingiz va o‘rningiz: maktab, tuman yoki viloyat va yo‘nalish (masalan, «IT va sun’iy intellekt»); o‘quvchilar uchun — maktab va sinf (masalan, 7-B).",
+          "Rolingiz va o‘rningiz: maktab, tuman yoki viloyat va yo‘nalish (masalan, «IT va sun’iy intellekt»); o‘quvchilar uchun — maktab va sinf (masalan, 7-B). Koordinatorlar uchun — reyting ballari (vazifa bahosi va yig‘ilishga kelgan-kelmagani); chorak reytingi barcha koordinatorlarga ko‘rinadi.",
           "Texnik: kirish kaliti (faqat shifrlangan xesh ko‘rinishida), oxirgi kirish vaqti, qoidalarga rozilik sanasi.",
           "Keyingi bosqichlarda: kanallardagi xabar va fayllaringiz, vazifa fotohisobotlari va tadbirlarga javoblaringiz.",
           "Biz joylashuv (GPS), kontaktlar ro‘yxati, reklama identifikatori yoki bank kartasi ma’lumotlarini yig‘maymiz. Ilovada reklama va kuzatuv (tracking) xizmatlari yo‘q."
@@ -99,7 +99,7 @@
         ["Какие данные мы собираем", [
           "При входе через Telegram: ваш Telegram ID, имя пользователя (username) и номер телефона, которым вы сами поделились.",
           "Профиль: имя и фамилия, фото профиля (фото приводится к размеру 512×512, дополнительные данные вроде геолокации из него удаляются).",
-          "Ваша роль и место: школа, район или область и направление (например, «IT и искусственный интеллект»); для учеников — школа и класс (например, 7-Б).",
+          "Ваша роль и место: школа, район или область и направление (например, «IT и искусственный интеллект»); для учеников — школа и класс (например, 7-Б). Для координаторов — баллы рейтинга (оценки за задачи и посещение встреч); квартальный рейтинг виден всем координаторам.",
           "Технические: ключ входа (только в виде хеша), время последнего входа, дата согласия с правилами.",
           "На следующих этапах: ваши сообщения и файлы в каналах, фотоотчёты по задачам и ответы на мероприятия.",
           "Мы не собираем геолокацию (GPS), список контактов, рекламный идентификатор или данные банковских карт. В приложении нет рекламы и сервисов слежения (трекинга)."

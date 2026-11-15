@@ -99,6 +99,13 @@ class TodayTab extends StatelessWidget {
               color: c.accent,
               title: s.isStudent ? s.t('my_school') : s.t('directory'),
               onTap: () => openTool(context, 'directory')),
+          if (!s.isStudent)
+            GroupRow(
+                key: const ValueKey('quick-rating'),
+                icon: Icons.emoji_events_rounded,
+                color: const Color(0xFFFFBB02),
+                title: s.t('rating'),
+                onTap: () => openTool(context, 'rating')),
           if (s.isAdmin)
             GroupRow(
                 key: const ValueKey('quick-admin'),

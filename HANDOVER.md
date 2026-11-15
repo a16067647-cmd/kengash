@@ -11,6 +11,7 @@ To‘liq talablar: [`KENGASH-PROMPT.md`](KENGASH-PROMPT.md). Dizayn asosi: [`IDR
 | 2b | Bildirishnomalar — **Telegram bot orqali** (sozlash shart emas); Firebase ixtiyoriy, keyin | ✅ |
 | 3 | Vazifalar + fotohisobot (qabul/qaytarish), taqvim + «Boraman», «Bugun» xulosasi, eslatmalar | ✅ |
 | 4 | Ro‘yxat faqat @KengashAppBot orqali (ism yoziladi, qolgani tugma), tasdiqlar, maslahatchi va o‘quvchi rollari, kalitlar olib tashlandi | ✅ |
+| 4b | Reyting: vazifa bergan +1/−1 qo‘yadi (yoki qo‘ymaydi), yig‘ilishda keldi +1 / kelmadi −1; ochiq reyting, har chorakda noldan. O‘quvchilar chatda faqat matn va ovoz | ✅ |
 | 5 | To‘lov 5 000 so‘m/oy (Click/Payme) — kod tayyor, `PAYMENTS_ENABLED` o‘chiq | ⏳ (YaTT/MChJ kerak) |
 
 ## Kod xaritasi / карта кода
@@ -24,7 +25,7 @@ app/                      Flutter ilova (Android, iOS, web)
   lib/api.dart            server bilan aloqa
   lib/i18n.dart           uz + ru matnlar (kalitlar bir xil — test tekshiradi)
   lib/chat.dart           kanallar holati, yuborish/yuklash, WebSocket (uzilsa — 20 soniyada yangilash)
-  lib/screens/            auth, onboarding, intro, today, channels, audience, media, directory, profile, admin, legal
+  lib/screens/            auth, onboarding, intro, today, channels, audience, media, directory, rating, profile, admin, legal
   assets/legal.json       Biz haqimizda, Maxfiylik, Shartlar, Cookie, Hisobni o‘chirish (ilova VA sayt uchun yagona manba)
   test/                   ekran testlari (soxta server bilan), skrinshotlar
   tool/setup_platforms.py android/ios papkalarini yaratadi
@@ -36,6 +37,7 @@ server/                   Python (FastAPI) + Postgres (Supabase) / SQLite (lokal
   channels.py             kanallar: avtomatik kanallar (sync_user), auditoriya, xabarlar, fayllar, shikoyatlar, WebSocket
   storage.py              Supabase Storage, yopiq «kengash-media» bucket, imzolangan havolalar
   realtime.py             jonli ulanishlar (xotirada, bitta server)
+  rating.py               reyting: /api/tasks/{id}/rate, /api/events/{id}/attendance, /api/rating (chorak — Toshkent vaqti)
   plan.py                 vazifalar, tadbirlar, /api/today, push ro‘yxati, eslatmalar (har 5 daqiqa)
   push.py                 bildirishnomalar: @KengashAppBot orqali (asosiy, chat — kanal boshiga 10 daqiqada 1 ta) + Firebase (ixtiyoriy)
   core_limits.py          chegaralar: video 50 MB, fayl 20 MB, ovoz 5 daqiqa, 20 xabar/daqiqa
@@ -53,6 +55,7 @@ render.yaml               Render sozlamasi (Starter, ~7$/oy)
   maslahatchi → tuman Lideri; tuman → viloyat Lideri; viloyat → admin.
 - Maslahatchi: o‘z maktabining koordinatorlari va o‘quvchilaridan yuqori. Maktab koordinatori: o‘z maktabi o‘quvchilaridan.
   Tuman va viloyat o‘quvchilarni ko‘rmaydi.
+- Admin hamma kanallarni ko‘radi (a’zo bo‘lmasa ham — 👁 belgisi): o‘zi a’zo bo‘lganlari + xabari bor barcha kanallar; o‘qiydi va yoza oladi.
 - Telefon raqami faqat yuqoridagilarga va adminga ko‘rinadi (o‘quvchiniki — o‘z maktabi koordinatorlari va maslahatchisiga).
 - Admin: `ADMIN_TG_IDS` dagi Telegram ID bilan kirgan odam.
 - Har bir matn uz + ru. Ranglar faqat `theme.dart` dan.

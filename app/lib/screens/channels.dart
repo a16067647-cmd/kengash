@@ -198,6 +198,11 @@ class _ChannelRow extends StatelessWidget {
                         maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.subhead.copyWith(color: c.text2)),
                   ),
                   if (muted) Icon(Icons.notifications_off_rounded, size: 15, color: c.text3),
+                  // admin a’zo emas, faqat kuzatadi / админ не участник, только наблюдает
+                  if (ch['member'] == false)
+                    Tooltip(
+                        message: s.t('ch_watching'),
+                        child: Icon(Icons.visibility_rounded, key: const ValueKey('ch-watch'), size: 16, color: c.text3)),
                   if (unread > 0) ...[
                     const SizedBox(width: S.x2),
                     Container(
@@ -619,7 +624,7 @@ class _ChannelScreenState extends State<ChannelScreen> {
                       _editing = null;
                     }),
                     onSend: _send,
-                    onAttach: _attach,
+                    onAttach: ch['can_media'] == false ? null : _attach,
                     onVoice: _voice,
                   )
                 else if (ch.isNotEmpty)
@@ -865,7 +870,7 @@ class Composer extends StatefulWidget {
   final Json? editing;
   final VoidCallback onCancel;
   final VoidCallback onSend;
-  final VoidCallback onAttach;
+  final VoidCallback? onAttach;
   final Future<void> Function(VoiceClip) onVoice;
   const Composer(
       {super.key,
@@ -875,7 +880,7 @@ class Composer extends StatefulWidget {
       this.editing,
       required this.onCancel,
       required this.onSend,
-      required this.onAttach,
+      this.onAttach,
       required this.onVoice});
 
   @override
@@ -933,7 +938,7 @@ class _ComposerState extends State<Composer> {
           child: VoiceRecorderBar(
             onDone: widget.onVoice,
             idle: (startRecording) => Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              if (widget.editing == null)
+              if (widget.editing == null && widget.onAttach != null)
                 IconButton(
                   key: const ValueKey('attach'),
                   tooltip: s.t('att_send'),
