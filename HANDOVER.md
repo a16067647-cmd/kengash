@@ -41,7 +41,7 @@ server/                   Python (FastAPI) + Postgres (Supabase) / SQLite (lokal
   plan.py                 vazifalar, tadbirlar, /api/today, push ro‘yxati, eslatmalar (har 5 daqiqa)
   push.py                 bildirishnomalar: @KengashAppBot orqali (asosiy, chat — kanal boshiga 10 daqiqada 1 ta) + Firebase (ixtiyoriy)
   core_limits.py          chegaralar: video 50 MB, fayl 20 MB, ovoz 5 daqiqa, 20 xabar/daqiqa
-  seed.py                 Andijon viloyati va 16 tuman/shahar
+  seed.py                 Andijon viloyati, 16 tuman/shahar va 797 davlat maktabi (har tumanda 1..N raqam; bir marta)
   legal.py                ochiq huquqiy sahifalar (GitHub Pages)
   tests/                  server testlari
 render.yaml               Render sozlamasi (Starter, ~7$/oy)

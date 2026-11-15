@@ -47,7 +47,8 @@ TXT = {
     "ask_role": "Siz kimsiz? / Кто вы?",
     "ask_level": "Qaysi darajadagi koordinatorsiz? / Координатор какого уровня?",
     "ask_district": "Tuman yoki shaharni tanlang / Выберите район или город:",
-    "ask_school": "Maktabingizni tanlang (raqami) / Выберите школу (номер):",
+    "ask_school": ("Maktabingizni tanlang (raqami). Ro‘yxatda bo‘lmasa — «Maktabim yo‘q» tugmasi orqali adminga yozing.\n\n"
+                   "Выберите школу (номер). Если её нет в списке — напишите админу кнопкой «Моей школы нет»."),
     "no_schools": ("Bu tumanda maktablar hali qo‘shilmagan. Adminga yozing yoki boshqa tumanni tanlang.\n\n"
                    "В этом районе школы ещё не добавлены. Напишите админу или выберите другой район."),
     "ask_grade": "Nechanchi sinfda o‘qiysiz? / В каком классе вы учитесь?",
@@ -208,15 +209,29 @@ def _district_kb(c):
     return _kb(_grid([_btn(r["name_uz"], f"r:d:{r['id']}") for r in rows], 2))
 
 
+ADMIN_CONTACT = os.environ.get("ADMIN_CONTACT", "behruz_sk")  # zaxira / запасной
+
+
+def admin_url(c):
+    """Admin Telegram havolasi / ссылка на Telegram админа."""
+    a = c.one("SELECT tg_username FROM users WHERE role='admin' AND status='active' AND tg_username<>'' "
+              "ORDER BY created_at LIMIT 1")
+    return f"https://t.me/{(a and a['tg_username']) or ADMIN_CONTACT}"
+
+
+def _no_school_btn(c):
+    return {"text": "🆘 Maktabim yo‘q — adminga yozish / Моей школы нет — написать админу", "url": admin_url(c)}
+
+
 def _school_kb(c, district_id):
     import app as core
-    rows = c.q("SELECT * FROM schools WHERE district_id=? AND hidden=0 ORDER BY number, name LIMIT 96", (district_id,))
+    rows = c.q("SELECT * FROM schools WHERE district_id=? AND hidden=0 ORDER BY number, name LIMIT 200", (district_id,))
     if not rows:
         return None
     btns = [_btn(str(r["number"]) if r["number"] else core.school_names(r)[0][:20], f"r:s:{r['id']}") for r in rows]
     numbered = [b for b, r in zip(btns, rows) if r["number"]]
     named = [b for b, r in zip(btns, rows) if not r["number"]]
-    return _kb(_grid(numbered, 6) + [[b] for b in named] + [[_btn("⬅️ Tuman / Район", "r:back:district")]])
+    return _kb(_grid(numbered, 6) + [[b] for b in named] + [[_no_school_btn(c)], [_btn("⬅️ Tuman / Район", "r:back:district")]])
 
 
 def _grade_kb():
@@ -406,7 +421,9 @@ def _reg_step(c, frm, step, d, data_s, chat):
             return go("direction", TXT["ask_direction"], _direction_kb())
         kb = _school_kb(c, val)
         if not kb:
-            return go("district", TXT["no_schools"] + "\n\n" + TXT["ask_district"], _district_kb(c))
+            kb = _district_kb(c)
+            kb["inline_keyboard"].insert(0, [_no_school_btn(c)])
+            return go("district", TXT["no_schools"] + "\n\n" + TXT["ask_district"], kb)
         return go("school", TXT["ask_school"], kb)
     if act == "s":
         s = c.one("SELECT * FROM schools WHERE id=? AND district_id=?", (val, d.get("district_id")))
