@@ -344,8 +344,15 @@ def channels_list(authorization: Optional[str] = Header(default=None)):
     with db.tx() as c:
         u = core.current_user(c, authorization)
         sync_user(c, u["id"])
-        rows = c.q("SELECT ch.*, cm.role AS m_role FROM channels ch JOIN channel_members cm ON cm.channel_id=ch.id "
-                   "WHERE cm.user_id=? ORDER BY ch.last_msg_at DESC, ch.created_at DESC", (u["id"],))
+        if u["role"] == "admin":
+            # admin hamma kanalni ko‘radi: a’zo bo‘lganlari + xabari bor barcha kanallar (bo‘shlari — juda ko‘p, foydasiz)
+            # админ видит все каналы: свои + все каналы с сообщениями (пустых слишком много, пользы нет)
+            rows = c.q("SELECT ch.* FROM channels ch WHERE ch.msg_seq>0 OR ch.kind='custom' OR EXISTS "
+                       "(SELECT 1 FROM channel_members cm WHERE cm.channel_id=ch.id AND cm.user_id=?) "
+                       "ORDER BY ch.last_msg_at DESC, ch.created_at DESC LIMIT 1000", (u["id"],))
+        else:
+            rows = c.q("SELECT ch.*, cm.role AS m_role FROM channels ch JOIN channel_members cm ON cm.channel_id=ch.id "
+                       "WHERE cm.user_id=? ORDER BY ch.last_msg_at DESC, ch.created_at DESC", (u["id"],))
         out = []
         for ch in rows:
             out.append(channel_json(c, ch, u, member(c, ch["id"], u["id"])))

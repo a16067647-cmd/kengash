@@ -488,6 +488,15 @@ void main() {
     await shot(tester, 'phone-light-uz-13-student-chat');
   });
 
+  testWidgets('admin hamma kanallarni ko‘radi', (tester) async {
+    final server = FakeServer(me: FakeServer.admin());
+    await boot(tester, server);
+    await tap(tester, find.byKey(const ValueKey('nav-channels')));
+    expect(find.text('60-maktab chati'), findsOneWidget);
+    expect(find.byKey(const ValueKey('ch-watch')), findsOneWidget);
+    await shot(tester, 'phone-light-uz-14-admin-channels');
+  });
+
   testWidgets('admin shikoyatlarni ko‘radi', (tester) async {
     final server = FakeServer(me: FakeServer.admin());
     await boot(tester, server, size: desktop);

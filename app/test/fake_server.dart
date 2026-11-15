@@ -85,6 +85,8 @@ class FakeServer {
         ch('c-dd', 'dd:asaka:it', 'Asaka tumani · IT va sun’iy intellekt', 'Асакинский район · IT и искусственный интеллект',
             unread: 5, text: 'Kim tanlovga tayyor?'),
         ch('c-sch', 'school:s59', '59-maktab jamoasi', 'Команда: Школа №59', text: 'Rahmat!'),
+        if (me['role'] == 'admin')
+          {...ch('c-chat', 'chat:s60', '60-maktab chati', 'Чат: Школа №60', text: 'Salom hammaga'), 'member': false},
         ch('c-cu', '', 'IT tanlovi 2026', 'IT tanlovi 2026',
             kind: 'custom', role: 'owner', mode: 'announce', text: 'Ro‘yxat tayyor'),
       ];

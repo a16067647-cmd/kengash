@@ -55,6 +55,7 @@ render.yaml               Render sozlamasi (Starter, ~7$/oy)
   maslahatchi → tuman Lideri; tuman → viloyat Lideri; viloyat → admin.
 - Maslahatchi: o‘z maktabining koordinatorlari va o‘quvchilaridan yuqori. Maktab koordinatori: o‘z maktabi o‘quvchilaridan.
   Tuman va viloyat o‘quvchilarni ko‘rmaydi.
+- Admin hamma kanallarni ko‘radi (a’zo bo‘lmasa ham — 👁 belgisi): o‘zi a’zo bo‘lganlari + xabari bor barcha kanallar; o‘qiydi va yoza oladi.
 - Telefon raqami faqat yuqoridagilarga va adminga ko‘rinadi (o‘quvchiniki — o‘z maktabi koordinatorlari va maslahatchisiga).
 - Admin: `ADMIN_TG_IDS` dagi Telegram ID bilan kirgan odam.
 - Har bir matn uz + ru. Ranglar faqat `theme.dart` dan.

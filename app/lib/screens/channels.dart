@@ -198,6 +198,11 @@ class _ChannelRow extends StatelessWidget {
                         maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.subhead.copyWith(color: c.text2)),
                   ),
                   if (muted) Icon(Icons.notifications_off_rounded, size: 15, color: c.text3),
+                  // admin a’zo emas, faqat kuzatadi / админ не участник, только наблюдает
+                  if (ch['member'] == false)
+                    Tooltip(
+                        message: s.t('ch_watching'),
+                        child: Icon(Icons.visibility_rounded, key: const ValueKey('ch-watch'), size: 16, color: c.text3)),
                   if (unread > 0) ...[
                     const SizedBox(width: S.x2),
                     Container(

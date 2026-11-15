@@ -89,3 +89,17 @@ def test_students_text_only(client, w, monkeypatch):  # noqa: F811
     # koordinator rasm yubora oladi / координатор может фото
     co = {c["auto_key"]: c for c in client.get("/api/channels", headers=w["m1"]).json()["channels"]}
     assert co[f"chat:{w['s1']}"]["can_media"]
+
+
+def test_admin_sees_every_channel(client, w):  # noqa: F811
+    # o‘quvchi chatida xabar bor (oldingi test); admin a’zo emas, lekin ko‘radi va o‘qiydi
+    # в чате учеников есть сообщение; админ не участник, но видит и читает
+    chans = {c["auto_key"]: c for c in client.get("/api/channels", headers=w["admin"]).json()["channels"]}
+    chat = chans[f"chat:{w['s1']}"]
+    assert chat["member"] is False and chat["can_post"]
+    msgs = client.get(f"/api/channels/{chat['id']}/messages", headers=w["admin"]).json()["messages"]
+    assert any(m["text"] == "Salom" for m in msgs)
+    assert client.post(f"/api/channels/{chat['id']}/read", json={}, headers=w["admin"]).status_code == 200
+    # oddiy koordinator boshqa maktab chatini ko‘rmaydi / обычный координатор чужой чат не видит
+    keys = {c["auto_key"] for c in client.get("/api/channels", headers=w["m2"]).json()["channels"]}
+    assert f"chat:{w['s1']}" not in keys

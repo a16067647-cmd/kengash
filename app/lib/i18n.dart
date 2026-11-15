@@ -401,6 +401,7 @@ const Map<String, Map<String, String>> kStrings = {
     'err_text_only': 'O‘quvchilar chatda faqat matn va ovoz yuboradi.',
     'err_too_early': 'Hali erta: muddat yoki tadbir vaqti kelmagan.',
     'err_not_rated': 'Bu odam reytingda qatnashmaydi.',
+    'ch_watching': 'Siz a’zo emassiz — admin sifatida ko‘ryapsiz',
   },
   'ru': {
     'back': 'Назад',
@@ -788,6 +789,7 @@ const Map<String, Map<String, String>> kStrings = {
     'err_text_only': 'Ученики в чате отправляют только текст и голос.',
     'err_too_early': 'Ещё рано: срок или время встречи не наступили.',
     'err_not_rated': 'Этот человек не участвует в рейтинге.',
+    'ch_watching': 'Вы не участник — смотрите как админ',
   },
 };
 
