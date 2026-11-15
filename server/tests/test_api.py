@@ -294,6 +294,7 @@ def test_telegram_registration_flow(client, world, monkeypatch):
     assert "r:d:asaka" in last_kb()
     press("r:d:asaka")
     assert f"r:s:{w['s59']}" in last_kb()
+    assert "t.me/boss" in str(sent[-1][1]["reply_markup"])  # «Maktabim yo‘q» → admin / «Моей школы нет» → админ
     press(f"r:s:{w['s59']}")
     press("r:dir:it")  # band / занято
     assert "band" in sent[-1][1]["text"] and "Maktab59 IT" in sent[-1][1]["text"]
