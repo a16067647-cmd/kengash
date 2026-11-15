@@ -66,8 +66,11 @@ def world(client):
     """Admin, viloyat IT, Asaka IT (tuman), maktab 59 IT, maktab 60 IT, Asaka Lider."""
     admin = login(client, 1, "Admin", "boss")
     assert client.get("/api/me", headers=admin).json()["role"] == "admin"
+    # maktablar boshidan bor (seed: Asaka — 69 ta); mavjudlari qayta qo‘shilmaydi
+    # школы уже есть (seed: Асака — 69); существующие не дублируются
     r = client.post("/api/admin/schools/bulk", json={"district_id": "asaka", "spec": "58-60"}, headers=admin)
-    assert r.json()["added"] == 3
+    assert r.json()["added"] == 0
+    assert client.post("/api/admin/schools/bulk", json={"district_id": "asaka", "spec": "70"}, headers=admin).json()["added"] == 1
     client.post("/api/admin/schools/bulk", json={"district_id": "baliqchi", "spec": "1"}, headers=admin)
     schools = client.get("/api/schools", params={"district_id": "asaka"}, headers=admin).json()["schools"]
     s59 = [s for s in schools if s["number"] == 59][0]["id"]
@@ -334,3 +337,18 @@ def test_telegram_registration_flow(client, world, monkeypatch):
     press("r:ok", who=frm2)
     st = [u for u in client.get("/api/users/search", params={"q": "Toshmatov"}, headers=w["admin"]).json()["users"]][0]
     assert st["status"] == "active" and st["kind"] == "student" and st["class_name"] == "8-V"
+
+
+def test_schools_seeded(client, world):
+    import seed
+    admin = world["admin"]
+    for did, n in seed.SCHOOL_COUNTS.items():
+        nums = {s["number"] for s in client.get("/api/schools", params={"district_id": did}, headers=admin).json()["schools"]}
+        assert set(range(1, n + 1)) <= nums, did
+    assert sum(seed.SCHOOL_COUNTS.values()) == 797  # hujjatdagi JAMI / ИТОГО из документа
+    # qayta ishga tushirish dublikat qilmaydi, admin o‘chirgani qaytmaydi / повтор не дублирует
+    with db.tx() as c:
+        before = c.one("SELECT COUNT(*) AS n FROM schools")["n"]
+    seed.run()
+    with db.tx() as c:
+        assert c.one("SELECT COUNT(*) AS n FROM schools")["n"] == before
