@@ -1,0 +1,26 @@
+# Bepul Render serveri 15 daqiqa jim tursa uxlaydi — birinchi foydalanuvchi ~1 daqiqa kutadi.
+# Har 10 daqiqada bitta yengil so‘rov uni uyg‘oq ushlab turadi (bepul 750 soat/oy — bitta xizmatga yetadi).
+# Бесплатный сервер Render засыпает после 15 минут тишины — первый пользователь ждёт ~1 минуту.
+# Лёгкий запрос раз в 10 минут не даёт ему уснуть (бесплатных 750 ч/мес хватает на один сервис).
+name: Keep server awake
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+permissions: {}
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Ping
+        run: |
+          for i in 1 2 3; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 "$API/api/meta") || true
+            echo "status $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 10
+          done
+          echo "::warning::server did not answer 200"
+        env:
+          API: https://kengash-api.onrender.com
