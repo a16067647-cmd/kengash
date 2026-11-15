@@ -181,8 +181,27 @@ def init():
     with tx() as c:
         for stmt in [s.strip() for s in schema.split(";") if s.strip()]:
             c.x(stmt)
+    migrate()
     import seed
     seed.run()
+
+
+# Yangi ustunlar (eski bazalar uchun) / новые столбцы (для старых баз): (jadval, ustun, tavsif)
+COLUMNS = [
+    ("users", "notify_tg", "INTEGER NOT NULL DEFAULT 1"),
+]
+
+
+def migrate():
+    with tx() as c:
+        for table, col, decl in COLUMNS:
+            if IS_PG:
+                have = c.one("SELECT 1 AS x FROM information_schema.columns WHERE table_name=? AND column_name=? "
+                             "AND table_schema=current_schema()", (table, col))
+            else:
+                have = any(r["name"] == col for r in c.q(f"PRAGMA table_info({table})"))
+            if not have:
+                c.x(f"ALTER TABLE {table} ADD COLUMN {col} {decl}")
 
 
 def close():

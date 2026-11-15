@@ -89,6 +89,23 @@ class ProfileTab extends StatelessWidget {
             onTap: () => _choose(context, s.t('language'), ['uz', 'ru'], ['O‘zbekcha', 'Русский'], s.lang, s.setLang),
           ),
           GroupRow(
+            key: const ValueKey('row-notify'),
+            icon: Icons.notifications_active_rounded,
+            color: const Color(0xFF229ED9),
+            title: s.t('notify_tg'),
+            trailing: Switch.adaptive(
+              value: s.me?['notify_tg'] != false,
+              activeTrackColor: c.accent,
+              onChanged: (v) async {
+                try {
+                  s.setMe(await s.api.post('/api/me/notify', {'telegram': v}));
+                } on ApiError catch (e) {
+                  s.toast(s.errText(e));
+                }
+              },
+            ),
+          ),
+          GroupRow(
             icon: Icons.blur_on_rounded,
             color: const Color(0xFF00A89D),
             title: s.t('bg_motion'),

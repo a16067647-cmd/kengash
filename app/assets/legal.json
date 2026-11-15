@@ -74,7 +74,7 @@
         ["Kimlar ko‘radi", [
           "Ismingiz, suratingiz, o‘rningiz va Telegram havolangiz Kengashdagi barcha koordinatorlarga ko‘rinadi — shunda ular siz bilan bog‘lana oladi.",
           "Telefon raqamingiz faqat sizdan yuqoridagi koordinatorlarga (tuman va viloyat koordinatorlari) va adminga ko‘rinadi.",
-          "Texnik xizmatlar: Render (server), Supabase (ma’lumotlar bazasi va fayllar), Telegram (kirish). Serverlar O‘zbekistondan tashqarida bo‘lishi mumkin."
+          "Texnik xizmatlar: Render (server), Supabase (ma’lumotlar bazasi va fayllar), Telegram (kirish va bildirishnomalar — @KengashAppBot sizga yangi vazifa va xabarlar haqida yozadi; Profil bo‘limida o‘chirish mumkin). Serverlar O‘zbekistondan tashqarida bo‘lishi mumkin."
         ]],
         ["Foydalanuvchilar", [
           "Ilova Kelajak O‘quvchilar Kengashi koordinatorlari (maktab o‘quvchilari) uchun. Ro‘yxatdan faqat yuqoridagi koordinator bergan kalit bilan o‘tiladi."
@@ -110,7 +110,7 @@
         ["Кто видит данные", [
           "Ваши имя, фото, место и ссылка на Telegram видны всем координаторам Kengash — чтобы они могли с вами связаться.",
           "Ваш номер телефона видят только вышестоящие координаторы (района и области) и админ.",
-          "Технические сервисы: Render (сервер), Supabase (база данных и файлы), Telegram (вход). Серверы могут находиться за пределами Узбекистана."
+          "Технические сервисы: Render (сервер), Supabase (база данных и файлы), Telegram (вход и уведомления — @KengashAppBot пишет вам о новых задачах и сообщениях; можно отключить в разделе «Профиль»). Серверы могут находиться за пределами Узбекистана."
         ]],
         ["Пользователи", [
           "Приложение предназначено для координаторов Совета учеников «Kelajak» (школьников). Регистрация возможна только с ключом от вышестоящего координатора."

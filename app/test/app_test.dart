@@ -259,6 +259,7 @@ void main() {
         } else {
           await tap(tester, find.byKey(const ValueKey('nav-profile')));
         }
+        expect(find.byKey(const ValueKey('row-notify')), findsOneWidget);
         await reveal(tester, find.byKey(const ValueKey('row-delete')));
         expect(find.byKey(const ValueKey('row-delete')), findsOneWidget);
         await shot(tester, '$tag-profile');
