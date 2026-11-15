@@ -101,6 +101,14 @@ CREATE TABLE IF NOT EXISTS points (
   value INTEGER NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (kind, ref_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS points_user ON points(user_id, created_at);
+CREATE TABLE IF NOT EXISTS books (
+  direction TEXT PRIMARY KEY, id TEXT NOT NULL, title TEXT NOT NULL, author TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '', month TEXT NOT NULL, cover_path TEXT NOT NULL, pdf_path TEXT NOT NULL,
+  pdf_size BIGINT NOT NULL DEFAULT 0, created_by TEXT NOT NULL, created_at BIGINT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS book_reads (
+  book_id TEXT NOT NULL, user_id TEXT NOT NULL, at BIGINT NOT NULL, PRIMARY KEY (book_id, user_id)
+);
 CREATE TABLE IF NOT EXISTS push_tokens (
   token TEXT PRIMARY KEY, user_id TEXT NOT NULL, platform TEXT NOT NULL DEFAULT '', created_at BIGINT NOT NULL
 );

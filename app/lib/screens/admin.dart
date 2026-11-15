@@ -6,6 +6,7 @@ import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'channels.dart' show MessageBubble, timeLabel;
+import 'books.dart' show AdminBooksScreen;
 import 'directory.dart' show confirmSheet;
 import 'pickers.dart';
 
@@ -26,6 +27,11 @@ class _AdminScreenState extends State<AdminScreen> {
     final s = AppScope.of(context);
     return TabPage(
       title: s.t('admin'),
+      trailing: AppIconButton(Icons.menu_book_rounded,
+          key: const ValueKey('admin-books'),
+          tooltip: s.t('books_title'),
+          color: s.c.accentText,
+          onPressed: () => Navigator.of(context).push(AppRoute(builder: (_) => const AdminBooksScreen()))),
       children: [
         Segmented<String>(
           values: const ['stats', 'users', 'schools', 'reports'],

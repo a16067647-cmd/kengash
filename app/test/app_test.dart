@@ -323,7 +323,8 @@ void main() {
     testWidgets('kanallar $sizeName: ro‘yxat, suhbat, yozish, amallar', (tester) async {
       final server = FakeServer(me: FakeServer.seated('school', 'it'));
       final s = await boot(tester, server, size: size);
-      // «Bugun»dagi kanallar kartasi / карточка каналов на «Сегодня»
+      // «Bugun»dagi kanallar kartasi (Oy kitobi javonidan keyin) / карточка каналов (после полки книг)
+      await reveal(tester, find.byKey(const ValueKey('today-channels')));
       expect(find.byKey(const ValueKey('today-channels')), findsOneWidget);
       expect(find.text('7 ${tr('uz', 'ch_new_msgs')}'), findsOneWidget);
       if (size == phone) {

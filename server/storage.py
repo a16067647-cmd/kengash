@@ -69,10 +69,10 @@ def info(path):
         return None
 
 
-def sign(paths):
+def sign(paths, seconds=SIGN_SECONDS):
     if not paths:
         return {}
-    r = _req("POST", f"/object/sign/{BUCKET}", {"expiresIn": SIGN_SECONDS, "paths": list(paths)})
+    r = _req("POST", f"/object/sign/{BUCKET}", {"expiresIn": seconds, "paths": list(paths)})
     out = {}
     for x in r if isinstance(r, list) else []:
         if x.get("signedURL"):

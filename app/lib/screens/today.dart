@@ -4,6 +4,7 @@ import '../brand.dart';
 import '../main.dart' show openTool;
 import '../api.dart';
 import 'calendar.dart' show EventCard;
+import 'books.dart' show BooksShelf;
 import 'onboarding.dart' show ApprovalsScreen;
 import 'channels.dart' show ChannelIcon, channelTitle, openChannel, previewText;
 import 'tasks.dart' show TaskCard;
@@ -91,6 +92,7 @@ class TodayTab extends StatelessWidget {
           ),
         const _ApprovalsCard(),
         const _TodayPlan(),
+        const BooksShelf(),
         const _ChannelsCard(),
         GroupList([
           GroupRow(

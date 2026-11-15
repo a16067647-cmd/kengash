@@ -292,6 +292,10 @@ class AppState extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------- yordamchilar / помощники
+  /// Kitobda qolgan sahifa / страница, на которой остановились.
+  int bookPage(String id) => _prefs?.getInt('book:$id') ?? 1;
+  void setBookPage(String id, int page) => _prefs?.setInt('book:$id', page);
+
   String errText(Object e) {
     final code = e is ApiError ? e.code : 'conn';
     final k = 'err_$code';

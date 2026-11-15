@@ -12,6 +12,7 @@ To‘liq talablar: [`KENGASH-PROMPT.md`](KENGASH-PROMPT.md). Dizayn asosi: [`IDR
 | 3 | Vazifalar + fotohisobot (qabul/qaytarish), taqvim + «Boraman», «Bugun» xulosasi, eslatmalar | ✅ |
 | 4 | Ro‘yxat faqat @KengashAppBot orqali (ism yoziladi, qolgani tugma), tasdiqlar, maslahatchi va o‘quvchi rollari, kalitlar olib tashlandi | ✅ |
 | 4b | Reyting: vazifa bergan +1/−1 qo‘yadi (yoki qo‘ymaydi), yig‘ilishda keldi +1 / kelmadi −1; ochiq reyting, har chorakda noldan. O‘quvchilar chatda faqat matn va ovoz | ✅ |
+| 4c | Oy kitobi: har yo‘nalishga bitta kitob (admin muqova + PDF qo‘shadi, yangisi eskisini almashtiradi), Bugun’da javon, ilova ichida PDF o‘qish (pdfrx), «O‘qidim» hisoblagichi | ✅ |
 | 5 | To‘lov 5 000 so‘m/oy (Click/Payme) — kod tayyor, `PAYMENTS_ENABLED` o‘chiq | ⏳ (YaTT/MChJ kerak) |
 
 ## Kod xaritasi / карта кода
@@ -25,7 +26,7 @@ app/                      Flutter ilova (Android, iOS, web)
   lib/api.dart            server bilan aloqa
   lib/i18n.dart           uz + ru matnlar (kalitlar bir xil — test tekshiradi)
   lib/chat.dart           kanallar holati, yuborish/yuklash, WebSocket (uzilsa — 20 soniyada yangilash)
-  lib/screens/            auth, onboarding, intro, today, channels, audience, media, directory, rating, profile, admin, legal
+  lib/screens/            auth, onboarding, intro, today, channels, audience, media, directory, rating, books, profile, admin, legal
   assets/legal.json       Biz haqimizda, Maxfiylik, Shartlar, Cookie, Hisobni o‘chirish (ilova VA sayt uchun yagona manba)
   test/                   ekran testlari (soxta server bilan), skrinshotlar
   tool/setup_platforms.py android/ios papkalarini yaratadi
@@ -37,6 +38,7 @@ server/                   Python (FastAPI) + Postgres (Supabase) / SQLite (lokal
   channels.py             kanallar: avtomatik kanallar (sync_user), auditoriya, xabarlar, fayllar, shikoyatlar, WebSocket
   storage.py              Supabase Storage, yopiq «kengash-media» bucket, imzolangan havolalar
   realtime.py             jonli ulanishlar (xotirada, bitta server)
+  books.py                Oy kitobi: /api/books, /api/books/{id}/read, admin: /api/admin/books (PDF ≤ 50 MB, imzolangan yuklash)
   rating.py               reyting: /api/tasks/{id}/rate, /api/events/{id}/attendance, /api/rating (chorak — Toshkent vaqti)
   plan.py                 vazifalar, tadbirlar, /api/today, push ro‘yxati, eslatmalar (har 5 daqiqa)
   push.py                 bildirishnomalar: @KengashAppBot orqali (asosiy, chat — kanal boshiga 10 daqiqada 1 ta) + Firebase (ixtiyoriy)

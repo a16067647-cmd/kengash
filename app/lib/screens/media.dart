@@ -134,34 +134,81 @@ Route<T> _fade<T>(Widget child) => PageRouteBuilder<T>(
     );
 
 // ============================================================ surat / фото
-class PhotoViewer extends StatelessWidget {
+/// To‘liq ekranli surat: markazda, ekranga sig‘adi; chimchilab yoki ikki marta bosib kattalashtirish.
+/// Полноэкранное фото: по центру, вписано в экран; зум щипком или двойным нажатием.
+class PhotoViewer extends StatefulWidget {
   final String url;
   const PhotoViewer({super.key, required this.url});
+
+  @override
+  State<PhotoViewer> createState() => _PhotoViewerState();
+}
+
+class _PhotoViewerState extends State<PhotoViewer> {
+  final _tc = TransformationController();
+  TapDownDetails? _tap;
+
+  @override
+  void dispose() {
+    _tc.dispose();
+    super.dispose();
+  }
+
+  void _toggleZoom() {
+    if (_tc.value.getMaxScaleOnAxis() > 1.01) {
+      _tc.value = Matrix4.identity();
+      return;
+    }
+    final p = _tap?.localPosition ?? Offset.zero;
+    const z = 2.5;
+    _tc.value = Matrix4.identity()
+      ..translateByDouble(-p.dx * (z - 1), -p.dy * (z - 1), 0, 1)
+      ..scaleByDouble(z, z, 1, 1);
+  }
 
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(children: [
-        Positioned.fill(
+      // fit: expand — rasm butun ekranni egallaydi (avval tugmalar qatori balandligida qolardi)
+      // fit: expand — фото занимает весь экран (раньше сжималось до высоты строки кнопок)
+      body: Stack(fit: StackFit.expand, children: [
+        GestureDetector(
+          onDoubleTapDown: (d) => _tap = d,
+          onDoubleTap: _toggleZoom,
           child: InteractiveViewer(
+            key: const ValueKey('photo-zoom'),
+            transformationController: _tc,
+            minScale: 1,
             maxScale: 5,
-            child: Center(child: Image.network(url, fit: BoxFit.contain)),
+            child: SizedBox.expand(
+              child: Image.network(
+                widget.url,
+                key: const ValueKey('photo-full'),
+                fit: BoxFit.contain,
+                loadingBuilder: (_, child, p) =>
+                    p == null ? child : const Center(child: CircularProgressIndicator(color: kWhite, strokeWidth: 2)),
+                errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image_rounded, color: Colors.white54, size: 48)),
+              ),
+            ),
           ),
         ),
-        SafeArea(
-          child: Row(children: [
-            IconButton(
-                tooltip: s.t('back'),
-                icon: const Icon(Icons.close_rounded, color: kWhite, size: 28),
-                onPressed: () => Navigator.of(context).pop()),
-            const Spacer(),
-            IconButton(
-                tooltip: s.t('download'),
-                icon: const Icon(Icons.download_rounded, color: kWhite, size: 26),
-                onPressed: () => s.openUrl(url)),
-          ]),
+        Align(
+          alignment: Alignment.topCenter,
+          child: SafeArea(
+            child: Row(children: [
+              IconButton(
+                  tooltip: s.t('back'),
+                  icon: const Icon(Icons.close_rounded, color: kWhite, size: 28),
+                  onPressed: () => Navigator.of(context).pop()),
+              const Spacer(),
+              IconButton(
+                  tooltip: s.t('download'),
+                  icon: const Icon(Icons.download_rounded, color: kWhite, size: 26),
+                  onPressed: () => s.openUrl(widget.url)),
+            ]),
+          ),
         ),
       ]),
     );

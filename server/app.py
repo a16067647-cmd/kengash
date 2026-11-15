@@ -804,6 +804,9 @@ app.include_router(plan.router)
 import rating  # noqa: E402
 
 app.include_router(rating.router)
+import books  # noqa: E402
+
+app.include_router(books.router)
 
 
 if __name__ == "__main__":
