@@ -16,6 +16,7 @@ from fastapi import APIRouter, Header, Request, WebSocket, WebSocketDisconnect
 import app as core
 import db
 import model
+import push
 import realtime
 import storage
 from core_limits import (EDIT_SECONDS, FILE_MAX, MAX_TEXT, MSG_PER_MIN, PHOTO_IN_MAX, UPLOADS_PER_HOUR, VIDEO_MAX,
@@ -119,7 +120,15 @@ def remove_user(c, uid):
     c.x("DELETE FROM messages WHERE user_id=?", (uid,))
     c.x("DELETE FROM channel_members WHERE user_id=?", (uid,))
     c.x("DELETE FROM reports WHERE reporter_id=?", (uid,))
+    for r in c.q("SELECT photos FROM task_assignees WHERE user_id=?", (uid,)):
+        paths += json.loads(r["photos"] or "[]")
+    c.x("DELETE FROM task_assignees WHERE user_id=?", (uid,))
+    c.x("DELETE FROM event_guests WHERE user_id=?", (uid,))
+    c.x("DELETE FROM push_tokens WHERE user_id=?", (uid,))
     admin = c.one("SELECT id FROM users WHERE role='admin' AND id<>? ORDER BY created_at LIMIT 1", (uid,))
+    if admin:
+        c.x("UPDATE tasks SET created_by=? WHERE created_by=?", (admin["id"], uid))
+        c.x("UPDATE events SET created_by=? WHERE created_by=?", (admin["id"], uid))
     for ch in c.q("SELECT id FROM channels WHERE kind='custom' AND created_by=?", (uid,)):
         if admin:
             c.x("UPDATE channels SET created_by=? WHERE id=?", (admin["id"], ch["id"]))
@@ -147,22 +156,23 @@ def can_create(u):
     return u["role"] == "admin" or (u["status"] == "active" and u.get("level") in ("district", "region"))
 
 
-def can_add(c, actor, target):
-    """Kanalga qo‘sha oladimi / может ли добавить в канал."""
+def can_add(c, actor, target, peers=True):
+    """Kanalga qo‘sha oladimi (peers=False — faqat pastdagilar: vazifa, tadbir).
+    Может ли добавить (peers=False — только нижестоящих: задачи, мероприятия)."""
     if actor["role"] == "admin":
         return True
     if not target.get("level"):
         return False
     if is_above(c, actor, target["level"], target["place_id"], target["direction"]):
         return True
-    if target["level"] == actor["level"]:
+    if peers and target["level"] == actor["level"]:
         a = model.place_chain(c, actor["level"], actor["place_id"]) or {}
         b = model.place_chain(c, target["level"], target["place_id"]) or {}
         return a.get("region") == b.get("region")
     return False
 
 
-def resolve_audience(c, actor, items, user_ids=()):
+def resolve_audience(c, actor, items, user_ids=(), peers=True):
     """Guruh tanlovi → foydalanuvchilar (faqat ruxsat etilganlar) / выбор групп → пользователи (только разрешённые).
     item: {level, district_ids?: [..], school_ids?: [..], directions?: [..]}"""
     found = {}
@@ -187,11 +197,11 @@ def resolve_audience(c, actor, items, user_ids=()):
             where.append("u.place_id IN (%s)" % ",".join("?" * len(dids)))
             params += dids
         for u in c.q(f"SELECT u.* FROM users u WHERE {' AND '.join(where)} LIMIT 5000", params):
-            if can_add(c, actor, u):
+            if can_add(c, actor, u, peers):
                 found[u["id"]] = u
     for uid in list(user_ids or [])[:200]:
         u = c.one("SELECT * FROM users WHERE id=? AND status='active'", (str(uid),))
-        if u and can_add(c, actor, u):
+        if u and can_add(c, actor, u, peers):
             found[u["id"]] = u
     found.pop(actor["id"], None)
     return list(found.values())
@@ -531,7 +541,14 @@ async def message_send(cid: str, request: Request, authorization: Optional[str] 
         result = messages_json(c, [row])[0]
         event = _msg_event(c, "message.new", row)
         ids = member_ids(c, cid)
+        quiet = {r["user_id"] for r in c.q("SELECT user_id FROM channel_members WHERE channel_id=? AND muted=1", (cid,))}
     realtime.send(ids, event)
+    # Push: ilova ochiq bo‘lmaganlarga / тем, у кого приложение не открыто
+    targets = [x for x in ids if x != u["id"] and x not in quiet and not realtime.online(x)]
+    if targets:
+        kind = {"photo": "📷", "video": "🎬", "voice": "🎤", "file": "📎"}.get(atts[0]["kind"], "") if atts else ""
+        push.send(targets, ch["title_uz"], f"{u['name']}: {kind} {text}".strip()[:200],
+                  {"type": "message", "channel_id": cid})
     return result
 
 

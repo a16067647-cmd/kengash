@@ -9,12 +9,14 @@ import 'config.dart';
 import 'motion_lab.dart' show MotionLevel;
 import 'screens/admin.dart';
 import 'screens/auth.dart';
+import 'screens/calendar.dart';
 import 'screens/channels.dart';
 import 'screens/directory.dart';
 import 'screens/intro.dart';
 import 'screens/keys.dart';
 import 'screens/onboarding.dart';
 import 'screens/profile.dart';
+import 'screens/tasks.dart';
 import 'screens/today.dart';
 import 'state.dart';
 import 'theme.dart';
@@ -190,9 +192,8 @@ class _WakeHintState extends State<_WakeHint> {
 }
 
 /// Bo‘limlar / разделы.
-/// Faqat ishlaydigan bo‘limlar ko‘rinadi (soddalik). Vazifalar va taqvim 3-bosqichda qo‘shiladi.
-/// Видны только работающие разделы (простота). Задачи и календарь добавятся на 3-м этапе.
-const kMainTabs = ['today', 'channels', 'profile'];
+/// Faqat ishlaydigan bo‘limlar ko‘rinadi (soddalik) / видны только работающие разделы (простота).
+const kMainTabs = ['today', 'channels', 'tasks', 'calendar', 'profile'];
 
 (IconData, String) tabMeta(AppState s, String id) => switch (id) {
       'today' => (Icons.wb_sunny_rounded, s.t('tab_today')),

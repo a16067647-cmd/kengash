@@ -8,8 +8,8 @@ To‘liq talablar: [`KENGASH-PROMPT.md`](KENGASH-PROMPT.md). Dizayn asosi: [`IDR
 |---|---|---|
 | 1 | Telegram orqali kirish, kalitlar, profil, koordinatorlar, admin paneli, huquqiy sahifalar, ochilish animatsiyasi | ✅ ishlamoqda |
 | 2 | Kanallar: avtomatik + yaratiladigan, matn, surat, video, fayl, ovozli xabar, javob, tahrir, mahkamlash, shikoyat, jonli yangilanish | ✅ |
-| 2b | Push-bildirishnomalar (Firebase) | ⏳ Firebase loyihasi kerak |
-| 3 | Vazifalar + fotohisobot, taqvim, «Bugun» | ⏳ |
+| 2b | Push-bildirishnomalar (Firebase) | 🔧 server tayyor (`push.py`); ilova qismi Firebase sozlamalari kelgach |
+| 3 | Vazifalar + fotohisobot (qabul/qaytarish), taqvim + «Boraman», «Bugun» xulosasi, eslatmalar | ✅ |
 | 4 | To‘lov (Click/Payme), promo-kod, QR | ⏳ (YaTT/MChJ kerak) |
 
 ## Kod xaritasi / карта кода
@@ -34,6 +34,8 @@ server/                   Python (FastAPI) + Postgres (Supabase) / SQLite (lokal
   channels.py             kanallar: avtomatik kanallar (sync_user), auditoriya, xabarlar, fayllar, shikoyatlar, WebSocket
   storage.py              Supabase Storage, yopiq «kengash-media» bucket, imzolangan havolalar
   realtime.py             jonli ulanishlar (xotirada, bitta server)
+  plan.py                 vazifalar, tadbirlar, /api/today, push ro‘yxati, eslatmalar (har 5 daqiqa)
+  push.py                 Firebase Cloud Messaging (FIREBASE_SERVICE_ACCOUNT bo‘lmasa — jim)
   core_limits.py          chegaralar: video 50 MB, fayl 20 MB, ovoz 5 daqiqa, 20 xabar/daqiqa
   seed.py                 Andijon viloyati va 16 tuman/shahar
   legal.py                ochiq huquqiy sahifalar (GitHub Pages)

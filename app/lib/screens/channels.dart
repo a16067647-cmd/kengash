@@ -1294,7 +1294,7 @@ class ModePicker extends StatelessWidget {
 // ============================================================ yangi kanal / новый канал
 /// O‘rniga mos tayyor a’zolar guruhlari (eng ko‘p ishlatiladigani birinchi).
 /// Готовые группы участников по месту (самая частая — первой).
-List<(String, String, AudiencePick)> channelPresets(AppState s) {
+List<(String, String, AudiencePick)> channelPresets(AppState s, {bool below = false}) {
   final me = s.me ?? const {};
   final lvl = me['level'] as String?;
   final pid = me['place_id'] as String?;
@@ -1333,14 +1333,15 @@ List<(String, String, AudiencePick)> channelPresets(AppState s) {
         })
       ));
     }
-    out.add((
-      'd-team',
-      s.t('preset_d_team'),
-      g({
-        'level': 'district',
-        'district_ids': [pid]
-      })
-    ));
+    if (!below)
+      out.add((
+        'd-team',
+        s.t('preset_d_team'),
+        g({
+          'level': 'district',
+          'district_ids': [pid]
+        })
+      ));
   } else if (lvl == 'region' || s.isAdmin) {
     if (lider) {
       out.add(('r-districts', s.t('preset_r_districts_all'), g({'level': 'district'})));
@@ -1370,17 +1371,17 @@ List<(String, String, AudiencePick)> channelPresets(AppState s) {
         })
       ));
     }
-    out.add(('r-team', s.t('preset_r_team'), g({'level': 'region'})));
+    if (!below) out.add(('r-team', s.t('preset_r_team'), g({'level': 'region'})));
   }
   return out;
 }
 
-class _PresetTile extends StatelessWidget {
+class PresetTile extends StatelessWidget {
   final String title;
   final bool selected;
   final IconData icon;
   final VoidCallback onTap;
-  const _PresetTile(
+  const PresetTile(
       {super.key, required this.title, required this.selected, required this.onTap, this.icon = Icons.groups_rounded});
 
   @override
@@ -1527,7 +1528,7 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
           ModePicker(value: _mode, onChanged: (v) => setState(() => _mode = v)),
           SectionHeader(s.t('ch_who')),
           for (final p in presets)
-            _PresetTile(
+            PresetTile(
               key: ValueKey('preset-${p.$1}'),
               title: p.$2,
               selected: _preset == p.$1,
@@ -1536,7 +1537,7 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
                 _audience = p.$3;
               }),
             ),
-          _PresetTile(
+          PresetTile(
             key: const ValueKey('preset-custom'),
             title: _preset == 'custom' && _audience != null && !_audience!.isEmpty ? _audience!.label(s) : s.t('preset_custom'),
             icon: Icons.tune_rounded,

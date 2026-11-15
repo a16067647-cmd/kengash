@@ -14,6 +14,7 @@ _tmp = tempfile.mkdtemp()
 os.environ["KENGASH_DB"] = os.path.join(_tmp, "test.db")
 os.environ["DEV_LOGIN"] = "1"
 os.environ["ADMIN_TG_IDS"] = "1"
+os.environ["REMINDERS"] = "0"
 os.environ.pop("DATABASE_URL", None)
 
 from fastapi.testclient import TestClient  # noqa: E402

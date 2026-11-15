@@ -49,6 +49,9 @@ async def lifespan(_app):
     telegram.setup_webhook()
     import storage
     threading.Thread(target=storage.ensure_bucket, daemon=True).start()
+    if os.environ.get("REMINDERS", "1") == "1":
+        import plan
+        plan.start_reminder_loop()
     yield
     db.close()
 
@@ -819,6 +822,9 @@ def admin_stats(authorization: Optional[str] = Header(default=None)):
 import channels  # noqa: E402  (oxirida: app yordamchilaridan foydalanadi / в конце: использует помощники app)
 
 app.include_router(channels.router)
+import plan  # noqa: E402
+
+app.include_router(plan.router)
 
 
 if __name__ == "__main__":

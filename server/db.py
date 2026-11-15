@@ -77,6 +77,29 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS messages_seq ON messages(channel_id, seq);
 CREATE INDEX IF NOT EXISTS messages_user ON messages(user_id);
+CREATE TABLE IF NOT EXISTS tasks (
+  id TEXT PRIMARY KEY, created_by TEXT NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+  deadline BIGINT NOT NULL, photo_required INTEGER NOT NULL DEFAULT 1, created_at BIGINT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS task_assignees (
+  task_id TEXT NOT NULL, user_id TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'new', comment TEXT NOT NULL DEFAULT '',
+  photos TEXT NOT NULL DEFAULT '[]', review_note TEXT NOT NULL DEFAULT '', submitted_at BIGINT NOT NULL DEFAULT 0,
+  reviewed_at BIGINT NOT NULL DEFAULT 0, PRIMARY KEY (task_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS task_assignees_user ON task_assignees(user_id);
+CREATE TABLE IF NOT EXISTS events (
+  id TEXT PRIMARY KEY, created_by TEXT NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+  place TEXT NOT NULL DEFAULT '', starts_at BIGINT NOT NULL, ends_at BIGINT NOT NULL DEFAULT 0, created_at BIGINT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS event_guests (
+  event_id TEXT NOT NULL, user_id TEXT NOT NULL, rsvp TEXT NOT NULL DEFAULT '', PRIMARY KEY (event_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS event_guests_user ON event_guests(user_id);
+CREATE TABLE IF NOT EXISTS push_tokens (
+  token TEXT PRIMARY KEY, user_id TEXT NOT NULL, platform TEXT NOT NULL DEFAULT '', created_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS push_tokens_user ON push_tokens(user_id);
+CREATE TABLE IF NOT EXISTS sent_once (k TEXT PRIMARY KEY, at BIGINT NOT NULL);
 CREATE TABLE IF NOT EXISTS reports (
   id TEXT PRIMARY KEY, message_id TEXT NOT NULL, channel_id TEXT NOT NULL, reporter_id TEXT NOT NULL,
   reason TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', created_at BIGINT NOT NULL, status TEXT NOT NULL DEFAULT 'open'

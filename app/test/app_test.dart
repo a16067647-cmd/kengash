@@ -88,7 +88,10 @@ Future<void> tap(WidgetTester tester, Finder f) async {
     fail('Topilmadi: $f\nEkranda: $texts');
   }
   await tester.ensureVisible(f.first);
-  await tester.pump();
+  // aylantirish tugashini kutamiz / ждём окончания прокрутки
+  for (var i = 0; i < 4; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
   await tester.tap(f.first);
   await settle(tester);
 }
@@ -270,10 +273,9 @@ void main() {
 
         // bo‘sh bo‘limlar / пустые разделы
         if (!wide) {
-          // faqat ishlaydigan bo‘limlar / только работающие разделы
-          expect(find.byKey(const ValueKey('nav-tasks')), findsNothing);
-          expect(find.byKey(const ValueKey('nav-calendar')), findsNothing);
-          await tap(tester, find.byKey(const ValueKey('nav-channels')));
+          for (final t in ['channels', 'tasks', 'calendar']) {
+            await tap(tester, find.byKey(ValueKey('nav-$t')));
+          }
           await shot(tester, '$tag-calendar');
         }
       });
@@ -363,6 +365,63 @@ void main() {
     ]);
     expect(server.calls.where((c) => c == 'POST /api/channels').length, 1);
     await shot(tester, 'phone-dark-ru-new-channel-chat');
+  });
+
+  testWidgets('maktab koordinatori: bugungi vazifa, hisobot, tadbir', (tester) async {
+    final server = FakeServer(me: FakeServer.seated('school', 'it'));
+    await boot(tester, server);
+    expect(find.text('Robototexnika to‘garagi hisoboti'), findsOneWidget);
+    expect(find.text('IT koordinatorlar uchrashuvi'), findsOneWidget);
+    await shot(tester, 'phone-light-uz-today-plan');
+    await tap(tester, find.byKey(const ValueKey('task-t1')));
+    expect(find.byKey(const ValueKey('task-submit')), findsOneWidget);
+    expect(find.byKey(const ValueKey('review-accept')), findsNothing);
+    await shot(tester, 'phone-light-uz-task');
+    await tester.enterText(find.byKey(const ValueKey('report-comment')).first, '15 o‘quvchi qatnashdi');
+    await tap(tester, find.byKey(const ValueKey('task-submit')));
+    expect(server.posts.last['path'], '/api/tasks/t1/submit');
+    expect(server.posts.last['comment'], '15 o‘quvchi qatnashdi');
+    await back(tester);
+    await tap(tester, find.byKey(const ValueKey('nav-calendar')));
+    expect(find.byKey(const ValueKey('new-event')), findsNothing);
+    await tap(tester, find.byKey(const ValueKey('event-e1')));
+    await tap(tester, find.byKey(const ValueKey('rsvp-yes')));
+    expect(server.rsvp, 'yes');
+    await shot(tester, 'phone-light-uz-event');
+  });
+
+  testWidgets('tuman koordinatori vazifa beradi va hisobotni ko‘radi', (tester) async {
+    final server = FakeServer(me: FakeServer.seated('district', 'it'));
+    await boot(tester, server, theme: 'dark', lang: 'ru');
+    expect(find.byKey(const ValueKey('today-review')), findsOneWidget);
+    await tap(tester, find.byKey(const ValueKey('nav-tasks')));
+    await tap(tester, find.byKey(const ValueKey('new-task')));
+    await tester.enterText(find.byKey(const ValueKey('task-title')).first, 'Hisobot yuboring');
+    await tap(tester, find.byKey(const ValueKey('when-1')));
+    expect(find.byKey(const ValueKey('preset-d-team')), findsNothing); // vazifa faqat pastdagilarga
+    await shot(tester, 'phone-dark-ru-task-create');
+    await tap(tester, find.byKey(const ValueKey('task-create')));
+    final p = server.posts.last;
+    expect(p['title'], 'Hisobot yuboring');
+    expect(p['audience'], [
+      {'level': 'school', 'district_ids': ['asaka'], 'directions': ['it']}
+    ]);
+    expect(p['deadline'] as int, greaterThan(DateTime.now().millisecondsSinceEpoch ~/ 1000));
+    await tap(tester, find.byKey(const ValueKey('task-t1')));
+    expect(find.text('41 / 62'), findsOneWidget);
+    await shot(tester, 'phone-dark-ru-task-progress');
+    await tap(tester, find.byKey(const ValueKey('person-m59it')));
+    await tap(tester, find.byKey(const ValueKey('review-accept')));
+    expect(server.posts.last['path'], '/api/tasks/t1/review');
+    expect(server.posts.last['action'], 'accept');
+    await back(tester);
+    await tap(tester, find.byKey(const ValueKey('nav-calendar')));
+    await tap(tester, find.byKey(const ValueKey('new-event')));
+    await tester.enterText(find.byKey(const ValueKey('event-title')).first, 'Uchrashuv');
+    await tap(tester, find.byKey(const ValueKey('when-2')));
+    await tap(tester, find.byKey(const ValueKey('event-create')));
+    expect(server.posts.last['path'], '/api/events');
+    await shot(tester, 'phone-dark-ru-calendar');
   });
 
   testWidgets('admin shikoyatlarni ko‘radi', (tester) async {

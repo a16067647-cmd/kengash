@@ -61,6 +61,8 @@ class AppState extends ChangeNotifier {
   List<Json> regions = [];
   String bot = 'KengashAppBot';
   String tab = 'today';
+  String tasksBox = 'mine';
+  int todayVersion = 0;
 
   bool get loggedIn => me != null;
   bool get isAdmin => me?['role'] == 'admin';
