@@ -100,14 +100,18 @@ async def book_save(request: Request, authorization: Optional[str] = Header(defa
     if len(title) < 2:
         err(400, "bad_title")
     pdf_path = str(b.get("pdf_path") or "")
-    if not pdf_path.startswith("books/") or ".." in pdf_path or not pdf_path.endswith(".pdf"):
-        err(400, "bad_attachment")
     raw = str(b.get("cover") or "")
     if "," in raw[:80]:
         raw = raw.split(",", 1)[1]
+    if pdf_path and (not pdf_path.startswith("books/") or ".." in pdf_path or not pdf_path.endswith(".pdf")):
+        err(400, "bad_attachment")
     with db.tx() as c:
         u = core.current_user(c, authorization)
         core.need_admin(u)
+        if b.get("edit"):
+            return await _edit(c, direction, title, b, raw, pdf_path)
+    if not pdf_path:
+        err(400, "bad_attachment")
     try:
         jpg = await asyncio.to_thread(process_cover, base64.b64decode(raw, validate=False))
     except Exception:
@@ -131,6 +135,33 @@ async def book_save(request: Request, authorization: Optional[str] = Header(defa
              clean(b.get("month"), 30), cover_path, pdf_path, size or 0, u["id"], db.now()))
     storage.remove([p for p in old_paths if p])
     return {"ok": True, "id": bid}
+
+
+async def _edit(c, direction, title, b, raw, pdf_path):
+    """Xatoni tuzatish: id va «O‘qidim»lar saqlanadi; yangi muqova/PDF bo‘lsa — almashtiriladi.
+    Исправление ошибки: id и отметки сохраняются; новая обложка/PDF заменяют старые."""
+    old = c.one("SELECT * FROM books WHERE direction=?", (direction,))
+    if not old:
+        err(404, "not_found")
+    cover_path, size, drop = old["cover_path"], old["pdf_size"], []
+    if raw:
+        try:
+            jpg = await asyncio.to_thread(process_cover, base64.b64decode(raw, validate=False))
+        except Exception:
+            err(400, "bad_photo")
+        cover_path = f"books/{core.new_id()}-cover.jpg"
+        await asyncio.to_thread(storage.put, cover_path, jpg, "image/jpeg")
+        drop.append(old["cover_path"])
+    if pdf_path:
+        size = (await asyncio.to_thread(storage.info, pdf_path) if storage.enabled() else 0)
+        if size is None:
+            err(400, "upload_failed")
+        drop.append(old["pdf_path"])
+    c.x("UPDATE books SET title=?, author=?, description=?, month=?, cover_path=?, pdf_path=?, pdf_size=? WHERE direction=?",
+        (title, clean(b.get("author"), 120), str(b.get("description") or "").strip()[:600], clean(b.get("month"), 30),
+         cover_path, pdf_path or old["pdf_path"], size or 0, direction))
+    storage.remove(drop)
+    return {"ok": True, "id": old["id"]}
 
 
 @router.post("/api/admin/books/{direction}/delete")

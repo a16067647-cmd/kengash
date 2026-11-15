@@ -169,6 +169,7 @@ def _delete_channel(c, cid):
     c.x("DELETE FROM messages WHERE channel_id=?", (cid,))
     c.x("DELETE FROM channel_members WHERE channel_id=?", (cid,))
     c.x("DELETE FROM reports WHERE channel_id=?", (cid,))
+    c.x("DELETE FROM photos WHERE user_id=?", ("ch:" + cid,))
     c.x("DELETE FROM channels WHERE id=?", (cid,))
     return paths
 
@@ -290,6 +291,7 @@ def channel_json(c, ch, u, m):
     return {
         "id": ch["id"], "kind": ch["kind"], "auto_key": ch["auto_key"], "title_uz": ch["title_uz"], "title_ru": ch["title_ru"],
         "description": ch["description"], "icon": ch["icon"], "mode": ch["mode"], "members": count,
+        "photo": f"/api/chphoto/{ch['id']}/{ch['photo_ver']}.jpg" if ch.get("photo_ver") else "",
         "created_by": ch["created_by"], "last_msg_at": ch["last_msg_at"], "seq": ch["msg_seq"],
         "unread": max(0, ch["msg_seq"] - (m["last_read"] if m else ch["msg_seq"])),
         "muted": bool(m and m["muted"]), "role": m["role"] if m else None, "member": m is not None,
@@ -430,6 +432,36 @@ async def channel_update(cid: str, request: Request, authorization: Optional[str
         ids = member_ids(c, cid)
     realtime.send(ids, {"type": "channel.update", "channel_id": cid})
     return {"ok": True}
+
+
+@router.post("/api/channels/{cid}/avatar")
+async def channel_avatar(cid: str, request: Request, authorization: Optional[str] = Header(default=None)):
+    """Kanal surati (kvadrat 512 px) yoki {remove: true} / фото канала или удаление."""
+    import secrets
+    b = await request.json()
+    raw = str(b.get("data") or "")
+    if "," in raw[:80]:
+        raw = raw.split(",", 1)[1]
+    jpg = None
+    if not b.get("remove"):
+        try:
+            jpg = await asyncio.to_thread(core.process_photo, base64.b64decode(raw, validate=False))
+        except Exception:
+            err(400, "bad_photo")
+    with db.tx() as c:
+        u = core.current_user(c, authorization)
+        ch, m = access(c, cid, u)
+        if ch["kind"] != "custom" or not is_mod(ch, m, u):
+            err(403, "forbidden")
+        c.x("DELETE FROM photos WHERE user_id=?", ("ch:" + cid,))
+        ver = ""
+        if jpg:
+            ver = secrets.token_hex(12)
+            c.x("INSERT INTO photos (user_id, data) VALUES (?, ?)", ("ch:" + cid, jpg))
+        c.x("UPDATE channels SET photo_ver=? WHERE id=?", (ver, cid))
+        ids = member_ids(c, cid)
+    realtime.send(ids, {"type": "channel.update", "channel_id": cid})
+    return {"ok": True, "photo": f"/api/chphoto/{cid}/{ver}.jpg" if ver else ""}
 
 
 @router.post("/api/channels/{cid}/members/add")
@@ -775,11 +807,25 @@ def admin_reports(status: str = "open", authorization: Optional[str] = Header(de
         rows = c.q("SELECT * FROM reports WHERE status=? ORDER BY created_at DESC LIMIT 200",
                    ("open" if status == "open" else "done",))
         out = []
+        fb_paths = [r["photo_path"] for r in rows if r.get("kind") == "feedback" and r.get("photo_path")]
+        urls = {}
+        if fb_paths and storage.enabled():
+            try:
+                urls = storage.sign(fb_paths)
+            except Exception:
+                urls = {}
         for r in rows:
+            if r.get("kind") == "feedback":
+                rep = c.one("SELECT * FROM users WHERE id=?", (r["reporter_id"],))
+                out.append({"id": r["id"], "kind": "feedback", "reason": r["reason"], "note": r["note"],
+                            "created_at": r["created_at"], "status": r["status"], "reply": r.get("reply") or "",
+                            "photo_url": urls.get(r["photo_path"], ""),
+                            "reporter": core.public_user(c, rep, u) if rep else None})
+                continue
             msg = c.one("SELECT * FROM messages WHERE id=?", (r["message_id"],))
             ch = c.one("SELECT title_uz, title_ru FROM channels WHERE id=?", (r["channel_id"],))
             rep = c.one("SELECT * FROM users WHERE id=?", (r["reporter_id"],))
-            out.append({"id": r["id"], "reason": r["reason"], "note": r["note"], "created_at": r["created_at"],
+            out.append({"id": r["id"], "kind": "message", "reason": r["reason"], "note": r["note"], "created_at": r["created_at"],
                         "channel_id": r["channel_id"], "channel": ch or {}, "status": r["status"],
                         "message": messages_json(c, [msg])[0] if msg else None,
                         "reporter": core.public_user(c, rep, u) if rep else None})
@@ -799,6 +845,9 @@ async def admin_report_action(rid: str, request: Request, authorization: Optiona
         r = c.one("SELECT * FROM reports WHERE id=?", (rid,))
         if not r:
             err(404, "not_found")
+        if r.get("kind") == "feedback":
+            c.x("UPDATE reports SET status='done' WHERE id=?", (rid,))
+            return {"ok": True}
         msg = c.one("SELECT * FROM messages WHERE id=?", (r["message_id"],))
         if action in ("delete", "block") and msg and not msg["deleted"]:
             p, ev, ids = delete_message(c, msg)

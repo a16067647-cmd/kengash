@@ -33,6 +33,13 @@ TXT = {
                   "Добро пожаловать в Kengash! Сначала нажмите кнопку «📱 Поделиться номером» ниже."),
     "share": "📱 Raqamni ulashish / Поделиться номером",
     "done": "✅ Tayyor! Ilovaga qayting — siz kirdingiz.\n\n✅ Готово! Вернитесь в приложение — вы вошли.",
+    "confirm_login": ("🔐 <b>Kengash ilovasiga kirish so‘rovi</b>\n\n"
+                      "Hozir o‘zingiz «Telegram orqali kirish» ni bosgan bo‘lsangiz — «✅ Ha, bu men» ni bosing.\n"
+                      "⚠️ Agar havolani <b>boshqa odam yuborgan</b> bo‘lsa — BOSMANG! U hisobingizga kirib oladi.\n\n"
+                      "🔐 <b>Запрос на вход в Kengash</b>\n"
+                      "Если вы сами нажали «Войти через Telegram» — нажмите «✅ Да, это я».\n"
+                      "⚠️ Если ссылку <b>прислал кто-то другой</b> — НЕ НАЖИМАЙТЕ! Он получит доступ к аккаунту."),
+    "login_cancelled": "❌ Kirish bekor qilindi.\n\n❌ Вход отменён.",
     "back": "↩️ Ilovani ochish / Открыть приложение",
     "expired": ("⌛ Kirish havolasi eskirgan. Ilovada «Telegram orqali kirish» ni qaytadan bosing.\n\n"
                 "⌛ Ссылка для входа устарела. Нажмите «Войти через Telegram» в приложении ещё раз."),
@@ -172,15 +179,34 @@ def _mark_done(c, rid, frm, phone):
                        (frm.get("last_name") or "")[:60], phone, rid))
 
 
-def _finish_logins(c, frm, phone, data):
-    """Ilovadagi kutib turgan kirish so‘rovlarini yakunlash / завершить ожидающие входы в приложении."""
+def _login_prompt(c, frm, data, chat):
+    """Kirishni avtomatik tasdiqlamaymiz: odam o‘zi «Ha, bu men» ni bosishi shart (begona havola orqali o‘g‘irlashdan himoya).
+    Вход не подтверждается автоматически: человек сам жмёт «Да, это я» (защита от кражи через чужую ссылку)."""
     rid = data.get("login")
-    if rid:
+    if not rid:
+        return []
+    req = c.one("SELECT * FROM login_requests WHERE id=?", (rid,))
+    if not req or db.now() - req["created_at"] > LOGIN_TTL or req["status"] == "done" or req["tg_id"] != frm["id"]:
+        return []
+    return [(chat, TXT["confirm_login"], _kb([[_btn("✅ Ha, bu men / Да, это я", f"lg:ok:{rid}")],
+                                              [_btn("❌ Yo‘q / Нет", f"lg:no:{rid}")]]))]
+
+
+def _login_decision(frm, data_s, chat, mid):
+    _, act, rid = (data_s.split(":", 2) + ["", ""])[:3]
+    with db.tx() as c:
         req = c.one("SELECT * FROM login_requests WHERE id=?", (rid,))
-        if req and db.now() - req["created_at"] <= LOGIN_TTL and req["status"] != "done":
-            _mark_done(c, rid, frm, phone)
-            return True
-    return False
+        ok = req and req["tg_id"] == frm["id"] and req["status"] != "done" and db.now() - req["created_at"] <= LOGIN_TTL
+        u = c.one("SELECT * FROM users WHERE tg_id=?", (frm["id"],))
+        if not ok or not u:
+            text, markup = TXT["expired"], None
+        elif act == "ok":
+            _mark_done(c, rid, frm, u["phone"])
+            text, markup = TXT["done"], back_button()
+        else:
+            c.x("DELETE FROM login_requests WHERE id=?", (rid,))
+            text, markup = TXT["login_cancelled"], None
+    edit(chat, mid, text, markup)
 
 
 # ------------------------------------------------------------------ klaviaturalar / клавиатуры
@@ -344,12 +370,12 @@ def _after_phone(c, frm, u, data, chat):
     """Raqam bor: ro‘yxatdan o‘tganmi yoki yo‘qmi / номер есть: зарегистрирован или нет."""
     import model
     if u["status"] in ("active", "pending") and (u["role"] == "admin" or u["level"]):
-        _finish_logins(c, frm, u["phone"], data)
+        prompt = _login_prompt(c, frm, data, chat)
         _clear(c, frm["id"])
         if u["status"] == "pending":
             who = ", ".join(tg_link(a) for a in model.approvers(c, u)[:3])
-            return [(chat, TXT["already_pending"].format(who=who), back_button())]
-        return [(chat, TXT["done"] if data.get("login") else TXT["hello"], back_button())]
+            return [(chat, TXT["already_pending"].format(who=who), back_button())] + prompt
+        return prompt or [(chat, TXT["hello"], back_button())]
     if u["status"] == "blocked":
         _clear(c, frm["id"])
         return [(chat, "⛔", None)]
@@ -368,6 +394,8 @@ def handle_callback(q):
         return
     if data_s.startswith(("ap:", "rj:")):
         return _decision(frm, data_s, chat, mid)
+    if data_s.startswith("lg:"):
+        return _login_decision(frm, data_s, chat, mid)
     out_edit, out_send = None, []
     with db.tx() as c:
         step, d = _session(c, frm["id"])
@@ -469,10 +497,10 @@ def _reg_step(c, frm, step, d, data_s, chat):
                 return go("name", TXT["taken"].format(holder=_esc(h["name"]), contact="admin") + "\n\n" + TXT["ask_name"], None)
             return go("name", TXT["error"], None)
         core.seat_changed(c, uid)
-        _finish_logins(c, frm, u["phone"], d)
+        prompt = _login_prompt(c, frm, d, chat)
         _clear(c, tg)
         if u["status"] == "active":
-            return (TXT["student_ok"], back_button()), []
+            return (TXT["student_ok"], back_button()), prompt
         apps = model.approvers(c, u)
         who = ", ".join(tg_link(a) for a in apps[:3])
         summary = _summary(c, d) + (f"\n📞 {_esc(u['phone'])}" if u["phone"] else "") + \
@@ -480,7 +508,7 @@ def _reg_step(c, frm, step, d, data_s, chat):
         notes = [(a["tg_id"], TXT["new_request"].format(summary=summary),
                   _kb([[_btn("✅ Tasdiqlash", f"ap:{uid}"), _btn("❌ Rad etish", f"rj:{uid}")]]))
                  for a in apps if a.get("tg_id")]
-        return (TXT["pending"].format(who=who), back_button()), notes
+        return (TXT["pending"].format(who=who), back_button()), notes + prompt
     return (TXT["use_buttons"], None), []
 
 

@@ -7,14 +7,15 @@ import '../widgets.dart';
 import 'audience.dart';
 import 'channels.dart' show PresetTile, channelPresets;
 import 'directory.dart' show confirmSheet;
+import 'manage.dart' show planActions;
 import 'tasks.dart' show WhenPicker, fromTs, toTs, two, whenLabel;
 
 /// Sana sarlavhasi: «Bugun», «Ertaga», «Shanba, 21 noyabr» / заголовок даты.
-String dayTitle(AppState s, DateTime d) {
+String dayTitle(AppState s, DateTime d, {bool full = false}) {
   final now = DateTime.now();
   final diff = DateTime(d.year, d.month, d.day).difference(DateTime(now.year, now.month, now.day)).inDays;
-  if (diff == 0) return s.t('today_w');
-  if (diff == 1) return s.t('tomorrow');
+  if (!full && diff == 0) return s.t('today_w');
+  if (!full && diff == 1) return s.t('tomorrow');
   final days = s.lang == 'ru'
       ? ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье']
       : ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba'];
@@ -128,6 +129,7 @@ class EventCard extends StatelessWidget {
         await Navigator.of(context).push(AppRoute(builder: (_) => EventScreen(eventId: event['id'] as String)));
         onChanged?.call();
       },
+      onLongPress: event['is_organizer'] == true ? () => planActions(context, event, event: true, onChanged: onChanged) : null,
       child: Row(children: [
         Container(
           width: 56,

@@ -13,6 +13,7 @@ import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'audience.dart';
+import 'manage.dart' show channelActions, editChannel, pickChannelPhoto;
 import 'directory.dart' show confirmSheet, showUserSheet;
 import 'media.dart';
 
@@ -41,6 +42,14 @@ class ChannelIcon extends StatelessWidget {
     if (key.startsWith('school:')) return tile(const Color(0xFF0A84D6), Icons.school_rounded);
     if (key.startsWith('dt:')) return tile(const Color(0xFF00A89D), Icons.groups_rounded);
     if (key.startsWith('rt:')) return tile(kKengashBlue, Icons.account_balance_rounded);
+    final photo = (ch['photo'] ?? '').toString();
+    if (photo.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: R.all(size * 0.3),
+        child: Image.network(AppScope.of(context).photoUrl(photo),
+            width: size, height: size, fit: BoxFit.cover, errorBuilder: (_, __, ___) => SizedBox(width: size, height: size)),
+      );
+    }
     final icon = (ch['icon'] ?? '').toString();
     return Container(
       width: size,
@@ -172,6 +181,7 @@ class _ChannelRow extends StatelessWidget {
       child: InkWell(
         key: ValueKey('ch-${ch['auto_key'] ?? ch['title_uz']}'),
         onTap: () => openChannel(context, ch['id'] as String),
+        onLongPress: () => channelActions(context, ch),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: S.x4, vertical: S.x3),
           child: Row(children: [
@@ -1058,41 +1068,7 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
     }
   }
 
-  Future<void> _edit() async {
-    final s = AppScope.read(context);
-    final ch = _ch!;
-    final title = TextEditingController(text: s.pick(ch, 'title'));
-    final desc = TextEditingController(text: (ch['description'] ?? '').toString());
-    var mode = ch['mode'] as String;
-    await showAppSheet<void>(context, builder: (ctx) {
-      final c = AppScope.of(ctx).c;
-      return StatefulBuilder(builder: (ctx, set) {
-        return SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(s.t('ch_edit'), style: AppType.title3.copyWith(color: c.text)),
-            const SizedBox(height: S.x4),
-            AppTextField(controller: title, label: s.t('ch_name'), icon: Icons.title_rounded, maxLength: 60),
-            const SizedBox(height: S.x3),
-            AppTextField(controller: desc, label: s.t('ch_desc'), icon: Icons.notes_rounded, maxLength: 300, maxLines: 3),
-            const SizedBox(height: S.x4),
-            ModePicker(value: mode, onChanged: (v) => set(() => mode = v)),
-            const SizedBox(height: S.x4),
-            AppButton(s.t('save'), expand: true, onPressed: () async {
-              try {
-                await s.api.post('/api/channels/${widget.channelId}',
-                    {'title': title.text.trim(), 'description': desc.text.trim(), 'mode': mode});
-                if (ctx.mounted) Navigator.of(ctx).pop();
-                s.chat.loadChannels();
-                _load();
-              } on ApiError catch (e) {
-                s.toast(s.errText(e));
-              }
-            }),
-          ]),
-        );
-      });
-    });
-  }
+  Future<void> _edit() => editChannel(context, _ch!, onDone: _load);
 
   @override
   Widget build(BuildContext context) {
@@ -1144,6 +1120,16 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
                   color: const Color(0xFFFF9F0A),
                   title: s.t('ch_edit'),
                   onTap: _edit),
+            if (custom && mod)
+              GroupRow(
+                  key: const ValueKey('ch-photo'),
+                  icon: Icons.add_a_photo_rounded,
+                  color: const Color(0xFF0A84D6),
+                  title: s.t('ch_photo'),
+                  onTap: () async {
+                    await pickChannelPhoto(context, widget.channelId);
+                    _load();
+                  }),
             if (custom && mod)
               GroupRow(
                   key: const ValueKey('ch-add'),

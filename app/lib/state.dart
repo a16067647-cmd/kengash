@@ -241,9 +241,9 @@ class AppState extends ChangeNotifier {
     await _prefs?.remove('me');
   }
 
-  Future<void> logout() async {
+  Future<void> logout({bool everywhere = false}) async {
     try {
-      await api.post('/api/auth/logout');
+      await api.post(everywhere ? '/api/auth/logout-all' : '/api/auth/logout');
     } catch (_) {}
     await _clearSession();
     notifyListeners();
@@ -313,10 +313,16 @@ class AppState extends ChangeNotifier {
     toast(t('copied'), icon: Icons.check_circle_rounded);
   }
 
+  /// Faqat xavfsiz havolalar (http, https, tg) ochiladi / открываются только безопасные ссылки.
   Future<void> openUrl(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !const {'http', 'https', 'tg'}.contains(uri.scheme.toLowerCase())) {
+      toast(t('err_open'));
+      return;
+    }
     if (testMode) return;
     try {
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (_) {
       toast(t('err_open'));
     }

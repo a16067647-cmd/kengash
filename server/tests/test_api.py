@@ -305,6 +305,13 @@ def test_telegram_registration_flow(client, world, monkeypatch):
     assert "Valiyev Ali" in sent[-1][1]["text"] and "r:ok" in last_kb()
     sent.clear()
     press("r:ok")
+    # kirish avtomatik emas: «Ha, bu men» bosilishi kerak / вход не автоматический: нужно «Да, это я»
+    assert client.get("/api/auth/telegram/status", params={"id": start["id"]}).json()["status"] == "waiting"
+    confirm = [p for m, p in sent if m == "sendMessage" and "lg:ok:" in str(p.get("reply_markup"))]
+    assert confirm and "BOSMANG" in confirm[0]["text"]
+    press(f"lg:ok:{start['id']}", who={"id": 999, "is_bot": False})  # boshqa odam — yo‘q / чужой — нет
+    assert client.get("/api/auth/telegram/status", params={"id": start["id"]}).json()["status"] == "waiting"
+    press(f"lg:ok:{start['id']}")
     assert client.get("/api/auth/telegram/status", params={"id": start["id"]}).json()["status"] == "done"
     # tasdiqlovchiga (maslahatchi) ✅/❌ tugmalari / подтверждающему (маслахатчи) кнопки
     to_approver = [p for m, p in sent if m == "sendMessage" and "Yangi ariza" in p["text"]]
@@ -318,11 +325,20 @@ def test_telegram_registration_flow(client, world, monkeypatch):
     assert any(p.get("chat_id") == 777 and "tasdiqlandi" in p["text"] for m, p in sent)
     me = [u for u in client.get("/api/users/search", params={"q": "Valiyev"}, headers=w["admin"]).json()["users"]][0]
     assert me["status"] == "active" and me["direction"] == "media" and me["kind"] == "coordinator"
-    # keyingi kirish: savolsiz / следующий вход — без вопросов
+    # keyingi kirish: faqat «Ha, bu men» / следующий вход: только «Да, это я»
     start2 = client.post("/api/auth/telegram/start").json()
     msg(text="/start login_" + start2["id"])
+    assert "lg:ok:" + start2["id"] in last_kb()
+    assert client.get("/api/auth/telegram/status", params={"id": start2["id"]}).json()["status"] == "waiting"
+    press(f"lg:ok:{start2['id']}")
     r = client.get("/api/auth/telegram/status", params={"id": start2["id"]}).json()
     assert r["status"] == "done" and r["me"]["status"] == "active"
+    # begona havola: «Yo‘q» bosilsa — so‘rov o‘chadi, token hech kimga berilmaydi
+    # чужая ссылка: «Нет» — запрос удаляется, токен никто не получает
+    start3 = client.post("/api/auth/telegram/start").json()
+    msg(text="/start login_" + start3["id"])
+    press(f"lg:no:{start3['id']}")
+    assert client.get("/api/auth/telegram/status", params={"id": start3["id"]}).json()["status"] == "expired"
 
     # o‘quvchi: sinf bilan, darhol faol / ученик: с классом, сразу активен
     frm2 = {"id": 778, "first_name": "S", "username": "", "is_bot": False}
@@ -352,3 +368,25 @@ def test_schools_seeded(client, world):
     seed.run()
     with db.tx() as c:
         assert c.one("SELECT COUNT(*) AS n FROM schools")["n"] == before
+
+
+def test_security_basics(client, world):
+    """Xavfsizlik: sarlavhalar, CORS, barcha qurilmalardan chiqish / заголовки, CORS, выход со всех устройств."""
+    r = client.get("/api/meta")
+    for hname in ("x-frame-options", "strict-transport-security", "x-content-type-options", "content-security-policy"):
+        assert hname in r.headers, hname
+    assert r.headers["cache-control"] == "no-store"
+    ok = client.options("/api/meta", headers={"Origin": "https://a16067647-cmd.github.io", "Access-Control-Request-Method": "GET"})
+    assert ok.headers.get("access-control-allow-origin") == "https://a16067647-cmd.github.io"
+    bad = client.options("/api/meta", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "GET"})
+    assert "access-control-allow-origin" not in bad.headers
+    # boshqa tokenlar bekor bo‘ladi / остальные токены аннулируются
+    h1 = login(client, 4242, "Xavfsiz Odam", "xavfsiz")
+    h2 = login(client, 4242, "Xavfsiz Odam", "xavfsiz")
+    assert client.get("/api/me", headers=h2).status_code == 200
+    assert client.post("/api/auth/logout-all", headers=h1).status_code == 200
+    assert client.get("/api/me", headers=h1).status_code == 401
+    assert client.get("/api/me", headers=h2).status_code == 401
+    # soxta token / поддельный токен
+    assert client.get("/api/me", headers={"Authorization": "Bearer " + "A" * 43}).status_code == 401
+    assert client.get("/api/me", headers={"Authorization": "Basic abc"}).status_code == 401

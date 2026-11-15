@@ -5,6 +5,8 @@ import '../main.dart' show openTool;
 import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'admin_more.dart' show FeedbackScreen;
+import 'directory.dart' show confirmSheet;
 import 'legal.dart';
 import 'onboarding.dart' show PhotoEditor;
 
@@ -108,6 +110,13 @@ class ProfileTab extends StatelessWidget {
         SectionHeader(s.t('info')),
         GroupList([
           GroupRow(
+              key: const ValueKey('row-feedback'),
+              icon: Icons.support_agent_rounded,
+              color: const Color(0xFFFF9F0A),
+              title: s.t('fb_title'),
+              value: s.t('fb_short'),
+              onTap: () => Navigator.of(context).push(AppRoute(builder: (_) => const FeedbackScreen()))),
+          GroupRow(
               icon: Icons.info_rounded, color: const Color(0xFF34C759), title: s.t('about'), onTap: () => openLegal('about')),
           GroupRow(
               icon: Icons.shield_rounded,
@@ -133,6 +142,15 @@ class ProfileTab extends StatelessWidget {
               color: const Color(0xFF8E8E93),
               title: s.t('logout'),
               onTap: s.logout),
+          GroupRow(
+              key: const ValueKey('row-logout-all'),
+              icon: Icons.devices_other_rounded,
+              color: const Color(0xFFFF9F0A),
+              title: s.t('logout_all'),
+              onTap: () async {
+                if (!await confirmSheet(context, s.t('logout_all_q'), s.t('logout_all'))) return;
+                await s.logout(everywhere: true);
+              }),
           GroupRow(
               key: const ValueKey('row-delete'),
               icon: Icons.delete_forever_rounded,

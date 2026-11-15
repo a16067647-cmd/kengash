@@ -67,10 +67,12 @@ class AppBackground extends StatelessWidget {
 class Pressable extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final double scale;
   final bool haptic;
   final String? semanticLabel;
-  const Pressable({super.key, required this.child, this.onTap, this.scale = 0.97, this.haptic = true, this.semanticLabel});
+  const Pressable(
+      {super.key, required this.child, this.onTap, this.onLongPress, this.scale = 0.97, this.haptic = true, this.semanticLabel});
 
   @override
   State<Pressable> createState() => _PressableState();
@@ -100,6 +102,14 @@ class _PressableState extends State<Pressable> {
                 widget.onTap!();
               }
             : null,
+        // uzoq bosish — tahrirlash menyusi / долгое нажатие — меню правки
+        onLongPress: widget.onLongPress == null
+            ? null
+            : () {
+                _set(false);
+                HapticFeedback.mediumImpact();
+                widget.onLongPress!();
+              },
         child: AnimatedScale(
           scale: _down ? widget.scale : 1,
           duration: Motion.of(context, _down ? Motion.press : Motion.base),
@@ -367,6 +377,7 @@ class AppCard extends StatelessWidget {
   final Gradient? gradient;
   final List<BoxShadow>? shadow;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   const AppCard({
     super.key,
@@ -379,6 +390,7 @@ class AppCard extends StatelessWidget {
     this.gradient,
     this.shadow,
     this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -438,7 +450,9 @@ class AppCard extends StatelessWidget {
         ]);
       }
     }
-    return onTap == null ? body : Pressable(onTap: onTap, scale: 0.98, child: body);
+    return onTap == null && onLongPress == null
+        ? body
+        : Pressable(onTap: onTap, onLongPress: onLongPress, scale: 0.98, child: body);
   }
 }
 

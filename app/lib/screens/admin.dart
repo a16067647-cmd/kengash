@@ -6,8 +6,10 @@ import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'channels.dart' show MessageBubble, timeLabel;
+import 'admin_more.dart';
 import 'books.dart' show AdminBooksScreen;
 import 'directory.dart' show confirmSheet;
+import 'media.dart' show PhotoViewer;
 import 'pickers.dart';
 
 /// Admin paneli: statistika, foydalanuvchilar, maktablar.
@@ -27,11 +29,19 @@ class _AdminScreenState extends State<AdminScreen> {
     final s = AppScope.of(context);
     return TabPage(
       title: s.t('admin'),
-      trailing: AppIconButton(Icons.menu_book_rounded,
-          key: const ValueKey('admin-books'),
-          tooltip: s.t('books_title'),
-          color: s.c.accentText,
-          onPressed: () => Navigator.of(context).push(AppRoute(builder: (_) => const AdminBooksScreen()))),
+      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+        AppIconButton(Icons.campaign_rounded,
+            key: const ValueKey('admin-broadcast'),
+            tooltip: s.t('bc_title'),
+            color: s.c.accentText,
+            onPressed: () => Navigator.of(context).push(AppRoute(builder: (_) => const BroadcastScreen()))),
+        const SizedBox(width: S.x2),
+        AppIconButton(Icons.menu_book_rounded,
+            key: const ValueKey('admin-books'),
+            tooltip: s.t('books_title'),
+            color: s.c.accentText,
+            onPressed: () => Navigator.of(context).push(AppRoute(builder: (_) => const AdminBooksScreen()))),
+      ]),
       children: [
         Segmented<String>(
           values: const ['stats', 'users', 'schools', 'reports'],
@@ -116,6 +126,10 @@ class _StatsState extends State<_Stats> {
             value: '${x['users']} · ${x['schools']} ${s.t('schools_short')}',
           ),
       ]),
+      const SizedBox(height: S.x5),
+      const ActivityCard(),
+      const SizedBox(height: S.x5),
+      const ExportCard(),
     ]);
   }
 }
@@ -263,11 +277,12 @@ class _UsersState extends State<_Users> {
               textAlign: TextAlign.center, style: AppType.footnote.copyWith(color: c.text3)),
           const SizedBox(height: S.x5),
           if (u['role'] != 'admin') ...[
-            AppButton(s.t('set_seat'), kind: BtnKind.secondary, icon: Icons.event_seat_rounded, expand: true,
-                onPressed: () async {
-              final seat = await _pickSeat(ctx);
-              if (seat == null) return;
-              await act(() => s.api.post('/api/admin/users/$uid/seat', seat));
+            // ism, rol, maktab, sinf, yo‘nalish — hammasi bir joyda / имя, роль, школа, класс, направление
+            AppButton(s.t('eu_title'), key: const ValueKey('user-edit'), kind: BtnKind.secondary, icon: Icons.edit_rounded,
+                expand: true, onPressed: () async {
+              Navigator.of(ctx).pop();
+              final ok = await Navigator.of(context).push<bool>(AppRoute(builder: (_) => EditUserScreen(user: u)));
+              if (ok == true) _load();
             }),
             if (u['level'] != null) ...[
               const SizedBox(height: S.x2),
@@ -533,6 +548,9 @@ class _ReportsState extends State<_Reports> {
     if (list.isEmpty) return EmptyState(icon: Icons.verified_user_rounded, title: s.t('rep_none'), message: s.t('rep_none_text'));
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       for (final r in list) ...[
+        if (r['kind'] == 'feedback')
+          _FeedbackCard(r: r, onDone: _load)
+        else
         AppCard(
           key: ValueKey('report-${r['id']}'),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -569,5 +587,116 @@ class _ReportsState extends State<_Reports> {
         const SizedBox(height: S.x3),
       ],
     ]);
+  }
+}
+
+
+/// Foydalanuvchidan kelgan xabar: mavzu, matn, surat; admin javobi Telegram orqali ketadi.
+/// Сообщение пользователя: тема, текст, фото; ответ админа уходит в Telegram.
+class _FeedbackCard extends StatefulWidget {
+  final Json r;
+  final VoidCallback onDone;
+  const _FeedbackCard({required this.r, required this.onDone});
+
+  @override
+  State<_FeedbackCard> createState() => _FeedbackCardState();
+}
+
+class _FeedbackCardState extends State<_FeedbackCard> {
+  final _reply = TextEditingController();
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _reply.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    final s = AppScope.read(context);
+    if (_reply.text.trim().isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      await s.api.post('/api/admin/feedback/${widget.r['id']}/reply', {'text': _reply.text.trim()});
+      s.toast(s.t('fb_replied'), icon: Icons.check_circle_rounded);
+      widget.onDone();
+    } on ApiError catch (e) {
+      s.toast(s.errText(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final c = s.c;
+    final r = widget.r;
+    final who = (r['reporter'] as Map?)?.cast<String, dynamic>();
+    final topic = (r['reason'] ?? 'shikoyat').toString();
+    final photo = (r['photo_url'] ?? '').toString();
+    return AppCard(
+      key: ValueKey('feedback-${r['id']}'),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          AppPill(s.t('fb_$topic'),
+              icon: topic == 'shikoyat' ? Icons.report_rounded : (topic == 'taklif' ? Icons.lightbulb_rounded : Icons.help_rounded),
+              tone: topic == 'shikoyat' ? Tone.danger : Tone.accent,
+              small: true),
+          const Spacer(),
+          Text(timeLabel(s, r['created_at'] as num?), style: AppType.caption.copyWith(color: c.text3)),
+        ]),
+        const SizedBox(height: S.x3),
+        if (who != null)
+          Row(children: [
+            AppAvatar(url: s.photoUrl(who['photo']), name: (who['name'] ?? '').toString(), size: 34),
+            const SizedBox(width: S.x2),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text((who['name'] ?? '').toString(), style: AppType.bodyStrong.copyWith(color: c.text)),
+                Text(s.seatLine(who), maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.caption.copyWith(color: c.text2)),
+              ]),
+            ),
+            if ((who['tg_username'] ?? '').toString().isNotEmpty)
+              IconButton(
+                tooltip: 'Telegram',
+                icon: Icon(Icons.send_rounded, color: c.accent, size: 20),
+                onPressed: () => s.openUrl('https://t.me/${who['tg_username']}'),
+              ),
+          ]),
+        const SizedBox(height: S.x3),
+        SelectableText((r['note'] ?? '').toString(), style: AppType.body.copyWith(color: c.text, height: 1.4)),
+        if (photo.isNotEmpty) ...[
+          const SizedBox(height: S.x3),
+          GestureDetector(
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => PhotoViewer(url: photo))),
+            child: ClipRRect(borderRadius: R.all(R.md), child: Image.network(photo, height: 160, fit: BoxFit.cover)),
+          ),
+        ],
+        const SizedBox(height: S.x3),
+        AppTextField(key: ValueKey('fb-reply-${r['id']}'), controller: _reply, hint: s.t('fb_reply_hint'), maxLines: 3),
+        const SizedBox(height: S.x2),
+        Row(children: [
+          Expanded(
+            child: AppButton(s.t('fb_reply'),
+                key: ValueKey('fb-reply-send-${r['id']}'),
+                icon: Icons.reply_rounded,
+                height: 44,
+                onPressed: _busy ? null : _send),
+          ),
+          const SizedBox(width: S.x2),
+          Expanded(
+            child: AppButton(s.t('rep_dismiss'), kind: BtnKind.secondary, height: 44, onPressed: () async {
+              try {
+                await s.api.post('/api/admin/reports/${r['id']}', {'action': 'dismiss'});
+                widget.onDone();
+              } on ApiError catch (e) {
+                s.toast(s.errText(e));
+              }
+            }),
+          ),
+        ]),
+      ]),
+    );
   }
 }

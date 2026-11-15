@@ -19,6 +19,7 @@ class FakeServer {
   bool iRead = false;
   int readCount = 41;
   bool booksCovers = false;
+  bool feedbackDone = false;
 
   Map<String, dynamic> task({bool given = false}) => {
         'id': 't1', 'title': 'Robototexnika to‘garagi hisoboti', 'description': 'To‘garakda nechta o‘quvchi borligini yozing.',
@@ -525,8 +526,44 @@ class FakeServer {
                   'message': messagesFor('c-sch')[2],
                   'reporter': person('m59l', 'Toshpo‘latov Sardorbek', 'school', 'lider')
                 },
+                if (!feedbackDone)
+                  {
+                    'id': 'f1',
+                    'kind': 'feedback',
+                    'reason': 'taklif',
+                    'note': 'Kitoblar uchun audio versiya ham bo‘lsa zo‘r bo‘lardi!',
+                    'created_at': 1794600000,
+                    'status': 'open',
+                    'reply': '',
+                    'photo_url': '',
+                    'reporter': {...student(), 'tg_username': 'jasur_o'},
+                  },
               ]
             };
+          case 'POST /api/admin/feedback/f1/reply':
+            posts.add({'path': path, ...body});
+            feedbackDone = true;
+            out = {'ok': true};
+          case 'GET /api/admin/activity':
+            out = {
+              'inactive_count': 3,
+              'inactive': [
+                {...person('m60it', 'Yusupov Jasur', 'school', 'it'), 'last_seen': 0}
+              ],
+              'districts': [
+                for (final (i, d) in districts.indexed)
+                  {'id': d['id'], 'name_uz': d['name_uz'], 'name_ru': d['name_ru'], 'tasks': 20, 'done_pct': 40 + i * 15,
+                    'schools': 60, 'schools_empty': 50 - i * 10}
+              ],
+              'top_schools': [
+                {'place': school59, 'messages': 128}
+              ],
+            };
+          case 'POST /api/admin/broadcast/count':
+            out = {'count': (body['filter'] as Map).isEmpty ? 1240 : 37};
+          case 'POST /api/admin/export':
+            posts.add({'path': path, ...body});
+            out = {'url': 'https://storage.test/exports/x.xlsx', 'size': 1000};
           case 'POST /api/auth/logout':
             out = {'ok': true};
           default:
@@ -592,7 +629,8 @@ class FakeServer {
               sent.add(m);
               out = m;
             } else {
-              out = {'ok': true};
+              if (req.method == 'POST') posts.add({'path': path, ...body});
+              out = {'ok': true, 'count': 37};
             }
         }
         return http.Response.bytes(utf8.encode(jsonEncode(out)), 200, headers: {'content-type': 'application/json'});
