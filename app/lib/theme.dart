@@ -339,5 +339,17 @@ const Map<String, IconData> kDirectionIcons = {
   'maslahatchi': Icons.school_rounded,
 };
 
+/// Yo‘nalish emojisi (Oy kitobi) / эмодзи направления.
+const Map<String, String> kDirectionEmoji = {
+  'lider': '👑',
+  'talim': '📚',
+  'ijtimoiy': '🤝',
+  'it': '🤖',
+  'media': '🎬',
+  'ekologiya': '🌿',
+  'sport': '⚽',
+  'madaniyat': '🎭',
+};
+
 Color directionColor(String? d) => kDirectionColors[d] ?? const Color(0xFF8E8E93);
 IconData directionIcon(String? d) => kDirectionIcons[d] ?? Icons.person_rounded;

@@ -192,6 +192,16 @@ Keys are gone. The admin never hands out keys or free months.
 - Score **restarts every quarter** (Tashkent time); the history of points is kept.
 - Students and maslahatchi are not rated. Students don't see the rating.
 
+### 3.3d Oy kitobi (book of the month)
+- One book per direction (8). The **admin** adds a cover, a PDF (≤ 50 MB), title, author, month and a short description.
+  A new book **replaces** the old one (the old files and "read" marks are deleted).
+- **Everyone** sees all 8 books on *Bugun* (students too): glass cards in the direction's colour and emoji
+  (👑 Lider, 📚 Ta’lim, 🤝 Ijtimoiy, 🤖 IT, 🎬 Media, 🌿 Ekologiya, ⚽ Sport, 🎭 Madaniyat). Your own direction comes first.
+  No books → the section is hidden.
+- Reading happens **inside the app**: smooth scrolling, pinch/double-tap zoom, page slider, ◀ ▶ buttons, night mode,
+  tap to hide the bars, and it remembers the page ("Davom etish · 34-bet").
+- **O‘qidim** button and a counter ("O‘qidi: 124").
+
 ### 3.3c Safety
 - Students in the school chat send **text and voice only** (no photos, videos, files). Coordinators and the maslahatchi can.
 - Every message has a report button; the admin deletes and blocks. Nobody is anonymous.

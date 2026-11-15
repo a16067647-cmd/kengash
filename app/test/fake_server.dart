@@ -16,6 +16,9 @@ class FakeServer {
   String myStatus = 'new';
   final List<Map<String, dynamic>> approvals = [];
   int points = 0;
+  bool iRead = false;
+  int readCount = 41;
+  bool booksCovers = false;
 
   Map<String, dynamic> task({bool given = false}) => {
         'id': 't1', 'title': 'Robototexnika to‘garagi hisoboti', 'description': 'To‘garakda nechta o‘quvchi borligini yozing.',
@@ -418,6 +421,31 @@ class FakeServer {
           case 'POST /api/approvals/p1':
             approvals.clear();
             out = {'ok': true};
+          case 'GET /api/books':
+            final mine = me['direction'];
+            final list = [
+              for (final (i, d) in directions.indexed)
+                {
+                  'id': 'b${d['id']}',
+                  'direction': d['id'],
+                  'title': ['Yetakchilik san’ati', 'O‘qishni o‘rganish', 'Kichik qadamlar', 'Sun’iy intellekt asoslari',
+                    'Hikoya qilish sirlari', 'Yashil sayyora', 'Chempion odatlari', 'Ming bir kecha'][i],
+                  'author': 'Muallif ${i + 1}',
+                  'description': 'Bu oy o‘qiladigan kitob: qisqa, foydali va qiziqarli. Har kuni 20 bet.',
+                  'month': 'Noyabr 2026',
+                  'cover_url': booksCovers ? 'https://storage.test/books/${d['id']}.jpg' : '',
+                  'pdf_url': 'https://storage.test/books/${d['id']}.pdf',
+                  'reads': d['id'] == 'it' ? readCount : 12 + i,
+                  'my_read': d['id'] == 'it' && iRead,
+                  'pdf_size': 3000000,
+                  'created_at': 0,
+                }
+            ]..sort((a, b) => (a['direction'] == mine ? 0 : 1).compareTo(b['direction'] == mine ? 0 : 1));
+            out = {'books': list};
+          case 'POST /api/books/bit/read':
+            iRead = body['read'] == true;
+            readCount += iRead ? 1 : -1;
+            out = {'ok': true, 'reads': readCount, 'my_read': iRead};
           case 'GET /api/rating':
             final lvl = req.url.queryParameters['level'] ?? (me['level'] == 'district' ? 'district' : 'school');
             out = {

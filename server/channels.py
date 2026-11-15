@@ -145,6 +145,7 @@ def remove_user(c, uid):
     c.x("DELETE FROM task_assignees WHERE user_id=?", (uid,))
     c.x("DELETE FROM event_guests WHERE user_id=?", (uid,))
     c.x("DELETE FROM points WHERE user_id=?", (uid,))
+    c.x("DELETE FROM book_reads WHERE user_id=?", (uid,))
     c.x("DELETE FROM push_tokens WHERE user_id=?", (uid,))
     admin = c.one("SELECT id FROM users WHERE role='admin' AND id<>? ORDER BY created_at LIMIT 1", (uid,))
     if admin:
