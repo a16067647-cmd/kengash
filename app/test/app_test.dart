@@ -436,6 +436,25 @@ void main() {
     expect(server.calls, contains('POST /api/admin/reports/r1'));
   });
 
+  testWidgets('ochilish animatsiyasi har safar ko‘rinadi', (tester) async {
+    tester.view.physicalSize = phone * 2;
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    for (var launch = 0; launch < 2; launch++) {
+      // avvalgi ochilishdan qolgan sozlamalar bilan ham / даже с настройками прошлого запуска
+      SharedPreferences.setMockInitialValues({'intro_done': true, 'lang': 'uz'});
+      final s = AppState(api: Api(base: 'http://test', client: FakeServer().client()));
+      await tester.pumpWidget(KengashApp(key: ValueKey(launch), state: s));
+      await s.init();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(IntroScreen), findsOneWidget, reason: 'launch $launch');
+      await tester.pump(const Duration(seconds: 6));
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(IntroScreen), findsNothing);
+      expect(s.introDone, isTrue);
+    }
+  });
+
   testWidgets('maktab koordinatori: kalit va admin yo‘q', (tester) async {
     final server = FakeServer(me: FakeServer.seated('school', 'it'));
     final s = await boot(tester, server);

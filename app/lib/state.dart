@@ -52,7 +52,8 @@ class AppState extends ChangeNotifier {
   // ---------------------------------------------------------------- holat / состояние
   bool ready = false;
 
-  /// Ochilish animatsiyasi ko‘rsatilganmi (null — hali bilinmaydi) / показана ли заставка (null — ещё неизвестно).
+  /// Shu safar ochilish animatsiyasi ko‘rsatildimi (null — sozlamalar hali yuklanmagan).
+  /// Показана ли заставка в этот запуск (null — настройки ещё не загружены).
   bool? introDone;
   bool connError = false;
   Json? me;
@@ -136,12 +137,12 @@ class AppState extends ChangeNotifier {
       theme = p.getString('theme') ?? 'system';
       bgMotion = p.getBool('bg_motion') ?? true;
       sideOpen = p.getBool('side_open') ?? true;
-      introDone = p.getBool('intro_done') ?? false;
       api.token = p.getString('token');
       final cached = p.getString('meta');
       if (cached != null) _applyMeta(jsonDecode(cached) as Json);
     }
-    introDone ??= true;
+    // Ochilish animatsiyasi har safar ilova ochilganda (egasining talabi) / заставка при каждом запуске (просьба владельца)
+    introDone = false;
     notifyListeners();
     await loadMeta();
     if (api.token != null) await refreshMe(first: true);
@@ -273,7 +274,6 @@ class AppState extends ChangeNotifier {
 
   void finishIntro() {
     introDone = true;
-    _prefs?.setBool('intro_done', true);
     notifyListeners();
   }
 

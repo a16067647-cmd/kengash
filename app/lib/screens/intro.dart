@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 
-/// Ochilish animatsiyasi (faqat birinchi ochilishda, tugmasiz, ~5 soniya):
+/// Ochilish animatsiyasi (har safar ilova ochilganda, tugmasiz, ~5 soniya):
 /// 8 nuqta (8 yo‘nalish) har tomondan uchib keladi, halqa atrofida birlashadi →
 /// O‘quvchilar Kengashi belgisi → «Kengash» va Kelajak Markazlari logotipi → ilovaga silliq o‘tish.
 ///
-/// Вступительная анимация (только при первом запуске, без кнопок, ~5 секунд):
+/// Вступительная анимация (при каждом запуске, без кнопок, ~5 секунд):
 /// 8 точек (8 направлений) слетаются со всех сторон и собираются вокруг кольца →
 /// знак Совета учеников → «Kengash» и логотип Kelajak Markazlari → плавный переход в приложение.
 class IntroScreen extends StatefulWidget {
