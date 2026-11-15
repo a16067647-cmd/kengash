@@ -52,8 +52,25 @@ jobs:
         run: set -o pipefail; flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee "$GITHUB_WORKSPACE/ci-logs/2-analyze.txt"
       - name: Testlar va ekran rasmlari / тесты и скриншоты
         run: set -o pipefail; SCREENSHOTS_DIR="$GITHUB_WORKSPACE/ci-logs/shots" flutter test 2>&1 | tee "$GITHUB_WORKSPACE/ci-logs/3-test.txt"
+      - name: Imzo kaliti / ключ подписи
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KP: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KS" ] && [ -n "$KP" ]; then
+            echo "$KS" | base64 -d > android/app/kengash.jks
+            printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=kengash\nstoreFile=kengash.jks\n' "$KP" "$KP" > android/key.properties
+            echo "Doimiy kalit bilan imzolanadi / подпись постоянным ключом"
+          else
+            echo "::warning::ANDROID_KEYSTORE_B64 yo'q — debug kalit (har build boshqa, eski ilova ustiga o'rnatilmaydi)"
+          fi
       - name: APK
-        run: set -o pipefail; flutter build apk --release 2>&1 | tee "$GITHUB_WORKSPACE/ci-logs/4-build-apk.txt"
+        run: set -o pipefail; flutter build apk --release --build-number=${{ github.run_number }} 2>&1 | tee "$GITHUB_WORKSPACE/ci-logs/4-build-apk.txt"
+      - name: Imzoni tekshirish / проверка подписи
+        run: |
+          AS=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
+          "$AS" verify --print-certs build/app/outputs/flutter-apk/app-release.apk | grep -E "SHA-256|DN" | tee -a "$GITHUB_WORKSPACE/ci-logs/4-build-apk.txt"
+          rm -f android/app/kengash.jks android/key.properties
       - uses: actions/upload-artifact@v4
         with:
           name: kengash-android
