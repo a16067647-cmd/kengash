@@ -186,3 +186,38 @@ def test_push_register_and_message_push(client, w):  # noqa: F811
 
 def test_push_disabled_without_key():
     assert not push.enabled() or os.environ.get("FIREBASE_SERVICE_ACCOUNT")
+
+
+def test_telegram_notifications(client, w, monkeypatch):  # noqa: F811
+    import telegram
+    sent = []
+    monkeypatch.setattr(telegram, "api", lambda m, p: sent.append(p))
+    monkeypatch.setattr(push, "TELEGRAM_SYNC", True)
+    tg = {"m1": 3004, "m2": 3005}
+    # yangi vazifa → Telegram xabari / новая задача → сообщение в Telegram
+    make_task(client, w["tit"], title="Telegram sinovi")
+    chats = {p["chat_id"] for p in sent}
+    assert {tg["m1"], tg["m2"]} <= chats
+    assert "Telegram sinovi" in sent[-1]["text"] and sent[-1]["reply_markup"]["inline_keyboard"][0][0]["url"]
+    # o‘chirib qo‘yganlarga yuborilmaydi / отключившим не отправляется
+    me = client.post("/api/me/notify", json={"telegram": False}, headers=w["m2"]).json()
+    assert me["notify_tg"] is False
+    sent.clear()
+    make_task(client, w["tit"], title="Ikkinchi")
+    assert tg["m2"] not in {p["chat_id"] for p in sent} and tg["m1"] in {p["chat_id"] for p in sent}
+    client.post("/api/me/notify", json={"telegram": True}, headers=w["m2"])
+    # chat: bitta kanal uchun 10 daqiqada 1 ta / чат: 1 раз в 10 минут на канал
+    chans = {c["auto_key"]: c for c in client.get("/api/channels", headers=w["m2"]).json()["channels"]}
+    cid = chans[f"school:{w['s2']}"]["id"]
+    client.post(f"/api/channels/{cid}/mute", json={"muted": False}, headers=w["m2"])
+    sender = login(client, 3010, "P2 Media", "u3010")
+    give_seat(client, w["tlid"], sender, seat("school", w["s2"], "media"))
+    client.get("/api/channels", headers=sender)
+    sent.clear()
+    for i in range(3):
+        client.post(f"/api/channels/{cid}/messages", json={"text": f"xabar {i}"}, headers=sender)
+    assert [p["chat_id"] for p in sent].count(tg["m2"]) == 1
+    # HTML xavfsiz / HTML экранируется
+    sent.clear()
+    make_task(client, w["tit"], title="<b>x</b> & y")
+    assert "&lt;b&gt;x&lt;/b&gt; &amp; y" in sent[-1]["text"]

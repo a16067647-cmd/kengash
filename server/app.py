@@ -203,6 +203,7 @@ def me_json(c, u):
         "can_keys": u["role"] == "admin" or u["level"] in ("district", "region"),
         "paid_until": u["paid_until"],
         "payments": PAYMENTS_ENABLED,
+        "notify_tg": bool(u.get("notify_tg", 1)),
     })
     return out
 
@@ -404,6 +405,16 @@ async def me_photo(request: Request, authorization: Optional[str] = Header(defau
         c.x("DELETE FROM photos WHERE user_id=?", (u["id"],))
         c.x("INSERT INTO photos (user_id, data) VALUES (?, ?)", (u["id"], jpg))
         c.x("UPDATE users SET photo_ver=? WHERE id=?", (secrets.token_hex(4), u["id"]))
+        return me_json(c, c.one("SELECT * FROM users WHERE id=?", (u["id"],)))
+
+
+@app.post("/api/me/notify")
+async def me_notify(request: Request, authorization: Optional[str] = Header(default=None)):
+    """Telegram orqali bildirishnomalar yoq/o‘ch / уведомления через Telegram вкл/выкл."""
+    b = await request.json()
+    with db.tx() as c:
+        u = current_user(c, authorization)
+        c.x("UPDATE users SET notify_tg=? WHERE id=?", (1 if b.get("telegram") else 0, u["id"]))
         return me_json(c, c.one("SELECT * FROM users WHERE id=?", (u["id"],)))
 
 

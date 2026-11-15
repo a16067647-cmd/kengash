@@ -1,5 +1,10 @@
-"""Push-bildirishnomalar (Firebase Cloud Messaging, HTTP v1).
-Push-уведомления (Firebase Cloud Messaging, HTTP v1).
+"""Bildirishnomalar / уведомления.
+
+1. Telegram bot orqali (asosiy, hammaga ishlaydi, sozlash shart emas): foydalanuvchi botda Start bosgan —
+   bot unga yoza oladi. Profil → «Telegram bildirishnomalari» bilan o‘chiriladi.
+   Через Telegram-бота (основной способ, работает у всех, настройка не нужна).
+   Chat xabarlari: bitta kanal uchun 10 daqiqada eng ko‘pi 1 ta (spam yo‘q).
+2. Firebase Cloud Messaging (ixtiyoriy, kelajakda / необязательно, на будущее).
 
 FIREBASE_SERVICE_ACCOUNT (Render → Environment) bo‘lmasa — hech narsa yubormaydi.
 Без FIREBASE_SERVICE_ACCOUNT ничего не отправляет.
@@ -79,12 +84,54 @@ def _send_one(token, title, body, data):
     return False
 
 
+TG_MESSAGE_WINDOW = 600  # chat xabarlari: kanal boshiga 10 daqiqada 1 ta / 1 на канал за 10 минут
+
+
+def _telegram(user_ids, title, body, data):
+    import html
+
+    import telegram
+    data = data or {}
+    with db.tx() as c:
+        marks = ",".join("?" * len(user_ids))
+        rows = c.q(f"SELECT id, tg_id FROM users WHERE id IN ({marks}) AND tg_id IS NOT NULL AND notify_tg=1 "
+                   f"AND status='active'", list(user_ids))
+        targets = []
+        for r in rows:
+            if data.get("type") == "message":
+                window = db.now() // TG_MESSAGE_WINDOW
+                if not once(c, f"tgmsg:{r['id']}:{data.get('channel_id')}:{window}"):
+                    continue
+            targets.append(r["tg_id"])
+    if not targets:
+        return
+    text = f"<b>{html.escape(title)}</b>\n{html.escape(body)}"
+    markup = {"inline_keyboard": [[{"text": "Ochish / Открыть", "url": telegram.APP_URL}]]}
+
+    def run():
+        for chat in targets:
+            telegram.api("sendMessage", {"chat_id": chat, "text": text, "parse_mode": "HTML",
+                                         "disable_web_page_preview": True, "reply_markup": markup})
+            time.sleep(0.05)  # Telegram chegarasi / лимит Telegram (~30 в секунду)
+    if TELEGRAM_SYNC:
+        run()
+    else:
+        threading.Thread(target=run, daemon=True).start()
+
+
+TELEGRAM_SYNC = False  # testlarda True / в тестах True
+
+
 def send(user_ids, title, body, data=None):
-    """Foydalanuvchilarga (barcha qurilmalariga) / пользователям (на все устройства)."""
+    """Foydalanuvchilarga: Telegram + (bo‘lsa) Firebase / пользователям: Telegram + (если есть) Firebase."""
     user_ids = [u for u in set(user_ids) if u]
     if not user_ids:
         return
     SENT.append({"users": sorted(user_ids), "title": title, "body": body, "data": data or {}})
+    try:
+        _telegram(user_ids, title, body, data)
+    except Exception as e:
+        log.warning("telegram notify failed: %s", e)
     if not enabled():
         return
     with db.tx() as c:

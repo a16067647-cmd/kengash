@@ -216,6 +216,7 @@ const Map<String, Map<String, String>> kStrings = {
     'err_login_expired': 'Kirish vaqti tugadi. Qaytadan bosing.',
     'err_open': 'Havolani ochib bo‘lmadi.',
     // vazifalar va taqvim
+    'notify_tg': 'Telegram bildirishnomalari',
     'accept': 'Qabul qilish',
     'box_given': 'Men bergan',
     'box_mine': 'Menga',
@@ -604,6 +605,7 @@ const Map<String, Map<String, String>> kStrings = {
     'err_login_expired': 'Время входа истекло. Нажмите ещё раз.',
     'err_open': 'Не удалось открыть ссылку.',
     // задачи и календарь
+    'notify_tg': 'Уведомления в Telegram',
     'accept': 'Принять',
     'box_given': 'Выданные мной',
     'box_mine': 'Мне',
