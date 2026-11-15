@@ -80,6 +80,8 @@ class _KengashAppState extends State<KengashApp> with WidgetsBindingObserver {
           },
           themeAnimationDuration: const Duration(milliseconds: 320),
           themeAnimationCurve: Motion.curve,
+          // bitta umumiy fon barcha sahifalar ostida / один общий фон под всеми страницами
+          builder: (context, child) => AppBackground(global: true, motion: MotionLevel.normal, child: child!),
           home: const RootScreen(),
         );
       }),
@@ -133,7 +135,7 @@ class SplashScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = colorsOf(context);
     return Scaffold(
-      backgroundColor: c.bg,
+      backgroundColor: Colors.transparent,
       body: AppBackground(
         motion: MotionLevel.low,
         child: Center(
@@ -262,7 +264,7 @@ class HomeShell extends StatelessWidget {
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Scaffold(
           extendBody: true,
-          backgroundColor: s.c.bg,
+          backgroundColor: Colors.transparent,
           body: AppBackground(
             motion: motion,
             child: SafeArea(

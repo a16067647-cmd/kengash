@@ -29,8 +29,10 @@ void main() {
     await shot(tester, 'phone-light-uz-15-books-shelf');
 
     // IT kitobi: o‘qidim / прочитал
-    await tester.drag(find.byKey(const ValueKey('books-shelf')), const Offset(-500, 0));
+    await tester.ensureVisible(find.byKey(const ValueKey('books-shelf')));
     await tester.pump(const Duration(milliseconds: 300));
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('book-it')), 200,
+        scrollable: find.descendant(of: find.byKey(const ValueKey('books-shelf')), matching: find.byType(Scrollable)).first);
     await tap(tester, find.byKey(const ValueKey('book-it')));
     expect(find.text('Sun’iy intellekt asoslari'), findsOneWidget);
     expect(find.text('👥 ${tr('uz', 'book_reads')}: 41'), findsOneWidget);

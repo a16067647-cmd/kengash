@@ -290,7 +290,7 @@ ThemeData buildTheme(AppColors c) {
     useMaterial3: true,
     colorScheme: scheme,
     fontFamily: kBody,
-    scaffoldBackgroundColor: c.bg,
+    scaffoldBackgroundColor: Colors.transparent, // umumiy fon / общий фон
     splashFactory: NoSplash.splashFactory,
     highlightColor: Colors.transparent,
     splashColor: Colors.transparent,

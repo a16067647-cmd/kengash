@@ -517,7 +517,7 @@ class _ChannelScreenState extends State<ChannelScreen> {
         return GestureDetector(
           onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
           child: Scaffold(
-            backgroundColor: c.bg,
+            backgroundColor: Colors.transparent,
             body: SafeArea(
               bottom: false,
               child: Column(children: [

@@ -158,7 +158,7 @@ class _AuthScreenState extends State<AuthScreen> {
     );
 
     return Scaffold(
-      backgroundColor: c.bg,
+      backgroundColor: Colors.transparent,
       body: AppBackground(
         motion: MotionLevel.normal,
         child: SafeArea(
