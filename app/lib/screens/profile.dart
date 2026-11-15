@@ -108,6 +108,14 @@ class ProfileTab extends StatelessWidget {
             trailing: Switch.adaptive(value: s.sounds, activeTrackColor: c.accent, onChanged: s.setSounds),
           ),
           GroupRow(
+            key: const ValueKey('row-glass'),
+            icon: Icons.auto_awesome_rounded,
+            color: const Color(0xFF5B2DC9),
+            title: s.t('glass_fx'),
+            trailing: Switch.adaptive(value: s.glassFx, activeTrackColor: c.accent, onChanged: s.setGlassFx),
+          ),
+          GroupRow(
+            key: const ValueKey('row-bg'),
             icon: Icons.blur_on_rounded,
             color: const Color(0xFF00A89D),
             title: s.t('bg_motion'),

@@ -85,14 +85,14 @@ const MotionProfile kKengashMotion = MotionProfile(
   id: 'kengash',
   name: 'Kengash',
   minCount: 24,
-  maxPhone: 60,
-  maxDesktop: 130,
-  areaPerParticle: 7000,
+  maxPhone: 40,
+  maxDesktop: 90,
+  areaPerParticle: 9000,
   sizeMin: 1.8,
   sizeMax: 3.8,
   layerSize: [0.8, 1.05, 1.45],
   layerAlpha: [0.55, 0.8, 1.0],
-  linkDist: 140,
+  linkDist: 128,
   linkAlpha: 0.38,
   accentShare: 0.14,
 );
@@ -495,6 +495,12 @@ class AppCard extends StatelessWidget {
 }
 
 /// Shisha material: orqa fonni xiralashtiradi / стекло: размывает фон под собой.
+/// Shisha sirt. Ikki rejim (Profil → «Suyuq shisha»):
+///  • o‘chiq (standart) — xiralashtirishsiz, oddiy yarim-shaffof sirt: juda tez;
+///  • yoqiq — «suyuq shisha»: kuchli xiralik + rang to‘yinganligi, yaltiroq qirra va nur aksi.
+/// Стеклянная поверхность. Два режима (Профиль → «Жидкое стекло»):
+///  • выкл (по умолчанию) — без размытия, обычная поверхность: очень быстро;
+///  • вкл — «жидкое стекло»: сильное размытие + насыщенность, блестящая кромка и блик.
 class Glass extends StatelessWidget {
   final Widget child;
   final double radius;
@@ -504,47 +510,105 @@ class Glass extends StatelessWidget {
   final List<BoxShadow>? shadow;
   const Glass({super.key, required this.child, this.radius = R.xl, this.padding, this.blur = 24, this.color, this.shadow});
 
+  // Ranglarni to‘yintirish (Apple «liquid glass» kabi) / насыщенность цвета
+  static const _saturate = ColorFilter.matrix([
+    1.45, -0.35, -0.1, 0, 0, //
+    -0.15, 1.3, -0.15, 0, 0,
+    -0.15, -0.35, 1.5, 0, 0,
+    0, 0, 0, 1, 0,
+  ]);
+
   @override
   Widget build(BuildContext context) {
     final c = colorsOf(context);
     final r = BorderRadius.circular(radius);
+    final liquid = context.dependOnInheritedWidgetOfExactType<AppScope>()?.notifier?.glassFx ?? false;
+    final body = Padding(padding: padding ?? EdgeInsets.zero, child: child);
+    if (!liquid) {
+      // Tez rejim: BackdropFilter yo‘q / быстрый режим: без BackdropFilter
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(color ?? c.glass, c.surface.withValues(alpha: c.isDark ? 0.92 : 0.96)),
+          borderRadius: r,
+          border: Border.all(color: c.hairline),
+          boxShadow: shadow ?? Shadows.card(c),
+        ),
+        child: body,
+      );
+    }
+    final dark = c.isDark;
     return DecoratedBox(
       decoration: BoxDecoration(borderRadius: r, boxShadow: shadow ?? Shadows.card(c)),
       child: ClipRRect(
         borderRadius: r,
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: color ?? c.glass,
-              borderRadius: r,
-              border: Border.all(color: c.glassEdge),
-            ),
-            child: Stack(children: [
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: IgnorePointer(
-                  child: Container(
-                    height: 30,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [c.isDark ? const Color(0x12FFFFFF) : const Color(0x80FFFFFF), const Color(0x00FFFFFF)],
-                      ),
-                    ),
-                  ),
+          filter: ImageFilter.compose(outer: _saturate, inner: ImageFilter.blur(sigmaX: blur * 1.25, sigmaY: blur * 1.25)),
+          child: CustomPaint(
+            foregroundPainter: _LiquidEdge(radius: radius, dark: dark),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: r,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color.alphaBlend(dark ? const Color(0x1AFFFFFF) : const Color(0x66FFFFFF), color ?? c.glass),
+                    color ?? c.glass,
+                    Color.alphaBlend(dark ? const Color(0x08FFFFFF) : const Color(0x22FFFFFF), color ?? c.glass),
+                  ],
+                  stops: const [0, 0.55, 1],
                 ),
               ),
-              Padding(padding: padding ?? EdgeInsets.zero, child: child),
-            ]),
+              child: body,
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+/// Suyuq shisha qirrasi: yuqori-chapda yorqin, pastki-o‘ngda xira chiziq + yumshoq nur aksi.
+/// Кромка жидкого стекла: яркая сверху-слева, тусклая снизу-справа + мягкий блик.
+class _LiquidEdge extends CustomPainter {
+  final double radius;
+  final bool dark;
+  _LiquidEdge({required this.radius, required this.dark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rr = RRect.fromRectAndRadius(rect.deflate(0.6), Radius.circular(radius));
+    canvas.drawRRect(
+      rr,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: dark
+              ? const [Color(0x99FFFFFF), Color(0x14FFFFFF), Color(0x40FFFFFF)]
+              : const [Color(0xFFFFFFFF), Color(0x33FFFFFF), Color(0x80FFFFFF)],
+          stops: const [0, 0.5, 1],
+        ).createShader(rect),
+    );
+    // yuqoridagi yaltiroq nur / блик сверху
+    final glare = Rect.fromLTWH(size.width * 0.06, 2, size.width * 0.6, math.min(26, size.height * 0.35));
+    canvas.save();
+    canvas.clipRRect(rr);
+    canvas.drawOval(
+      glare,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [dark ? const Color(0x22FFFFFF) : const Color(0x8CFFFFFF), const Color(0x00FFFFFF)],
+        ).createShader(glare),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_LiquidEdge old) => old.radius != radius || old.dark != dark;
 }
 
 // ============================================================ KICHIK ELEMENTLAR / МЕЛКИЕ ЭЛЕМЕНТЫ

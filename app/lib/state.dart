@@ -43,7 +43,9 @@ class AppState extends ChangeNotifier {
   // ---------------------------------------------------------------- sozlamalar / настройки
   String lang = 'uz';
   String theme = 'system';
-  bool bgMotion = true;
+  // Ikkalasi ham standart o‘chiq (tezlik) — Profilda yoqiladi / оба выключены по умолчанию (скорость)
+  bool bgMotion = false;
+  bool glassFx = false;
   bool sounds = true;
   bool sideOpen = true;
   Brightness platformBrightness = WidgetsBinding.instance.platformDispatcher.platformBrightness;
@@ -148,7 +150,8 @@ class AppState extends ChangeNotifier {
     if (p != null) {
       lang = p.getString('lang') ?? 'uz';
       theme = p.getString('theme') ?? 'system';
-      bgMotion = p.getBool('bg_motion') ?? true;
+      bgMotion = p.getBool('bg_on') ?? false;
+      glassFx = p.getBool('glass_fx') ?? false;
       sounds = p.getBool('sounds') ?? true;
       Sfx.enabled = sounds;
       sideOpen = p.getBool('side_open') ?? true;
@@ -278,9 +281,15 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setGlassFx(bool v) {
+    glassFx = v;
+    _prefs?.setBool('glass_fx', v);
+    notifyListeners();
+  }
+
   void setBgMotion(bool v) {
     bgMotion = v;
-    _prefs?.setBool('bg_motion', v);
+    _prefs?.setBool('bg_on', v);
     notifyListeners();
   }
 

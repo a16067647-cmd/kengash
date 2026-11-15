@@ -255,12 +255,12 @@ class _BookScreenState extends State<BookScreen> {
                 colors: [Colors.white, Colors.transparent],
               ).createShader(r),
               blendMode: BlendMode.dstIn,
-              child: ImageFiltered(
+              child: RepaintBoundary(child: ImageFiltered(
                 imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
                 child: cover.isEmpty
                     ? Container(color: col.withValues(alpha: 0.4))
                     : Image.network(cover, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: col)),
-              ),
+              )),
             ),
           ),
         ),
@@ -523,15 +523,14 @@ class _Bar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // xiralashtirishsiz: PDF varaqlanayotganda har kadrda qayta hisoblanmasin / без размытия ради плавной прокрутки PDF
     return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
+      child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: top ? Alignment.topCenter : Alignment.bottomCenter,
               end: top ? Alignment.bottomCenter : Alignment.topCenter,
-              colors: const [Color(0xCC000000), Color(0x66000000)],
+              colors: const [Color(0xE6000000), Color(0x99000000)],
             ),
           ),
           child: SafeArea(
@@ -539,7 +538,6 @@ class _Bar extends StatelessWidget {
             bottom: !top,
             child: Padding(padding: const EdgeInsets.symmetric(horizontal: S.x2, vertical: S.x1), child: child),
           ),
-        ),
       ),
     );
   }
