@@ -4,6 +4,7 @@ import '../brand.dart';
 import '../main.dart' show openTool;
 import '../api.dart';
 import 'calendar.dart' show EventCard;
+import 'admin_more.dart' show FeedbackScreen;
 import 'books.dart' show BooksShelf;
 import 'onboarding.dart' show ApprovalsScreen;
 import 'channels.dart' show ChannelIcon, channelTitle, openChannel, previewText;
@@ -108,6 +109,13 @@ class TodayTab extends StatelessWidget {
                 color: const Color(0xFFFFBB02),
                 title: s.t('rating'),
                 onTap: () => openTool(context, 'rating')),
+          GroupRow(
+              key: const ValueKey('quick-feedback'),
+              icon: Icons.support_agent_rounded,
+              color: const Color(0xFFFF9F0A),
+              title: s.t('fb_title'),
+              value: s.t('fb_short'),
+              onTap: () => Navigator.of(context).push(AppRoute(builder: (_) => const FeedbackScreen()))),
           if (s.isAdmin)
             GroupRow(
                 key: const ValueKey('quick-admin'),

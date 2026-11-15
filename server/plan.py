@@ -233,6 +233,27 @@ async def task_review(tid: str, request: Request, authorization: Optional[str] =
     return {"ok": True}
 
 
+@router.post("/api/tasks/{tid}/edit")
+async def task_edit(tid: str, request: Request, authorization: Optional[str] = Header(default=None)):
+    """Vazifa bergan (yoki admin) nom, tavsif, muddatni tuzatadi / выдавший (или админ) правит название, описание, срок."""
+    b = await request.json()
+    title = clean(b.get("title"), 120)
+    if len(title) < 2:
+        err(400, "bad_title")
+    deadline = _deadline_ok(b.get("deadline"))
+    with db.tx() as c:
+        u = core.current_user(c, authorization)
+        t = c.one("SELECT * FROM tasks WHERE id=?", (tid,))
+        if not t:
+            err(404, "not_found")
+        if t["created_by"] != u["id"] and u["role"] != "admin":
+            err(403, "forbidden")
+        c.x("UPDATE tasks SET title=?, description=?, deadline=?, photo_required=? WHERE id=?",
+            (title, str(b.get("description") or "").strip()[:2000], deadline,
+             1 if b.get("photo_required", bool(t["photo_required"])) else 0, tid))
+        return task_json(c, c.one("SELECT * FROM tasks WHERE id=?", (tid,)), u)
+
+
 @router.post("/api/tasks/{tid}/delete")
 def task_delete(tid: str, authorization: Optional[str] = Header(default=None)):
     with db.tx() as c:
@@ -336,6 +357,30 @@ async def event_rsvp(eid: str, request: Request, authorization: Optional[str] = 
             err(403, "forbidden")
         c.x("UPDATE event_guests SET rsvp=? WHERE event_id=? AND user_id=?", (rsvp, eid, u["id"]))
     return {"ok": True}
+
+
+@router.post("/api/events/{eid}/edit")
+async def event_edit(eid: str, request: Request, authorization: Optional[str] = Header(default=None)):
+    b = await request.json()
+    title = clean(b.get("title"), 120)
+    if len(title) < 2:
+        err(400, "bad_title")
+    starts = _deadline_ok(b.get("starts_at"))
+    with db.tx() as c:
+        u = core.current_user(c, authorization)
+        e = c.one("SELECT * FROM events WHERE id=?", (eid,))
+        if not e:
+            err(404, "not_found")
+        if e["created_by"] != u["id"] and u["role"] != "admin":
+            err(403, "forbidden")
+        moved = starts != e["starts_at"]
+        c.x("UPDATE events SET title=?, description=?, place=?, starts_at=? WHERE id=?",
+            (title, str(b.get("description") or "").strip()[:2000], clean(b.get("place"), 200), starts, eid))
+        guests = [r["user_id"] for r in c.q("SELECT user_id FROM event_guests WHERE event_id=?", (eid,))]
+        out = event_json(c, c.one("SELECT * FROM events WHERE id=?", (eid,)), u)
+    if moved:
+        push.send(guests, f"🕒 {title}", "Tadbir vaqti o‘zgardi · Время мероприятия изменено", {"type": "event", "id": eid})
+    return out
 
 
 @router.post("/api/events/{eid}/delete")

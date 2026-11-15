@@ -57,8 +57,19 @@ void main() {
     await shot(tester, 'phone-light-uz-17-admin-books');
     await tap(tester, find.byKey(const ValueKey('admin-book-it')));
     expect(find.byKey(const ValueKey('book-save')), findsOneWidget);
-    await tap(tester, find.byKey(const ValueKey('book-save')));
-    expect(find.text(tr('uz', 'book_fill')), findsOneWidget); // muqova/PDF yo‘q — saqlanmaydi
+    // bor kitob: tuzatish rejimi — nomi to‘ldirilgan, saqlanadi (o‘qiganlar saqlanadi)
+    // существующая книга: режим исправления — поля заполнены, сохраняется
+    expect(find.text('Sun’iy intellekt asoslari'), findsOneWidget);
     await shot(tester, 'phone-light-uz-18-book-editor');
+    await tester.enterText(find.byKey(const ValueKey('book-title')).first, 'Sun’iy intellekt asoslari (2-nashr)');
+    await tap(tester, find.byKey(const ValueKey('book-save')));
+    expect(admin.posts.last['path'], '/api/admin/books');
+    expect(admin.posts.last['edit'], true);
+    expect(admin.posts.last['title'], 'Sun’iy intellekt asoslari (2-nashr)');
+    // yangi oy kitobi: muqova va PDF majburiy / новая книга: обложка и PDF обязательны
+    await tap(tester, find.byKey(const ValueKey('admin-book-it')));
+    await tap(tester, find.byKey(const ValueKey('book-new')));
+    await tap(tester, find.byKey(const ValueKey('book-save')));
+    expect(find.text(tr('uz', 'book_fill')), findsOneWidget);
   });
 }

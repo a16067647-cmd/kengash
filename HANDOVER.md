@@ -13,6 +13,7 @@ To‘liq talablar: [`KENGASH-PROMPT.md`](KENGASH-PROMPT.md). Dizayn asosi: [`IDR
 | 4 | Ro‘yxat faqat @KengashAppBot orqali (ism yoziladi, qolgani tugma), tasdiqlar, maslahatchi va o‘quvchi rollari, kalitlar olib tashlandi | ✅ |
 | 4b | Reyting: vazifa bergan +1/−1 qo‘yadi (yoki qo‘ymaydi), yig‘ilishda keldi +1 / kelmadi −1; ochiq reyting, har chorakda noldan. O‘quvchilar chatda faqat matn va ovoz | ✅ |
 | 4c | Oy kitobi: har yo‘nalishga bitta kitob (admin muqova + PDF qo‘shadi, yangisi eskisini almashtiradi), Bugun’da javon, ilova ichida PDF o‘qish (pdfrx), «O‘qidim» hisoblagichi | ✅ |
+| 4d | «Adminga yozish» (shikoyat/taklif/savol → Admin → Shikoyatlar, javob Telegram orqali); uzoq bosib tahrirlash (kanal: nom/surat/o‘chirish, kitob, vazifa, tadbir); admin: e’lon tarqatish, faollik, foydalanuvchini tahrirlash, Excel | ✅ |
 | 5 | To‘lov 5 000 so‘m/oy (Click/Payme) — kod tayyor, `PAYMENTS_ENABLED` o‘chiq | ⏳ (YaTT/MChJ kerak) |
 
 ## Kod xaritasi / карта кода
@@ -38,6 +39,7 @@ server/                   Python (FastAPI) + Postgres (Supabase) / SQLite (lokal
   channels.py             kanallar: avtomatik kanallar (sync_user), auditoriya, xabarlar, fayllar, shikoyatlar, WebSocket
   storage.py              Supabase Storage, yopiq «kengash-media» bucket, imzolangan havolalar
   realtime.py             jonli ulanishlar (xotirada, bitta server)
+  admin_tools.py          adminga yozish (/api/feedback), e’lon (/api/admin/broadcast), faollik, foydalanuvchini tahrirlash, Excel (openpyxl)
   books.py                Oy kitobi: /api/books, /api/books/{id}/read, admin: /api/admin/books (PDF ≤ 50 MB, imzolangan yuklash)
   rating.py               reyting: /api/tasks/{id}/rate, /api/events/{id}/attendance, /api/rating (chorak — Toshkent vaqti)
   plan.py                 vazifalar, tadbirlar, /api/today, push ro‘yxati, eslatmalar (har 5 daqiqa)

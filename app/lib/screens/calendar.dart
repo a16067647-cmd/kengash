@@ -7,6 +7,7 @@ import '../widgets.dart';
 import 'audience.dart';
 import 'channels.dart' show PresetTile, channelPresets;
 import 'directory.dart' show confirmSheet;
+import 'manage.dart' show planActions;
 import 'tasks.dart' show WhenPicker, fromTs, toTs, two, whenLabel;
 
 /// Sana sarlavhasi: «Bugun», «Ertaga», «Shanba, 21 noyabr» / заголовок даты.
@@ -128,6 +129,7 @@ class EventCard extends StatelessWidget {
         await Navigator.of(context).push(AppRoute(builder: (_) => EventScreen(eventId: event['id'] as String)));
         onChanged?.call();
       },
+      onLongPress: event['is_organizer'] == true ? () => planActions(context, event, event: true, onChanged: onChanged) : null,
       child: Row(children: [
         Container(
           width: 56,

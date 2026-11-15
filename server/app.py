@@ -68,7 +68,8 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 async def _limits(request: Request, call_next):
     """Tana hajmi chegarasi / ограничение размера тела."""
     path = request.url.path
-    limit = MAX_PHOTO_BODY if path == "/api/me/photo" else 15_000_000 if path.endswith("/photo") else MAX_BODY
+    big = path.endswith("/photo") or path in ("/api/admin/books", "/api/feedback") or path.endswith("/avatar")
+    limit = MAX_PHOTO_BODY if path == "/api/me/photo" else 15_000_000 if big else MAX_BODY
     size = request.headers.get("content-length")
     if size and size.isdigit() and int(size) > limit:
         return JSONResponse({"error": "too_large"}, status_code=413)
@@ -274,6 +275,17 @@ def meta():
         "directions": [{"id": k, "uz": uz, "ru": ru} for k, uz, ru in model.DIRECTIONS],
         "legal_version": LEGAL_VERSION, "bot": telegram.BOT_USERNAME, "payments": PAYMENTS_ENABLED,
     }
+
+
+@app.get("/api/chphoto/{cid}/{ver}.jpg")
+def channel_photo(cid: str, ver: str):
+    with db.tx() as c:
+        ch = c.one("SELECT photo_ver FROM channels WHERE id=?", (cid,))
+        p = c.one("SELECT data FROM photos WHERE user_id=?", ("ch:" + cid,))
+    if not ch or not p or ch["photo_ver"] != ver:
+        err(404, "not_found")
+    return Response(bytes(p["data"]), media_type="image/jpeg",
+                    headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
 
 @app.get("/api/photo/{uid}/{ver}.jpg")
@@ -807,6 +819,9 @@ app.include_router(rating.router)
 import books  # noqa: E402
 
 app.include_router(books.router)
+import admin_tools  # noqa: E402
+
+app.include_router(admin_tools.router)
 
 
 if __name__ == "__main__":

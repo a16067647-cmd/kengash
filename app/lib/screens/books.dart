@@ -78,6 +78,14 @@ class _BooksShelfState extends State<BooksShelf> {
               await Navigator.of(context).push(AppRoute(builder: (_) => BookScreen(book: books[i])));
               _load();
             },
+            // admin: uzoq bosib tahrirlash / админ: долгое нажатие — правка
+            onLongPress: s.isAdmin
+                ? () async {
+                    final ok = await Navigator.of(context).push<bool>(AppRoute(
+                        builder: (_) => BookEditorScreen(direction: books[i]['direction'] as String, current: books[i])));
+                    if (ok == true) _load();
+                  }
+                : null,
           ),
         ),
       ),
@@ -90,7 +98,8 @@ class _BooksShelfState extends State<BooksShelf> {
 class BookCard extends StatelessWidget {
   final Json book;
   final VoidCallback onTap;
-  const BookCard({super.key, required this.book, required this.onTap});
+  final VoidCallback? onLongPress;
+  const BookCard({super.key, required this.book, required this.onTap, this.onLongPress});
 
   @override
   Widget build(BuildContext context) {
@@ -102,6 +111,7 @@ class BookCard extends StatelessWidget {
     return Pressable(
       key: ValueKey('book-$dir'),
       onTap: onTap,
+      onLongPress: onLongPress,
       child: SizedBox(
         width: 168,
         child: DecoratedBox(
@@ -639,15 +649,35 @@ class BookEditorScreen extends StatefulWidget {
 }
 
 class _BookEditorScreenState extends State<BookEditorScreen> {
-  final _title = TextEditingController();
-  final _author = TextEditingController();
-  final _desc = TextEditingController();
-  late final _month = TextEditingController(text: _monthName(AppScope.read(context)));
+  late final _title = TextEditingController(text: (widget.current?['title'] ?? '').toString());
+  late final _author = TextEditingController(text: (widget.current?['author'] ?? '').toString());
+  late final _desc = TextEditingController(text: (widget.current?['description'] ?? '').toString());
+  late final _month = TextEditingController(
+      text: (widget.current?['month'] ?? '').toString().isNotEmpty
+          ? widget.current!['month'] as String
+          : _monthName(AppScope.read(context)));
   Uint8List? _cover;
   PlatformFile? _pdf;
   int _pdfSize = 0;
   bool _busy = false;
   String _status = '';
+
+  /// Bor kitobni tuzatish (o‘qiganlar saqlanadi) yoki yangi kitob bilan almashtirish.
+  /// Исправить текущую книгу (отметки сохраняются) или заменить новой.
+  late bool _editing = widget.current != null;
+
+  void _startNew() {
+    final s = AppScope.read(context);
+    setState(() {
+      _editing = false;
+      _title.clear();
+      _author.clear();
+      _desc.clear();
+      _month.text = _monthName(s);
+      _cover = null;
+      _pdf = null;
+    });
+  }
 
   static String _monthName(AppState s) {
     final m = DateTime.now().month;
@@ -690,22 +720,26 @@ class _BookEditorScreenState extends State<BookEditorScreen> {
 
   Future<void> _save() async {
     final s = AppScope.read(context);
-    if (_title.text.trim().length < 2 || _cover == null || _pdf == null) {
+    if (_title.text.trim().length < 2 || (!_editing && (_cover == null || _pdf == null))) {
       s.toast(s.t('book_fill'));
       return;
     }
     setState(() {
       _busy = true;
-      _status = s.t('book_uploading');
+      _status = s.t(_pdf != null ? 'book_uploading' : 'saving');
     });
     try {
-      final bytes = await _pdf!.xFile.readAsBytes();
-      final up = await s.api.post('/api/admin/books/upload', {'size': bytes.length});
-      final res = await s.api.client
-          .put(Uri.parse(up['upload_url'] as String),
-              headers: {'Content-Type': 'application/pdf', 'x-upsert': 'false'}, body: bytes)
-          .timeout(const Duration(minutes: 10));
-      if (res.statusCode >= 300) throw ApiError(res.statusCode, 'upload_failed');
+      String? pdfPath;
+      if (_pdf != null) {
+        final bytes = await _pdf!.xFile.readAsBytes();
+        final up = await s.api.post('/api/admin/books/upload', {'size': bytes.length});
+        final res = await s.api.client
+            .put(Uri.parse(up['upload_url'] as String),
+                headers: {'Content-Type': 'application/pdf', 'x-upsert': 'false'}, body: bytes)
+            .timeout(const Duration(minutes: 10));
+        if (res.statusCode >= 300) throw ApiError(res.statusCode, 'upload_failed');
+        pdfPath = up['path'] as String;
+      }
       if (mounted) setState(() => _status = s.t('saving'));
       await s.api.post(
           '/api/admin/books',
@@ -715,8 +749,9 @@ class _BookEditorScreenState extends State<BookEditorScreen> {
             'author': _author.text.trim(),
             'description': _desc.text.trim(),
             'month': _month.text.trim(),
-            'cover': base64Encode(_cover!),
-            'pdf_path': up['path'],
+            if (_cover != null) 'cover': base64Encode(_cover!),
+            if (pdfPath != null) 'pdf_path': pdfPath,
+            if (_editing) 'edit': true,
           },
           const Duration(seconds: 90));
       s.toast(s.t('saved'), icon: Icons.check_circle_rounded);
@@ -746,7 +781,8 @@ class _BookEditorScreenState extends State<BookEditorScreen> {
           if (cur != null)
             AppCard(
               kind: CardKind.inset,
-              child: Text(s.t('book_replace_hint'), style: AppType.footnote.copyWith(color: c.text2)),
+              child: Text(s.t(_editing ? 'book_edit_hint' : 'book_replace_hint'),
+                  style: AppType.footnote.copyWith(color: c.text2)),
             ),
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Pressable(
@@ -761,7 +797,9 @@ class _BookEditorScreenState extends State<BookEditorScreen> {
                   borderRadius: R.all(R.md),
                   border: Border.all(color: c.hairlineStrong),
                 ),
-                child: _cover == null
+                child: _cover == null && _editing && (cur?['cover_url'] ?? '').toString().isNotEmpty
+                    ? Image.network(cur!['cover_url'] as String, fit: BoxFit.cover)
+                    : _cover == null
                     ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                         Icon(Icons.add_photo_alternate_rounded, color: c.accent, size: 32),
                         const SizedBox(height: 6),
@@ -784,7 +822,7 @@ class _BookEditorScreenState extends State<BookEditorScreen> {
               key: const ValueKey('book-pdf-pick'),
               icon: Icons.picture_as_pdf_rounded,
               color: const Color(0xFFE5484D),
-              title: _pdf == null ? s.t('book_pick_pdf') : _pdf!.name,
+              title: _pdf != null ? _pdf!.name : s.t(_editing ? 'book_change_pdf' : 'book_pick_pdf'),
               value: _pdf == null ? '≤ 50 MB' : '${(_pdfSize / 1024 / 1024).toStringAsFixed(1)} MB',
               onTap: _busy ? null : _pickPdf,
             ),
@@ -794,6 +832,13 @@ class _BookEditorScreenState extends State<BookEditorScreen> {
           if (_status.isNotEmpty) Text(_status, textAlign: TextAlign.center, style: AppType.footnote.copyWith(color: c.text2)),
           AppButton(s.t('save'),
               key: const ValueKey('book-save'), icon: Icons.check_rounded, expand: true, onPressed: _busy ? null : _save),
+          if (cur != null && _editing)
+            AppButton(s.t('book_new_month'),
+                key: const ValueKey('book-new'),
+                kind: BtnKind.secondary,
+                icon: Icons.autorenew_rounded,
+                expand: true,
+                onPressed: _busy ? null : _startNew),
           if (cur != null)
             AppButton(s.t('book_remove'), kind: BtnKind.danger, icon: Icons.delete_rounded, expand: true, onPressed: () async {
               if (!await confirmSheet(context, s.t('book_remove_q'), s.t('book_remove'))) return;

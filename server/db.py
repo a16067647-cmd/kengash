@@ -132,7 +132,8 @@ class _Conn:
         self.raw = raw
 
     def _sql(self, sql):
-        return sql.replace("?", "%s") if IS_PG else sql
+        # literal % (LIKE 'x%') psycopg uchun ikkilanadi / литеральный % экранируется для psycopg
+        return sql.replace("%", "%%").replace("?", "%s") if IS_PG else sql
 
     def q(self, sql, params=()):
         cur = self.raw.cursor()
@@ -205,6 +206,10 @@ COLUMNS = [
     ("users", "notify_tg", "INTEGER NOT NULL DEFAULT 1"),
     ("users", "kind", "TEXT NOT NULL DEFAULT ''"),
     ("users", "class_name", "TEXT NOT NULL DEFAULT ''"),
+    ("reports", "kind", "TEXT NOT NULL DEFAULT 'message'"),
+    ("reports", "photo_path", "TEXT NOT NULL DEFAULT ''"),
+    ("reports", "reply", "TEXT NOT NULL DEFAULT ''"),
+    ("channels", "photo_ver", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 

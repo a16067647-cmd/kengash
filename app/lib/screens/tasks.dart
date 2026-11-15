@@ -12,6 +12,7 @@ import '../widgets.dart';
 import 'audience.dart';
 import 'channels.dart' show PresetTile, channelPresets;
 import 'directory.dart' show confirmSheet;
+import 'manage.dart' show planActions;
 import 'media.dart' show PhotoViewer;
 
 // ============================================================ vaqt / время
@@ -220,6 +221,9 @@ class TaskCard extends StatelessWidget {
         await Navigator.of(context).push(AppRoute(builder: (_) => TaskScreen(taskId: task['id'] as String)));
         onChanged?.call();
       },
+      onLongPress: task['is_giver'] == true || s.isAdmin
+          ? () => planActions(context, task, event: false, onChanged: onChanged)
+          : null,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(child: Text(task['title'] as String, style: AppType.headline.copyWith(color: c.text))),

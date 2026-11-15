@@ -202,6 +202,22 @@ Keys are gone. The admin never hands out keys or free months.
   tap to hide the bars, and it remembers the page ("Davom etish · 34-bet").
 - **O‘qidim** button and a counter ("O‘qidi: 124").
 
+### 3.3e Adminga yozish (contact the admin)
+- Everyone (students too) has **"Adminga yozish"** on *Bugun* and in *Profil*: topic (Shikoyat / Taklif / Savol), text,
+  optional screenshot. Only the admin sees it, in **Admin → Shikoyatlar**, and gets a Telegram alert.
+- The admin answers in the app; the answer reaches the person in Telegram via @KengashAppBot.
+
+### 3.3f Long press to edit
+- **Channels** (custom only): rename, description, mode, **photo**, delete. Auto channels can't be changed.
+- **Books** (admin): fix title/author/description/cover/PDF — readers are kept; or replace with a new month's book.
+- **Tasks** (giver) and **meetings** (organizer): edit title, description, time (place) or delete. Moving a meeting notifies guests.
+
+### 3.3g Admin tools
+- **E’lon tarqatish**: one message to everyone or filtered by role / tuman / direction, via Telegram.
+- **Faollik**: task completion % per tuman (30 days), schools without coordinators, top 5 schools, people inactive 7+ days.
+- **Tahrirlash**: fix anyone's name, role, school, class, direction; approves stuck applications.
+- **Excel**: users, tasks and reports, quarter rating, book readers (.xlsx, link valid 10 minutes).
+
 ### 3.3c Safety
 - Students in the school chat send **text and voice only** (no photos, videos, files). Coordinators and the maslahatchi can.
 - Every message has a report button; the admin deletes and blocks. Nobody is anonymous.

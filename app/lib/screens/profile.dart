@@ -5,6 +5,7 @@ import '../main.dart' show openTool;
 import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'admin_more.dart' show FeedbackScreen;
 import 'legal.dart';
 import 'onboarding.dart' show PhotoEditor;
 
@@ -107,6 +108,13 @@ class ProfileTab extends StatelessWidget {
         ]),
         SectionHeader(s.t('info')),
         GroupList([
+          GroupRow(
+              key: const ValueKey('row-feedback'),
+              icon: Icons.support_agent_rounded,
+              color: const Color(0xFFFF9F0A),
+              title: s.t('fb_title'),
+              value: s.t('fb_short'),
+              onTap: () => Navigator.of(context).push(AppRoute(builder: (_) => const FeedbackScreen()))),
           GroupRow(
               icon: Icons.info_rounded, color: const Color(0xFF34C759), title: s.t('about'), onTap: () => openLegal('about')),
           GroupRow(
