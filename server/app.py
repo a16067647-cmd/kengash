@@ -59,7 +59,12 @@ async def lifespan(_app):
 
 app = FastAPI(title="Kengash API", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 # Bearer token ishlatiladi (cookie yo‘q) — shuning uchun CORS * xavfsiz / токены Bearer, без cookie — CORS * безопасен
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+# Faqat bizning sayt va lokal ishlab chiqish brauzerdan chaqira oladi (mobil ilovaga CORS ta’sir qilmaydi).
+# Из браузера API доступен только нашему сайту и локальной разработке (на мобильное приложение CORS не влияет).
+CORS_ORIGINS = os.environ.get(
+    "CORS_ORIGIN_REGEX", r"https://a16067647-cmd\.github\.io|http://(localhost|127\.0\.0\.1)(:\d+)?")
+app.add_middleware(CORSMiddleware, allow_origin_regex=CORS_ORIGINS, allow_methods=["GET", "POST"],
+                   allow_headers=["Authorization", "Content-Type"], max_age=86400)
 
 
 
@@ -74,8 +79,15 @@ async def _limits(request: Request, call_next):
     if size and size.isdigit() and int(size) > limit:
         return JSONResponse({"error": "too_large"}, status_code=413)
     resp = await call_next(request)
-    resp.headers["X-Content-Type-Options"] = "nosniff"
-    resp.headers["Referrer-Policy"] = "no-referrer"
+    h = resp.headers
+    h["X-Content-Type-Options"] = "nosniff"
+    h["Referrer-Policy"] = "no-referrer"
+    h["X-Frame-Options"] = "DENY"
+    h["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    h["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    h["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+    if path.startswith("/api/") and "photo" not in path and "Cache-Control" not in h:
+        h["Cache-Control"] = "no-store"  # shaxsiy javoblar keshlanmaydi / личные ответы не кэшируются
     return resp
 
 
@@ -121,6 +133,12 @@ def rate_ok(key, limit, window):
 
 
 def client_ip(request: Request):
+    """Haqiqiy IP: Cloudflare/Render qo‘ygan sarlavha (mijoz soxtalashtira olmaydi), keyin X-Forwarded-For.
+    Настоящий IP: заголовок от Cloudflare/Render (клиент не подделает), затем X-Forwarded-For."""
+    for name in ("cf-connecting-ip", "true-client-ip"):
+        v = request.headers.get(name, "").strip()
+        if v:
+            return v
     fwd = request.headers.get("x-forwarded-for", "")
     return (fwd.split(",")[0].strip() if fwd else "") or (request.client.host if request.client else "?")
 
@@ -396,6 +414,15 @@ async def dev_register(request: Request, authorization: Optional[str] = Header(d
         return me_json(c, u)
 
 
+@app.post("/api/auth/logout-all")
+def logout_all(authorization: Optional[str] = Header(default=None)):
+    """Barcha qurilmalardan chiqish (telefon yo‘qolsa) / выйти со всех устройств (если телефон потерян)."""
+    with db.tx() as c:
+        u = current_user(c, authorization, allow_blocked=True, active=False)
+        c.x("DELETE FROM tokens WHERE user_id=?", (u["id"],))
+    return {"ok": True}
+
+
 @app.post("/api/auth/logout")
 def logout(authorization: Optional[str] = Header(default=None)):
     if authorization and authorization.startswith("Bearer "):
@@ -457,7 +484,7 @@ async def me_photo(request: Request, authorization: Optional[str] = Header(defau
             err(429, "too_many")
         c.x("DELETE FROM photos WHERE user_id=?", (u["id"],))
         c.x("INSERT INTO photos (user_id, data) VALUES (?, ?)", (u["id"], jpg))
-        c.x("UPDATE users SET photo_ver=? WHERE id=?", (secrets.token_hex(4), u["id"]))
+        c.x("UPDATE users SET photo_ver=? WHERE id=?", (secrets.token_hex(12), u["id"]))
         return me_json(c, c.one("SELECT * FROM users WHERE id=?", (u["id"],)))
 
 

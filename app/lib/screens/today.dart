@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../brand.dart';
 import '../main.dart' show openTool;
 import '../api.dart';
-import 'calendar.dart' show EventCard;
+import 'calendar.dart' show EventCard, dayTitle;
 import 'admin_more.dart' show FeedbackScreen;
 import 'books.dart' show BooksShelf;
 import 'onboarding.dart' show ApprovalsScreen;
@@ -68,6 +68,9 @@ class TodayTab extends StatelessWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('$hello, $first!', style: AppType.title2.copyWith(color: kWhite, shadows: kTextShadow)),
                   Text(s.seatLine(s.me), style: AppType.footnote.copyWith(color: Colors.white.withAlpha(0xDD))),
+                  const SizedBox(height: 2),
+                  Text('📅 ${dayTitle(s, DateTime.now(), full: true)}',
+                      key: const ValueKey('hero-date'), style: AppType.caption.copyWith(color: Colors.white.withAlpha(0xC0))),
                 ]),
               ),
               const KengashMark(size: 40, color: kWhite),
@@ -91,10 +94,11 @@ class TodayTab extends StatelessWidget {
               ),
             ]),
           ),
-        const _ApprovalsCard(),
-        const _TodayPlan(),
-        const BooksShelf(),
-        const _ChannelsCard(),
+        // bo‘limlar navbat bilan yumshoq paydo bo‘ladi / разделы плавно появляются по очереди
+        const Appear(index: 1, child: _ApprovalsCard()),
+        const Appear(index: 2, child: _TodayPlan()),
+        const Appear(index: 3, child: BooksShelf()),
+        const Appear(index: 4, child: _ChannelsCard()),
         GroupList([
           GroupRow(
               key: const ValueKey('quick-directory'),

@@ -456,7 +456,7 @@ async def channel_avatar(cid: str, request: Request, authorization: Optional[str
         c.x("DELETE FROM photos WHERE user_id=?", ("ch:" + cid,))
         ver = ""
         if jpg:
-            ver = secrets.token_hex(4)
+            ver = secrets.token_hex(12)
             c.x("INSERT INTO photos (user_id, data) VALUES (?, ?)", ("ch:" + cid, jpg))
         c.x("UPDATE channels SET photo_ver=? WHERE id=?", (ver, cid))
         ids = member_ids(c, cid)

@@ -481,6 +481,8 @@ const Map<String, Map<String, String>> kStrings = {
     'eu_title': 'Tahrirlash',
     'eu_fill': 'Joy va yo‘nalishni tanlang',
     'eu_class': 'Sinf',
+    'logout_all': 'Barcha qurilmalardan chiqish',
+    'logout_all_q': 'Barcha telefon va kompyuterlardagi kirish bekor qilinadi. Telefon yo‘qolsa yoki kimdir hisobingizga kirgan bo‘lsa — shuni bosing.',
   },
   'ru': {
     'back': 'Назад',
@@ -948,6 +950,8 @@ const Map<String, Map<String, String>> kStrings = {
     'eu_title': 'Редактировать',
     'eu_fill': 'Выберите место и направление',
     'eu_class': 'Класс',
+    'logout_all': 'Выйти со всех устройств',
+    'logout_all_q': 'Вход на всех телефонах и компьютерах будет отменён. Нажмите, если телефон потерян или кто-то вошёл в ваш аккаунт.',
   },
 };
 

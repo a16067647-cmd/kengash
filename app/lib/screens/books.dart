@@ -129,7 +129,10 @@ class BookCard extends StatelessWidget {
             padding: const EdgeInsets.all(S.x2),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Stack(children: [
-                BookCover(url: book['cover_url'] as String?, width: 152, height: 210, radius: R.lg),
+                Hero(
+                  tag: 'book-cover-${book['id']}',
+                  child: BookCover(url: book['cover_url'] as String?, width: 152, height: 210, radius: R.lg),
+                ),
                 Positioned(
                   left: 6,
                   right: 6,
@@ -264,7 +267,7 @@ class _BookScreenState extends State<BookScreen> {
                   borderRadius: R.all(R.lg),
                   boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 30, offset: const Offset(0, 16))],
                 ),
-                child: BookCover(url: cover, width: 200, height: 290),
+                child: Hero(tag: 'book-cover-${_b['id']}', child: BookCover(url: cover, width: 200, height: 290)),
               ),
             ),
             Glass(

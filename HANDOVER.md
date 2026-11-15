@@ -60,6 +60,8 @@ render.yaml               Render sozlamasi (Starter, ~7$/oy)
 - Maslahatchi: o‘z maktabining koordinatorlari va o‘quvchilaridan yuqori. Maktab koordinatori: o‘z maktabi o‘quvchilaridan.
   Tuman va viloyat o‘quvchilarni ko‘rmaydi.
 - Admin hamma kanallarni ko‘radi (a’zo bo‘lmasa ham — 👁 belgisi): o‘zi a’zo bo‘lganlari + xabari bor barcha kanallar; o‘qiydi va yoza oladi.
+- Xavfsizlik: Telegram orqali kirish faqat botdagi «✅ Ha, bu men» tugmasi bilan (begona havola orqali hisobni o‘g‘irlab bo‘lmaydi);
+  tokenlar bazada faqat xesh; CORS faqat sayt uchun; HSTS, X-Frame-Options, CSP; «Barcha qurilmalardan chiqish»; havolalar faqat http/https/tg.
 - Telefon raqami faqat yuqoridagilarga va adminga ko‘rinadi (o‘quvchiniki — o‘z maktabi koordinatorlari va maslahatchisiga).
 - Admin: `ADMIN_TG_IDS` dagi Telegram ID bilan kirgan odam.
 - Har bir matn uz + ru. Ranglar faqat `theme.dart` dan.
