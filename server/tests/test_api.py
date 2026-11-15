@@ -22,6 +22,11 @@ from fastapi.testclient import TestClient  # noqa: E402
 import app as server  # noqa: E402
 import db  # noqa: E402
 import telegram  # noqa: E402
+import push  # noqa: E402
+
+# Testlarda bildirishnomalar darhol (fon oqimisiz) — kech kelgan xabarlar boshqa testni chalkashtirmaydi.
+# В тестах уведомления сразу (без фоновых потоков) — запоздалые сообщения не путают другие тесты.
+push.TELEGRAM_SYNC = True
 
 
 @pytest.fixture(scope="module")

@@ -198,7 +198,8 @@ def test_telegram_notifications(client, w, monkeypatch):  # noqa: F811
     make_task(client, w["tit"], title="Telegram sinovi")
     chats = {p["chat_id"] for p in sent}
     assert {tg["m1"], tg["m2"]} <= chats
-    assert "Telegram sinovi" in sent[-1]["text"] and sent[-1]["reply_markup"]["inline_keyboard"][0][0]["url"]
+    mine = [p for p in sent if "Telegram sinovi" in p["text"]]
+    assert mine and mine[-1]["reply_markup"]["inline_keyboard"][0][0]["url"]
     # o‘chirib qo‘yganlarga yuborilmaydi / отключившим не отправляется
     me = client.post("/api/me/notify", json={"telegram": False}, headers=w["m2"]).json()
     assert me["notify_tg"] is False
@@ -220,4 +221,4 @@ def test_telegram_notifications(client, w, monkeypatch):  # noqa: F811
     # HTML xavfsiz / HTML экранируется
     sent.clear()
     make_task(client, w["tit"], title="<b>x</b> & y")
-    assert "&lt;b&gt;x&lt;/b&gt; &amp; y" in sent[-1]["text"]
+    assert any("&lt;b&gt;x&lt;/b&gt; &amp; y" in p["text"] for p in sent)
