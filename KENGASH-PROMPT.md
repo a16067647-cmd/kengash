@@ -154,27 +154,41 @@ live background), with **these colours instead of the blue ones**.
 
 Rules: bot token and webhook secret only on the server; webhook requests must carry Telegram's `X-Telegram-Bot-Api-Secret-Token`. Tokens as in blueprint §6.3. Works the same on Android, iPhone and website. If the person has **no Telegram username**, ask them to set one (show how) because private talk goes through Telegram links. Allow continuing, but show a reminder on their profile.
 
-### 3.2 First sign-up
-1. Telegram login (above).
-2. **Key screen:** enter key, e.g. `KNG-7Q4K-M2XD`. The key fixes the seat (level, place, direction).
-   - "Kalitim yo‘q / У меня нет ключа" → pick tuman → school → direction → the app shows **who gives the key** for that seat (the coordinators above, with Telegram buttons; the admin's Telegram as the last fallback).
-3. **Profile:** full name (pre-filled from Telegram, editable), photo (camera/gallery, cropped square, EXIF removed), seat shown read-only.
-4. **One tick:** `Foydalanish qoidalari va maxfiylik siyosatiga roziman` / `Я согласен(на) с правилами и политикой конфиденциальности`. No parent consent (owner's decision).
-5. Done: the user is added to all automatic channels of their seat (§4.1).
+### 3.2 Registration — only in @KengashAppBot (step 4)
+Keys are gone. The admin never hands out keys or free months.
+1. Telegram login (above). A new user sees one screen: **Botni ochish / Открыть бота**.
+2. In the bot the person **types only the full name** (2+ words). Everything else is buttons:
+   role (O‘quvchi / Koordinator / Maslahatchi) → for coordinators the level → tuman → school (6 numbers per row) →
+   class 1–11 + letter (students) or direction (coordinators) → summary with links to the rules → **Tasdiqlash**.
+3. **One person per seat.** If the seat is taken (active or pending), the bot shows who to message instead
+   (the approvers of that seat, with Telegram links).
+4. **Approvals** (the bot sends ✅/❌ buttons to the approver; the app has *Arizalar* on Bugun):
+   - students — none, active immediately;
+   - school coordinators — their school's maslahatchi (fallback: tuman Lider);
+   - maslahatchi — tuman Lider (fallback: viloyat Lider);
+   - tuman coordinators — viloyat Lider;
+   - viloyat coordinators — admin. Nobody found → admin.
+5. While pending, the app shows *Tasdiq kutilmoqda* with the approvers' cards and opens by itself when approved.
+   Rejected → back to registration.
 
-### 3.3 Keys
-- Created in **Kalitlar / Ключи** by anyone who `isAbove` the seat: pick the seat (or several: "all IT seats in Asaka schools" makes one key per seat), get keys with a **Copy** and **Share to Telegram** button.
-- One-time, valid **7 days**, bound to one seat, can be revoked. Only a hash is stored. Max 10 wrong key attempts per hour per user.
-- If the seat is taken, the key can't be created (free the seat first).
-- **No admin approval** after a valid key: the key is the approval. The admin can remove anyone at any time.
-- The **admin** creates keys for viloyat seats (the first users).
+### 3.3 Roles
+- **Koordinator** — school / tuman / viloyat, one of 8 directions.
+- **Maslahatchi** — teacher, one per school. Team chat with the school's 8 coordinators, gives tasks to them and to students,
+  approves the school's coordinators.
+- **O‘quvchi** — free. Gives name, school, class (e.g. 7-B). Sees only: *Kengash e’lonlari*, the school news channel
+  (coordinators + maslahatchi post) and the school chat (everyone writes). Visible only to their school's coordinators and
+  maslahatchi. **Tuman and viloyat never see students or student channels.**
+- School coordinators give tasks to their school's students.
+- *Kengash e’lonlari*: everyone reads; only the admin and the viloyat Lider post.
+- **Payments:** 5 000 so‘m/month for coordinators (all levels) and maslahatchi; students free. Unpaid → the app is locked,
+  opens right after paying. Switched off (`PAYMENTS_ENABLED`) until Click/Payme and a YaTT/MChJ exist.
 
 ### 3.4 Profiles and the directory
 - **Koordinatorlar / Координаторы** screen: browse by tuman → school, filter by direction, search by name.
 - Profile card: photo, name, seat, direction colour chip, **"Telegram'da yozish / Написать в Telegram"** button (`https://t.me/<username>`).
 - **Phone number** visible only to people who are `isAbove` this person (and the admin), with a "Qo‘ng‘iroq qilish" button.
-- **Empty seats** are shown as "Bo‘sh / Свободно" with a "Kalit yaratish" button for those allowed.
-- The admin can set a **Telegram contact for a seat** that is still empty, so new users know who to ask.
+- **Empty seats** are shown as "Bo‘sh / Свободно". A school page has 9 seats (maslahatchi + 8) and, for its own staff,
+  an *O‘quvchilar* card (list grouped by class). Students open their own school directly.
 
 ---
 
@@ -241,7 +255,7 @@ Members are added and removed automatically when seats change. Mode: everyone ta
 4. **Taqvim / Календарь**.
 5. **Profil / Профиль** — iOS grouped list like the blueprint §3.3.
 
-Desktop sidebar extra section **VOSITALAR / ИНСТРУМЕНТЫ**: Koordinatorlar, Kalitlar (if allowed),
+Desktop sidebar extra section **VOSITALAR / ИНСТРУМЕНТЫ**: Koordinatorlar,
 Admin panel (admin only). On phone these are reached from Profil.
 
 ### 7.2 Admin panel (admin only, desktop-first, works on phone)

@@ -53,13 +53,6 @@ class ProfileTab extends StatelessWidget {
                 color: c.accent,
                 title: s.t('directory'),
                 onTap: () => openTool(context, 'directory')),
-            if (s.canKeys)
-              GroupRow(
-                  key: const ValueKey('row-keys'),
-                  icon: Icons.key_rounded,
-                  color: const Color(0xFFFF9F0A),
-                  title: s.t('keys'),
-                  onTap: () => openTool(context, 'keys')),
             if (s.isAdmin)
               GroupRow(
                   key: const ValueKey('row-admin'),

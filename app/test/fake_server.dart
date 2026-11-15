@@ -14,6 +14,7 @@ class FakeServer {
   final List<Map<String, dynamic>> posts = [];
   String rsvp = '';
   String myStatus = 'new';
+  final List<Map<String, dynamic>> approvals = [];
 
   Map<String, dynamic> task({bool given = false}) => {
         'id': 't1', 'title': 'Robototexnika to‘garagi hisoboti', 'description': 'To‘garakda nechta o‘quvchi borligini yozing.',
@@ -189,11 +190,15 @@ class FakeServer {
         'direction': null,
         'place': null,
         'role': 'user',
-        'status': 'active',
+        'status': 'new',
+        'kind': '',
+        'class_name': '',
         'consent': false,
-        'needs_seat': true,
-        'needs_profile': true,
-        'can_keys': false,
+        'needs_registration': true,
+        'can_give': false,
+        'can_create_channels': false,
+        'locked': false,
+        'notify_tg': true,
         'paid_until': 0,
         'payments': false,
       };
@@ -227,22 +232,46 @@ class FakeServer {
       'direction': direction,
       'place': place,
       'role': role,
+      'status': 'active',
+      'kind': direction == 'maslahatchi' ? 'maslahatchi' : 'coordinator',
       'consent': true,
-      'needs_seat': false,
-      'needs_profile': false,
-      'can_keys': level != 'school' || role == 'admin',
+      'needs_registration': false,
+      'can_give': true,
+      'can_create_channels': level != 'school' || role == 'admin' || direction == 'maslahatchi',
     };
   }
+
+  static Map<String, dynamic> student() => {
+        ...seated('school', 'it'),
+        'id': 'st1',
+        'name': 'Olimov Jasur',
+        'direction': null,
+        'kind': 'student',
+        'class_name': '7-B',
+        'can_give': false,
+        'can_create_channels': false,
+      };
+
+  static Map<String, dynamic> pending() => {
+        ...seated('school', 'it'),
+        'status': 'pending',
+        'can_give': false,
+        'approvers': [
+          {'id': 'mas', 'name': 'Qodirova Nilufar', 'tg_username': 'nilufar_m', 'photo': '', 'direction': 'maslahatchi', 'level': 'school', 'place': school59, 'kind': 'maslahatchi'}
+        ],
+      };
+
 
   static Map<String, dynamic> admin() => {
         ...newUser(),
         'name': 'Mamajonov Bexruz',
         'tg_username': 'behruz_sk',
         'role': 'admin',
+        'status': 'active',
         'consent': true,
-        'needs_seat': false,
-        'needs_profile': false,
-        'can_keys': true,
+        'needs_registration': false,
+        'can_give': true,
+        'can_create_channels': true,
       };
 
   static final directions = [
@@ -344,22 +373,22 @@ class FakeServer {
             out = statusPolls < 2 ? {'status': 'waiting'} : {'status': 'done', 'token': 'tok', 'me': me};
           case 'GET /api/me':
             out = me;
-          case 'POST /api/me/redeem-key':
-            if ((body['code'] as String).replaceAll('-', '') != 'KNGABCD2345') {
-              return http.Response(jsonEncode({'error': 'bad_key'}), 400);
-            }
-            me = {...seated('school', 'it'), 'needs_profile': true, 'consent': false};
-            out = me;
-          case 'POST /api/me/profile':
-            me = {...me, 'name': body['name'], 'needs_profile': false, 'consent': true};
-            out = me;
           case 'GET /api/schools':
             out = {'schools': schools};
           case 'GET /api/seats':
             final level = req.url.queryParameters['level']!;
+            final staff = me['role'] == 'admin' || (me['level'] == 'school' && me['kind'] != 'student');
             out = {
               'place': school59,
+              'students': 2,
+              'can_see_students': staff,
               'seats': [
+                if (level == 'school')
+                  {
+                    'direction': 'maslahatchi',
+                    'user': person('mas', 'Qodirova Nilufar', level, 'maslahatchi'),
+                    'can_manage': me['role'] == 'admin',
+                  },
                 for (final d in directions)
                   {
                     'direction': d['id'],
@@ -368,66 +397,25 @@ class FakeServer {
                         : d['id'] == 'lider'
                             ? person('m59l', 'Toshpo‘latov Sardorbek Akmaljon o‘g‘li', level, 'lider')
                             : null,
-                    'contact': d['id'] == 'sport' ? 'asaka_sport' : '',
                     'can_manage': me['role'] == 'admin' || me['level'] == 'district',
                   }
               ],
             };
-          case 'GET /api/key-contacts':
+          case 'GET /api/schools/s59/students':
             out = {
-              'contacts': [
-                {'kind': 'user', 'user': person('ait', 'Asaka IT', 'district', 'it')},
-                {
-                  'kind': 'contact',
-                  'level': 'region',
-                  'place': seated('region', 'it')['place'],
-                  'direction': 'it',
-                  'tg_username': 'viloyat_it'
-                },
-              ],
-              'admin': admin(),
-              'taken': false,
+              'students': [
+                {...student(), 'phone': '+998901112233'},
+                {...student(), 'id': 'st2', 'name': 'Karimova Zuhra', 'class_name': '9-A'},
+              ]
             };
+          case 'GET /api/approvals':
+            out = {'users': approvals};
+          case 'POST /api/approvals/p1':
+            approvals.clear();
+            out = {'ok': true};
           case 'GET /api/users/search':
             out = {
               'users': [person('m59it', 'Karimova Madina', 'school', 'it')]
-            };
-          case 'GET /api/keys':
-            out = {
-              'keys': [
-                {
-                  'id': 'a' * 16,
-                  'hint': 'X7Q2',
-                  'level': 'school',
-                  'place_id': 's59',
-                  'direction': 'it',
-                  'place': school59,
-                  'state': 'active',
-                  'created_at': 0,
-                  'expires_at': 0,
-                  'used_name': ''
-                },
-                {
-                  'id': 'b' * 16,
-                  'hint': 'M3RD',
-                  'level': 'school',
-                  'place_id': 's58',
-                  'direction': 'it',
-                  'place': school59,
-                  'state': 'used',
-                  'created_at': 0,
-                  'expires_at': 0,
-                  'used_name': 'Karimova Madina'
-                },
-              ]
-            };
-          case 'POST /api/keys':
-            final seats = (body['seats'] as List).cast<Map>();
-            out = {
-              'keys': [
-                for (final (i, x) in seats.indexed) {...x, 'code': 'KNG-TEST-${1000 + i}', 'place': school59, 'expires_at': 0}
-              ],
-              'skipped': [],
             };
           case 'GET /api/admin/stats':
             out = {

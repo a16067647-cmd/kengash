@@ -31,11 +31,12 @@ from fastapi.responses import JSONResponse, Response
 import db
 import model
 import telegram
-from model import DIRECTION_KEYS, LEVELS, is_above
+import register as reg
+from model import DIRECTION_KEYS, LEVELS, SEAT_DIRECTIONS, is_above
 
 TOKEN_DAYS = 120
 KEY_DAYS = 7
-LOGIN_TTL = 600
+LOGIN_TTL = 1800  # botda ro‘yxatdan o‘tish uchun vaqt / время на регистрацию в боте
 LEGAL_VERSION = "2026-11-14"
 MAX_BODY = 64_000
 MAX_PHOTO_BODY = 3_000_000
@@ -131,7 +132,8 @@ def issue_token(c, user_id):
     return token
 
 
-def current_user(c, authorization: Optional[str], allow_blocked=False):
+def current_user(c, authorization: Optional[str], allow_blocked=False, active=True):
+    """active=True: faqat tasdiqlangan (va to‘lagan) foydalanuvchi / только подтверждённый (и оплативший)."""
     if not authorization or not authorization.startswith("Bearer "):
         err(401, "auth")
     row = c.one("SELECT u.* FROM tokens t JOIN users u ON u.id=t.user_id WHERE t.hash=? AND t.expires_at>?",
@@ -140,9 +142,19 @@ def current_user(c, authorization: Optional[str], allow_blocked=False):
         err(401, "auth")
     if row["status"] == "blocked" and not allow_blocked:
         err(403, "blocked")
+    if active and row["role"] != "admin":
+        if row["status"] != "active":
+            err(403, "not_active")
+        if locked(row):
+            err(402, "payment_required")
     if db.now() - (row["last_seen"] or 0) > 300:
         c.x("UPDATE users SET last_seen=? WHERE id=?", (db.now(), row["id"]))
     return row
+
+
+def locked(u):
+    """To‘lov yoqilgan va muddati tugagan / оплата включена и срок истёк."""
+    return PAYMENTS_ENABLED and model.pays(u) and (u["paid_until"] or 0) < db.now()
 
 
 def need_admin(u):
@@ -186,6 +198,7 @@ def public_user(c, u, viewer=None):
         "id": u["id"], "name": u["name"], "tg_username": u["tg_username"], "photo": photo_url(u),
         "level": u["level"], "place_id": u["place_id"], "direction": u["direction"],
         "place": place_info(c, u["level"], u["place_id"]), "role": u["role"], "status": u["status"],
+        "kind": u.get("kind") or "", "class_name": u.get("class_name") or "",
     }
     if viewer is not None and (viewer["id"] == u["id"] or (u["level"] and is_above(c, viewer, u["level"], u["place_id"], u["direction"]))
                                or viewer["role"] == "admin"):
@@ -198,19 +211,31 @@ def me_json(c, u):
     out.update({
         "phone": u["phone"],
         "consent": u["consent_version"] == LEGAL_VERSION,
-        "needs_seat": u["role"] != "admin" and not u["level"],
-        "needs_profile": not u["name"] or u["consent_version"] != LEGAL_VERSION,
-        "can_keys": u["role"] == "admin" or u["level"] in ("district", "region"),
+        "needs_registration": u["role"] != "admin" and u["status"] in ("new", "rejected"),
+        "can_give": can_give(u),
+        "can_create_channels": u["role"] == "admin" or (u["status"] == "active" and (
+            u["level"] in ("district", "region") or u["direction"] == model.MASLAHATCHI)),
+        "locked": locked(u),
         "paid_until": u["paid_until"],
         "payments": PAYMENTS_ENABLED,
         "notify_tg": bool(u.get("notify_tg", 1)),
     })
+    if u["status"] == "pending":
+        out["approvers"] = [public_user(c, a) for a in model.approvers(c, u)[:3]]
     return out
+
+
+def can_give(u):
+    """Vazifa va tadbir bera oladimi: admin, viloyat, tuman, maslahatchi, maktab koordinatori.
+    Может ли выдавать задачи и мероприятия."""
+    if u["role"] == "admin":
+        return True
+    return u["status"] == "active" and bool(u["level"]) and u.get("kind") != "student" and u["direction"] is not None
 
 
 def body_seat(b):
     level, place_id, direction = b.get("level"), str(b.get("place_id") or ""), b.get("direction")
-    if level not in LEVELS or direction not in DIRECTION_KEYS or not place_id:
+    if level not in LEVELS or direction not in SEAT_DIRECTIONS or not place_id:
         err(400, "bad_seat")
     return level, place_id, direction
 
@@ -221,7 +246,6 @@ def delete_user_everything(c, uid):
     paths = channels.remove_user(c, uid)
     c.x("DELETE FROM tokens WHERE user_id=?", (uid,))
     c.x("DELETE FROM photos WHERE user_id=?", (uid,))
-    c.x("UPDATE invite_keys SET revoked=1 WHERE created_by=? AND used_by IS NULL", (uid,))
     c.x("DELETE FROM users WHERE id=?", (uid,))
     return paths
 
@@ -289,8 +313,9 @@ def finish_login(c, req):
     else:
         uid = new_id()
         name = clean(f"{req['first_name']} {req['last_name']}", 60)
-        c.x("INSERT INTO users (id, tg_id, tg_username, phone, name, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (uid, req["tg_id"], req["tg_username"], req["phone"], name, role or "user", db.now()))
+        c.x("INSERT INTO users (id, tg_id, tg_username, phone, name, role, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (uid, req["tg_id"], req["tg_username"], req["phone"], name, role or "user",
+             "active" if role else "new", db.now()))
     token = issue_token(c, uid)
     c.x("DELETE FROM login_requests WHERE id=?", (req["id"],))
     return token, c.one("SELECT * FROM users WHERE id=?", (uid,))
@@ -343,6 +368,22 @@ async def dev_login(request: Request):
         return {"token": token, "me": me_json(c, u)}
 
 
+@app.post("/api/dev/register")
+async def dev_register(request: Request, authorization: Optional[str] = Header(default=None)):
+    """Faqat DEV_LOGIN=1: botdagi ro‘yxatni sinash uchun / только для тестов: та же регистрация, что в боте."""
+    if not DEV_LOGIN:
+        err(404, "not_found")
+    b = await request.json()
+    with db.tx() as c:
+        u = current_user(c, authorization, active=False)
+        try:
+            u = reg.register(c, u["id"], b, LEGAL_VERSION)
+        except reg.RegError as e:
+            err(409 if e.code == "seat_taken" else 400, e.code)
+        seat_changed(c, u["id"])
+        return me_json(c, u)
+
+
 @app.post("/api/auth/logout")
 def logout(authorization: Optional[str] = Header(default=None)):
     if authorization and authorization.startswith("Bearer "):
@@ -355,7 +396,7 @@ def logout(authorization: Optional[str] = Header(default=None)):
 @app.get("/api/me")
 def me(authorization: Optional[str] = Header(default=None)):
     with db.tx() as c:
-        u = current_user(c, authorization)
+        u = current_user(c, authorization, active=False)
         return me_json(c, u)
 
 
@@ -363,7 +404,7 @@ def me(authorization: Optional[str] = Header(default=None)):
 async def me_profile(request: Request, authorization: Optional[str] = Header(default=None)):
     b = await request.json()
     with db.tx() as c:
-        u = current_user(c, authorization)
+        u = current_user(c, authorization, active=False)
         name = clean(b.get("name"), 60)
         if len(name) < 3:
             err(400, "bad_name")
@@ -399,7 +440,7 @@ async def me_photo(request: Request, authorization: Optional[str] = Header(defau
     except Exception:
         err(400, "bad_photo")
     with db.tx() as c:
-        u = current_user(c, authorization)
+        u = current_user(c, authorization, active=False)
         if not rate_ok("photo:" + u["id"], 20, 3600):
             err(429, "too_many")
         c.x("DELETE FROM photos WHERE user_id=?", (u["id"],))
@@ -413,33 +454,8 @@ async def me_notify(request: Request, authorization: Optional[str] = Header(defa
     """Telegram orqali bildirishnomalar yoq/o‘ch / уведомления через Telegram вкл/выкл."""
     b = await request.json()
     with db.tx() as c:
-        u = current_user(c, authorization)
+        u = current_user(c, authorization, active=False)
         c.x("UPDATE users SET notify_tg=? WHERE id=?", (1 if b.get("telegram") else 0, u["id"]))
-        return me_json(c, c.one("SELECT * FROM users WHERE id=?", (u["id"],)))
-
-
-@app.post("/api/me/redeem-key")
-async def redeem_key(request: Request, authorization: Optional[str] = Header(default=None)):
-    b = await request.json()
-    code = re.sub(r"[^A-Z0-9]", "", str(b.get("code") or "").upper())
-    with db.tx() as c:
-        u = current_user(c, authorization)
-        if not rate_ok("key:" + u["id"], 10, 3600):
-            err(429, "too_many")
-        k = c.one("SELECT * FROM invite_keys WHERE hash=?", (sha(code),))
-        if not k or k["revoked"] or k["used_by"]:
-            err(400, "bad_key")
-        if k["expires_at"] < db.now():
-            err(400, "key_expired")
-        holder = c.one("SELECT id FROM users WHERE level=? AND place_id=? AND direction=?",
-                       (k["level"], k["place_id"], k["direction"]))
-        if holder and holder["id"] != u["id"]:
-            err(409, "seat_taken")
-        c.x("UPDATE users SET level=NULL, place_id=NULL, direction=NULL WHERE id=?", (u["id"],))
-        c.x("UPDATE users SET level=?, place_id=?, direction=? WHERE id=?",
-            (k["level"], k["place_id"], k["direction"], u["id"]))
-        c.x("UPDATE invite_keys SET used_by=?, used_at=? WHERE hash=?", (u["id"], db.now(), k["hash"]))
-        seat_changed(c, u["id"])
         return me_json(c, c.one("SELECT * FROM users WHERE id=?", (u["id"],)))
 
 
@@ -450,7 +466,7 @@ async def me_delete(request: Request, authorization: Optional[str] = Header(defa
     if word not in ("OCHIRISH", "УДАЛИТЬ"):
         err(400, "confirm")
     with db.tx() as c:
-        u = current_user(c, authorization, allow_blocked=True)
+        u = current_user(c, authorization, allow_blocked=True, active=False)
         paths = delete_user_everything(c, u["id"])
     import storage
     storage.remove(paths)
@@ -472,7 +488,7 @@ def schools(district_id: str, authorization: Optional[str] = Header(default=None
 
 @app.get("/api/seats")
 def seats(level: str, place_id: str, authorization: Optional[str] = Header(default=None)):
-    """Bir joyning 8 o‘rni / 8 мест одного места."""
+    """Bir joyning o‘rinlari: (maktabda — maslahatchi +) 8 koordinator / места: (в школе — маслахатчи +) 8 координаторов."""
     if level not in LEVELS:
         err(400, "bad_seat")
     with db.tx() as c:
@@ -480,34 +496,71 @@ def seats(level: str, place_id: str, authorization: Optional[str] = Header(defau
         place = place_info(c, level, place_id)
         if not place:
             err(404, "not_found")
-        holders = {r["direction"]: r for r in c.q("SELECT * FROM users WHERE level=? AND place_id=?", (level, place_id))}
-        contacts = {r["direction"]: r["tg_username"] for r in
-                    c.q("SELECT * FROM seat_contacts WHERE level=? AND place_id=?", (level, place_id))}
+        if v.get("kind") == "student" and not (level == "school" and place_id == v["place_id"]):
+            err(403, "forbidden")  # o‘quvchi faqat o‘z maktabini ko‘radi / ученик видит только свою школу
+        holders = {r["direction"]: r for r in c.q(
+            "SELECT * FROM users WHERE level=? AND place_id=? AND direction IS NOT NULL AND status='active'", (level, place_id))}
+        dirs = ([model.MASLAHATCHI] if level == "school" else []) + DIRECTION_KEYS
         out = []
-        for d in DIRECTION_KEYS:
+        for d in dirs:
             h = holders.get(d)
-            out.append({
-                "direction": d, "user": public_user(c, h, v) if h else None,
-                "contact": contacts.get(d, ""), "can_manage": is_above(c, v, level, place_id, d),
-            })
-        return {"place": place, "seats": out}
+            out.append({"direction": d, "user": public_user(c, h, v) if h else None,
+                        "can_manage": is_above(c, v, level, place_id, d)})
+        res = {"place": place, "seats": out}
+        if level == "school":
+            res["students"] = c.one("SELECT COUNT(*) AS n FROM users WHERE level='school' AND place_id=? "
+                                    "AND direction IS NULL AND status='active'", (place_id,))["n"]
+            res["can_see_students"] = is_above(c, v, "school", place_id, None)
+        return res
 
 
-@app.get("/api/key-contacts")
-def key_contacts(level: str, place_id: str, direction: str, authorization: Optional[str] = Header(default=None)):
-    """Shu o‘rin uchun kalitni kim beradi / кто выдаёт ключ на это место."""
+@app.get("/api/schools/{sid}/students")
+def school_students(sid: str, authorization: Optional[str] = Header(default=None)):
+    """Maktab o‘quvchilari: faqat maslahatchi, o‘sha maktab koordinatorlari, admin.
+    Ученики школы: только маслахатчи, координаторы этой школы, админ."""
     with db.tx() as c:
         v = current_user(c, authorization)
-        out = []
-        for kind, x in model.holders_above(c, level, place_id, direction):
-            if kind == "user":
-                out.append({"kind": "user", "user": public_user(c, x, v)})
-            else:
-                out.append({"kind": "contact", "level": x["level"], "place": place_info(c, x["level"], x["place_id"]),
-                            "direction": x["direction"], "tg_username": x["tg_username"]})
-        admin = c.one("SELECT * FROM users WHERE role='admin' AND tg_username<>'' ORDER BY created_at LIMIT 1")
-        taken = c.one("SELECT id FROM users WHERE level=? AND place_id=? AND direction=?", (level, place_id, direction))
-        return {"contacts": out, "admin": public_user(c, admin, v) if admin else None, "taken": bool(taken)}
+        if not is_above(c, v, "school", sid, None):
+            err(403, "forbidden")
+        rows = c.q("SELECT * FROM users WHERE level='school' AND place_id=? AND direction IS NULL AND status='active' "
+                   "ORDER BY class_name, name", (sid,))
+        return {"students": [public_user(c, r, v) for r in rows]}
+
+
+# ------------------------------------------------------------------ tasdiqlash / подтверждение
+@app.get("/api/approvals")
+def approvals(authorization: Optional[str] = Header(default=None)):
+    with db.tx() as c:
+        v = current_user(c, authorization)
+        return {"users": [public_user(c, u, v) | {"created_at": u["created_at"]} for u in reg.pending_for(c, v)]}
+
+
+@app.post("/api/approvals/{uid}")
+async def approval_decide(uid: str, request: Request, authorization: Optional[str] = Header(default=None)):
+    b = await request.json()
+    with db.tx() as c:
+        v = current_user(c, authorization)
+        try:
+            u = reg.decide(c, v, uid, bool(b.get("approve")))
+        except reg.RegError as e:
+            err(403 if e.code == "forbidden" else 400, e.code)
+        seat_changed(c, uid)
+        tg_id = u["tg_id"]
+        status = u["status"]
+    telegram.notify_decision(tg_id, status == "active")
+    return {"ok": True, "status": status}
+
+
+def visible_to(c, viewer, u):
+    """Kimni ko‘rishi mumkin: o‘quvchi — faqat o‘z maktabi; tuman/viloyat — o‘quvchilarni emas.
+    Кого можно видеть: ученик — только свою школу; район/область — не учеников."""
+    if viewer["role"] == "admin" or viewer["id"] == u["id"]:
+        return True
+    if viewer.get("kind") == "student":
+        return u["level"] == "school" and u["place_id"] == viewer["place_id"] or u["role"] == "admin"
+    if u.get("kind") == "student":
+        return is_above(c, viewer, "school", u["place_id"], None)
+    return True
 
 
 @app.get("/api/users/search")
@@ -519,7 +572,7 @@ def users_search(q: str = "", authorization: Optional[str] = Header(default=None
             return {"users": []}
         rows = c.q("SELECT * FROM users WHERE status='active' AND (LOWER(name) LIKE ? OR LOWER(tg_username) LIKE ?) "
                    "ORDER BY name LIMIT 40", (f"%{q.lower()}%", f"%{q.lower().lstrip('@')}%"))
-        return {"users": [public_user(c, r, v) for r in rows]}
+        return {"users": [public_user(c, r, v) for r in rows if visible_to(c, v, r)][:30]}
 
 
 @app.get("/api/users/{uid}")
@@ -527,7 +580,7 @@ def user_get(uid: str, authorization: Optional[str] = Header(default=None)):
     with db.tx() as c:
         v = current_user(c, authorization)
         u = c.one("SELECT * FROM users WHERE id=?", (uid,))
-        if not u:
+        if not u or not visible_to(c, v, u):
             err(404, "not_found")
         out = public_user(c, u, v)
         out["can_manage"] = bool(u["level"]) and is_above(c, v, u["level"], u["place_id"], u["direction"])
@@ -548,78 +601,6 @@ async def seat_free(request: Request, authorization: Optional[str] = Header(defa
             (level, place_id, direction))
         if holder:
             seat_changed(c, holder["id"])
-    return {"ok": True}
-
-
-# ------------------------------------------------------------------ kalitlar / ключи
-ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-
-
-def new_code():
-    s = "".join(secrets.choice(ALPHABET) for _ in range(8))
-    return f"KNG-{s[:4]}-{s[4:]}"
-
-
-@app.post("/api/keys")
-async def keys_create(request: Request, authorization: Optional[str] = Header(default=None)):
-    b = await request.json()
-    items = b.get("seats") or []
-    if not isinstance(items, list) or not 1 <= len(items) <= 200:
-        err(400, "bad")
-    with db.tx() as c:
-        v = current_user(c, authorization)
-        if not rate_ok("keys:" + v["id"], 60, 3600):
-            err(429, "too_many")
-        out, skipped = [], []
-        for it in items:
-            level, place_id, direction = body_seat(it)
-            if not is_above(c, v, level, place_id, direction):
-                err(403, "forbidden")
-            if c.one("SELECT id FROM users WHERE level=? AND place_id=? AND direction=?", (level, place_id, direction)):
-                skipped.append({"level": level, "place_id": place_id, "direction": direction, "reason": "taken"})
-                continue
-            # eski ishlatilmagan kalitlar bekor / старые неиспользованные ключи отменяются
-            c.x("UPDATE invite_keys SET revoked=1 WHERE level=? AND place_id=? AND direction=? AND used_by IS NULL",
-                (level, place_id, direction))
-            code = new_code()
-            t = db.now()
-            c.x("INSERT INTO invite_keys (hash, hint, level, place_id, direction, created_by, created_at, expires_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (sha(code.replace("-", "")), code[-4:], level, place_id, direction, v["id"], t, t + KEY_DAYS * 86400))
-            out.append({"code": code, "level": level, "place_id": place_id, "direction": direction,
-                        "place": place_info(c, level, place_id), "expires_at": t + KEY_DAYS * 86400})
-        return {"keys": out, "skipped": skipped}
-
-
-@app.get("/api/keys")
-def keys_list(authorization: Optional[str] = Header(default=None)):
-    with db.tx() as c:
-        v = current_user(c, authorization)
-        where = "" if v["role"] == "admin" else "AND k.created_by=?"
-        params = (db.now() - 30 * 86400,) + (() if v["role"] == "admin" else (v["id"],))
-        rows = c.q(f"SELECT k.*, u.name AS used_name FROM invite_keys k LEFT JOIN users u ON u.id=k.used_by "
-                   f"WHERE k.created_at>? {where} ORDER BY k.created_at DESC LIMIT 300", params)
-        out = []
-        for r in rows:
-            state = ("used" if r["used_by"] else "revoked" if r["revoked"] else
-                     "expired" if r["expires_at"] < db.now() else "active")
-            out.append({"id": r["hash"][:16], "hint": r["hint"], "level": r["level"], "place_id": r["place_id"],
-                        "direction": r["direction"], "place": place_info(c, r["level"], r["place_id"]),
-                        "state": state, "created_at": r["created_at"], "expires_at": r["expires_at"],
-                        "used_name": r["used_name"] or ""})
-        return {"keys": out}
-
-
-@app.post("/api/keys/{kid}/revoke")
-def keys_revoke(kid: str, authorization: Optional[str] = Header(default=None)):
-    if not re.fullmatch(r"[0-9a-f]{16}", kid):
-        err(400, "bad")
-    with db.tx() as c:
-        v = current_user(c, authorization)
-        k = c.one("SELECT * FROM invite_keys WHERE hash LIKE ?", (kid + "%",))
-        if not k or (v["role"] != "admin" and k["created_by"] != v["id"]):
-            err(404, "not_found")
-        c.x("UPDATE invite_keys SET revoked=1 WHERE hash=?", (k["hash"],))
     return {"ok": True}
 
 
@@ -697,25 +678,9 @@ async def admin_seat(uid: str, request: Request, authorization: Optional[str] = 
                 err(400, "bad_seat")
             if c.one("SELECT id FROM users WHERE level=? AND place_id=? AND direction=?", (level, place_id, direction)):
                 err(409, "seat_taken")
-            c.x("UPDATE users SET level=?, place_id=?, direction=? WHERE id=?", (level, place_id, direction, uid))
+            c.x("UPDATE users SET level=?, place_id=?, direction=?, kind=?, status='active' WHERE id=? AND status<>'blocked'",
+                (level, place_id, direction, model.kind_of(direction, level), uid))
         seat_changed(c, uid)
-    return {"ok": True}
-
-
-@app.post("/api/admin/users/{uid}/free-months")
-async def admin_free_months(uid: str, request: Request, authorization: Optional[str] = Header(default=None)):
-    b = await request.json()
-    months = int(b.get("months") or 0)
-    if not 1 <= months <= 24:
-        err(400, "bad")
-    with db.tx() as c:
-        v = current_user(c, authorization)
-        need_admin(v)
-        u = c.one("SELECT paid_until FROM users WHERE id=?", (uid,))
-        if not u:
-            err(404, "not_found")
-        base = max(u["paid_until"] or 0, db.now())
-        c.x("UPDATE users SET paid_until=? WHERE id=?", (base + months * 30 * 86400, uid))
     return {"ok": True}
 
 

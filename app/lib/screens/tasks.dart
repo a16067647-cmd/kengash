@@ -130,7 +130,7 @@ class _TasksTabState extends State<TasksTab> {
   void initState() {
     super.initState();
     final s = AppScope.read(context);
-    _canGive = s.canKeys;
+    _canGive = s.canGive;
     if (s.tasksBox == 'given' && _canGive) _box = 'given';
     _load();
   }

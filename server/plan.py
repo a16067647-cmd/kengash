@@ -90,7 +90,7 @@ def tasks_list(box: str = "mine", authorization: Optional[str] = Header(default=
         for t in rows:
             mine = c.one("SELECT * FROM task_assignees WHERE task_id=? AND user_id=?", (t["id"], u["id"]))
             out.append(task_json(c, t, u, mine))
-        return {"tasks": out, "can_give": channels.can_create(u)}
+        return {"tasks": out, "can_give": core.can_give(u)}
 
 
 @router.post("/api/tasks")
@@ -102,7 +102,7 @@ async def tasks_create(request: Request, authorization: Optional[str] = Header(d
     deadline = _deadline_ok(b.get("deadline"))
     with db.tx() as c:
         u = core.current_user(c, authorization)
-        if not channels.can_create(u):
+        if not core.can_give(u):
             err(403, "forbidden")
         if not core.rate_ok("task:" + u["id"], 30, 3600):
             err(429, "too_many")
@@ -267,7 +267,7 @@ def events_list(when: str = "upcoming", authorization: Optional[str] = Header(de
         rows = c.q(f"SELECT DISTINCT e.* FROM events e LEFT JOIN event_guests g ON g.event_id=e.id AND g.user_id=? "
                    f"WHERE (g.user_id IS NOT NULL OR e.created_by=?) AND {cond} ORDER BY {order} LIMIT 200",
                    (u["id"], u["id"], cut))
-        return {"events": [event_json(c, e, u) for e in rows], "can_create": channels.can_create(u)}
+        return {"events": [event_json(c, e, u) for e in rows], "can_create": core.can_give(u)}
 
 
 @router.post("/api/events")
@@ -282,11 +282,12 @@ async def events_create(request: Request, authorization: Optional[str] = Header(
         ends = 0
     with db.tx() as c:
         u = core.current_user(c, authorization)
-        if not channels.can_create(u):
+        if not core.can_give(u):
             err(403, "forbidden")
         if not core.rate_ok("event:" + u["id"], 30, 3600):
             err(429, "too_many")
-        targets = channels.resolve_audience(c, u, b.get("audience"), b.get("user_ids"), peers=True)
+        peers = u["role"] == "admin" or u.get("level") in ("district", "region")
+        targets = channels.resolve_audience(c, u, b.get("audience"), b.get("user_ids"), peers=peers)
         if not targets:
             err(400, "no_people")
         eid = core.new_id()

@@ -65,7 +65,8 @@ def make_task(client, h, **kw):  # noqa: F811
 
 
 def test_task_permissions_and_audience(client, w):  # noqa: F811
-    assert make_task(client, w["m1"]).status_code == 403  # maktab koordinatori vazifa bermaydi
+    # maktab koordinatori koordinatorlarga vazifa bera olmaydi (faqat o‘quvchilarga) / только ученикам
+    assert make_task(client, w["m1"]).json()["error"] == "no_people"
     r = make_task(client, w["tit"])
     assert r.status_code == 200, r.text
     assert r.json()["total"] == 2  # P1 IT + P2 IT, Sport yo‘q
@@ -132,7 +133,7 @@ def test_task_without_photo(client, w):  # noqa: F811
 def test_events(client, w):  # noqa: F811
     body = {"title": "IT uchrashuv", "starts_at": db.now() + 2 * 86400, "place": "Paxtaobod, Yoshlar markazi",
             "audience": [{"level": "school", "district_ids": ["paxtaobod"], "directions": ["it"]}]}
-    assert client.post("/api/events", json=body, headers=w["m1"]).status_code == 403
+    assert client.post("/api/events", json=body, headers=w["m1"]).json()["error"] == "no_people"
     r = client.post("/api/events", json=body, headers=w["tit"])
     assert r.status_code == 200 and r.json()["guests"] == 2
     eid = r.json()["id"]

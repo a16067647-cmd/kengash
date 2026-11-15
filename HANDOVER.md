@@ -6,11 +6,12 @@ To‘liq talablar: [`KENGASH-PROMPT.md`](KENGASH-PROMPT.md). Dizayn asosi: [`IDR
 ## Holat / статус
 | Bosqich | Nima | Holat |
 |---|---|---|
-| 1 | Telegram orqali kirish, kalitlar, profil, koordinatorlar, admin paneli, huquqiy sahifalar, ochilish animatsiyasi | ✅ ishlamoqda |
+| 1 | Telegram orqali kirish, profil, koordinatorlar, admin paneli, huquqiy sahifalar, ochilish animatsiyasi | ✅ ishlamoqda |
 | 2 | Kanallar: avtomatik + yaratiladigan, matn, surat, video, fayl, ovozli xabar, javob, tahrir, mahkamlash, shikoyat, jonli yangilanish | ✅ |
 | 2b | Bildirishnomalar — **Telegram bot orqali** (sozlash shart emas); Firebase ixtiyoriy, keyin | ✅ |
 | 3 | Vazifalar + fotohisobot (qabul/qaytarish), taqvim + «Boraman», «Bugun» xulosasi, eslatmalar | ✅ |
-| 4 | To‘lov (Click/Payme), promo-kod, QR | ⏳ (YaTT/MChJ kerak) |
+| 4 | Ro‘yxat faqat @KengashAppBot orqali (ism yoziladi, qolgani tugma), tasdiqlar, maslahatchi va o‘quvchi rollari, kalitlar olib tashlandi | ✅ |
+| 5 | To‘lov 5 000 so‘m/oy (Click/Payme) — kod tayyor, `PAYMENTS_ENABLED` o‘chiq | ⏳ (YaTT/MChJ kerak) |
 
 ## Kod xaritasi / карта кода
 ```
@@ -23,14 +24,15 @@ app/                      Flutter ilova (Android, iOS, web)
   lib/api.dart            server bilan aloqa
   lib/i18n.dart           uz + ru matnlar (kalitlar bir xil — test tekshiradi)
   lib/chat.dart           kanallar holati, yuborish/yuklash, WebSocket (uzilsa — 20 soniyada yangilash)
-  lib/screens/            auth, onboarding, intro, today, channels, audience, media, directory, keys, profile, admin, legal
+  lib/screens/            auth, onboarding, intro, today, channels, audience, media, directory, profile, admin, legal
   assets/legal.json       Biz haqimizda, Maxfiylik, Shartlar, Cookie, Hisobni o‘chirish (ilova VA sayt uchun yagona manba)
   test/                   ekran testlari (soxta server bilan), skrinshotlar
   tool/setup_platforms.py android/ios papkalarini yaratadi
 server/                   Python (FastAPI) + Postgres (Supabase) / SQLite (lokal)
   app.py                  API
-  model.py                yo‘nalishlar, «kim kimdan yuqori» (is_above) — kalit, telefon, o‘rin bo‘shatish shu qoidaga tayanadi
-  telegram.py             bot: kirish va raqamni tasdiqlash
+  model.py                rollar, «kim kimdan yuqori» (is_above), kim tasdiqlaydi (approvers), kim to‘laydi (pays)
+  register.py             ro‘yxat va tasdiq (bot va ilova uchun umumiy)
+  telegram.py             bot: kirish, raqam, tugmali ro‘yxat, ✅/❌ tasdiq, bildirishnomalar
   channels.py             kanallar: avtomatik kanallar (sync_user), auditoriya, xabarlar, fayllar, shikoyatlar, WebSocket
   storage.py              Supabase Storage, yopiq «kengash-media» bucket, imzolangan havolalar
   realtime.py             jonli ulanishlar (xotirada, bitta server)
@@ -47,8 +49,11 @@ render.yaml               Render sozlamasi (Starter, ~7$/oy)
 ## Asosiy qoidalar / главные правила
 - ★ **Soddalik birinchi o‘rinda** (egasining asosiy talabi): har ekranda bitta asosiy amal; ishlamaydigan narsa ko‘rinmaydi; aqlli tanlov oldindan belgilangan; asosiy ishlar ≤ 3 bosish; shubha bo‘lsa — olib tashlang. Batafsil: `KENGASH-PROMPT.md` boshida.
 - **Kim kimdan yuqori** (`server/model.py → is_above`): admin → hammasi; viloyat koordinatori → o‘z viloyatidagi tuman va maktablar, o‘z yo‘nalishi (Lider — hammasi); tuman koordinatori → o‘z tumanidagi maktablar, o‘z yo‘nalishi (Lider — hammasi).
-- Kalit: bir martalik, 7 kun, bitta o‘ringa; bazada faqat xeshi. Admin tasdig‘i kerak emas.
-- Telefon raqami faqat yuqoridagilarga va adminga ko‘rinadi.
+- Ro‘yxat: faqat botda; bitta o‘ringa bitta odam. O‘quvchi darhol faol; maktab koordinatori → maslahatchi tasdiqlaydi;
+  maslahatchi → tuman Lideri; tuman → viloyat Lideri; viloyat → admin.
+- Maslahatchi: o‘z maktabining koordinatorlari va o‘quvchilaridan yuqori. Maktab koordinatori: o‘z maktabi o‘quvchilaridan.
+  Tuman va viloyat o‘quvchilarni ko‘rmaydi.
+- Telefon raqami faqat yuqoridagilarga va adminga ko‘rinadi (o‘quvchiniki — o‘z maktabi koordinatorlari va maslahatchisiga).
 - Admin: `ADMIN_TG_IDS` dagi Telegram ID bilan kirgan odam.
 - Har bir matn uz + ru. Ranglar faqat `theme.dart` dan.
 

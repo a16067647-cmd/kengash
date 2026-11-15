@@ -67,9 +67,13 @@ class AppState extends ChangeNotifier {
 
   bool get loggedIn => me != null;
   bool get isAdmin => me?['role'] == 'admin';
-  bool get needsSeat => me?['needs_seat'] == true;
-  bool get needsProfile => me?['needs_profile'] == true;
-  bool get canKeys => me?['can_keys'] == true;
+  bool get needsRegistration => me?['needs_registration'] == true;
+  bool get isPending => me?['status'] == 'pending';
+  bool get isLocked => me?['locked'] == true;
+  bool get isStudent => me?['kind'] == 'student';
+  bool get isMaslahatchi => me?['direction'] == 'maslahatchi';
+  bool get canGive => me?['can_give'] == true;
+  bool get canCreateChannels => me?['can_create_channels'] == true;
   String get myName => (me?['name'] ?? '').toString();
   String get myPhoto => photoUrl(me?['photo']);
 
@@ -81,6 +85,7 @@ class AppState extends ChangeNotifier {
 
   // ---------------------------------------------------------------- nomlar / названия
   String dirName(String? id) {
+    if (id == 'maslahatchi') return t('maslahatchi');
     for (final d in directions) {
       if (d['id'] == id) return (d[lang] ?? d['uz']).toString();
     }
@@ -123,6 +128,10 @@ class AppState extends ChangeNotifier {
     if (u == null) return '';
     if (u['role'] == 'admin' && u['level'] == null) return t('role_admin');
     if (u['level'] == null) return t('no_seat');
+    if (u['kind'] == 'student') {
+      final cls = (u['class_name'] ?? '').toString();
+      return '${t('student')}${cls.isEmpty ? '' : ' · $cls'} · ${placeLine(u['place'] as Json?)}';
+    }
     return '${dirName(u['direction'])} · ${placeLine(u['place'] as Json?)}';
   }
 
@@ -193,7 +202,7 @@ class AppState extends ChangeNotifier {
 
   /// Kanallar faqat to‘liq ro‘yxatdan o‘tganda / каналы только после полной регистрации.
   void _syncChat() {
-    final ok = loggedIn && !needsSeat && !needsProfile;
+    final ok = loggedIn && !needsRegistration && !isPending && !isLocked;
     if (ok) {
       chat.myId = me!['id'] as String?;
       if (!_chatOn) {
