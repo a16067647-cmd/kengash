@@ -141,7 +141,7 @@ void main() {
     });
   });
 
-  testWidgets('to‘liq kirish: Telegram → kalit → profil → Bugun', (tester) async {
+  testWidgets('to‘liq kirish: Telegram → bot orqali ro‘yxat → Bugun', (tester) async {
     final server = FakeServer();
     final s = await boot(tester, server, loggedIn: false);
     expect(find.byKey(const ValueKey('login-tg')), findsOneWidget);
@@ -154,38 +154,69 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     await settle(tester);
     expect(s.loggedIn, isTrue);
-    expect(find.byKey(const ValueKey('key-field')), findsOneWidget);
+    // yangi odam — faqat bitta tugma: botni ochish / новый — одна кнопка: открыть бота
+    expect(find.byKey(const ValueKey('open-bot')), findsOneWidget);
+    expect(find.text(tr('uz', 'reg_title')), findsOneWidget);
+    await shot(tester, 'phone-light-uz-3-register');
+    await tap(tester, find.byKey(const ValueKey('open-bot')));
 
-    // noto‘g‘ri kalit / неверный ключ
-    await tester.enterText(find.byKey(const ValueKey('key-field')).first, 'abcd0000');
-    await tap(tester, find.byKey(const ValueKey('key-submit')));
-    expect(find.text(tr('uz', 'err_bad_key')), findsOneWidget);
-    await shot(tester, 'phone-light-uz-3-key-error');
+    // botda ro‘yxatdan o‘tdi (o‘quvchi) → ilova o‘zi ochiladi / зарегистрировался в боте → приложение открывается само
+    server.me = FakeServer.student();
+    await tester.pump(const Duration(seconds: 5));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('hero')), findsOneWidget);
+    expect(find.textContaining('Jasur!'), findsOneWidget);
+    await shot(tester, 'phone-light-uz-4-today-student');
+  });
 
-    // kalitsiz yordam / помощь без ключа
-    await tap(tester, find.byKey(const ValueKey('no-key')));
-    await tap(tester, find.byKey(ValueKey('help-${tr('uz', 'district')}')));
-    await tap(tester, find.byKey(const ValueKey('district-asaka')));
-    await tap(tester, find.byKey(ValueKey('help-${tr('uz', 'school')}')));
-    await tap(tester, find.byKey(const ValueKey('school-59')));
-    await tap(tester, find.byKey(ValueKey('help-${tr('uz', 'direction')}')));
-    await tap(tester, find.byKey(const ValueKey('dir-it')));
-    expect(find.text('Asaka IT'), findsOneWidget);
-    await shot(tester, 'phone-light-uz-4-key-help');
+  testWidgets('tasdiq kutilmoqda: kim tasdiqlashi ko‘rinadi', (tester) async {
+    final server = FakeServer(me: FakeServer.pending());
+    await boot(tester, server);
+    expect(find.text(tr('uz', 'pending_title')), findsOneWidget);
+    expect(find.text('Qodirova Nilufar'), findsOneWidget);
+    expect(find.byKey(const ValueKey('nav-today')), findsNothing);
+    await shot(tester, 'phone-light-uz-5-pending');
+    server.me = FakeServer.seated('school', 'it');
+    await tester.pump(const Duration(seconds: 16));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('hero')), findsOneWidget);
+  });
+
+  testWidgets('maslahatchi arizani tasdiqlaydi va o‘quvchilarni ko‘radi', (tester) async {
+    final server = FakeServer(me: FakeServer.seated('school', 'maslahatchi'));
+    server.approvals.add({...FakeServer.pending(), 'id': 'p1', 'name': 'Sobirov Doston', 'direction': 'sport'});
+    await boot(tester, server);
+    await tap(tester, find.byKey(const ValueKey('today-approvals')));
+    expect(find.text('Sobirov Doston'), findsOneWidget);
+    await shot(tester, 'phone-light-uz-6-approvals');
+    await tap(tester, find.byKey(const ValueKey('approve-p1')));
+    expect(server.calls, contains('POST /api/approvals/p1'));
+    expect(find.text(tr('uz', 'approvals_none')), findsOneWidget);
     await back(tester);
 
-    await tester.enterText(find.byKey(const ValueKey('key-field')).first, 'kng-abcd-2345');
-    expect(find.text('KNG-ABCD-2345'), findsOneWidget);
-    await tap(tester, find.byKey(const ValueKey('key-submit')));
-    expect(find.byKey(const ValueKey('setup-save')), findsOneWidget);
-    await shot(tester, 'phone-light-uz-5-profile-setup');
+    await tap(tester, find.byKey(const ValueKey('quick-directory')));
+    await tap(tester, find.byKey(const ValueKey('dist-asaka')));
+    await tap(tester, find.byKey(const ValueKey('sch-59')));
+    expect(find.text('Qodirova Nilufar'), findsOneWidget);
+    await shot(tester, 'phone-light-uz-7-school-seats');
+    await tap(tester, find.byKey(const ValueKey('students-card')));
+    expect(find.text('Olimov Jasur'), findsOneWidget);
+    expect(find.text('7-B · 1'), findsOneWidget);
+    await shot(tester, 'phone-light-uz-8-students');
+  });
 
-    await tester.enterText(find.byKey(const ValueKey('name-field')).first, 'Valiyev Ali');
-    await tap(tester, find.byKey(const ValueKey('consent')));
-    await tap(tester, find.byKey(const ValueKey('setup-save')));
-    expect(find.byKey(const ValueKey('hero')), findsOneWidget);
-    expect(find.textContaining('Ali!'), findsOneWidget);
-    await shot(tester, 'phone-light-uz-6-today');
+  testWidgets('o‘quvchi: faqat o‘z maktabi, vazifa bera olmaydi', (tester) async {
+    final server = FakeServer(me: FakeServer.student());
+    final s = await boot(tester, server);
+    expect(s.isStudent, isTrue);
+    expect(s.canGive, isFalse);
+    expect(find.byKey(const ValueKey('today-approvals')), findsNothing);
+    await tap(tester, find.byKey(const ValueKey('quick-directory')));
+    // to‘g‘ridan-to‘g‘ri o‘z maktabi, o‘quvchilar ro‘yxati yo‘q / сразу своя школа, без списка учеников
+    expect(find.text('Karimova Madina'), findsOneWidget);
+    expect(find.byKey(const ValueKey('students-card')), findsNothing);
+    expect(find.byKey(const ValueKey('dist-asaka')), findsNothing);
+    await shot(tester, 'phone-light-uz-9-student-school');
   });
 
   for (final (size, sizeName) in [(phone, 'phone'), (desktop, 'desktop')]) {
@@ -224,21 +255,6 @@ void main() {
         await settle(tester);
         await back(tester);
         await back(tester);
-        await close();
-
-        // kalitlar / ключи
-        await open('keys');
-        await shot(tester, '$tag-keys');
-        await tap(tester, find.byKey(const ValueKey('new-key')));
-        await tap(tester, find.byKey(const ValueKey('kc-district')));
-        await tap(tester, find.byKey(const ValueKey('district-asaka')));
-        await tap(tester, find.byKey(const ValueKey('all-schools')));
-        await tap(tester, find.byKey(const ValueKey('dirchip-it')));
-        await shot(tester, '$tag-key-create');
-        await tap(tester, find.byKey(const ValueKey('make-keys')));
-        expect(find.text('KNG-TEST-1000'), findsOneWidget);
-        await shot(tester, '$tag-keys-ready');
-        await tap(tester, find.byKey(const ValueKey('keys-done')));
         await close();
 
         // admin
@@ -455,29 +471,20 @@ void main() {
     }
   });
 
-  testWidgets('maktab koordinatori: kalit va admin yo‘q', (tester) async {
+  testWidgets('maktab koordinatori: admin yo‘q, chiqish ishlaydi', (tester) async {
     final server = FakeServer(me: FakeServer.seated('school', 'it'));
     final s = await boot(tester, server);
-    expect(s.canKeys, isFalse);
-    expect(find.byKey(const ValueKey('quick-keys')), findsNothing);
     expect(find.byKey(const ValueKey('quick-admin')), findsNothing);
     await tap(tester, find.byKey(const ValueKey('nav-profile')));
-    expect(find.byKey(const ValueKey('row-keys')), findsNothing);
     await tap(tester, find.byKey(const ValueKey('row-logout')));
     expect(s.loggedIn, isFalse);
     expect(find.byKey(const ValueKey('login-tg')), findsOneWidget);
   });
 
-  testWidgets('tuman koordinatori: kalit bor, admin yo‘q', (tester) async {
+  testWidgets('tuman koordinatori: admin yo‘q', (tester) async {
     final server = FakeServer(me: FakeServer.seated('district', 'it'));
     await boot(tester, server, size: desktop);
-    expect(find.byKey(const ValueKey('side-keys')), findsOneWidget);
+    expect(find.byKey(const ValueKey('side-directory')), findsOneWidget);
     expect(find.byKey(const ValueKey('side-admin')), findsNothing);
-    await tap(tester, find.byKey(const ValueKey('side-keys')));
-    await tap(tester, find.byKey(const ValueKey('new-key')));
-    // o‘z tumani avtomatik, o‘z yo‘nalishi tanlangan / свой район и направление выбраны
-    expect(find.byKey(const ValueKey('chip-59')), findsOneWidget);
-    expect(find.byKey(const ValueKey('dirchip-sport')), findsNothing);
-    await shot(tester, 'desktop-light-uz-district-key-create');
   });
 }

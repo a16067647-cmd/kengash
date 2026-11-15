@@ -1,6 +1,6 @@
 {
   "version": "2026-11-14",
-  "updated": {"uz": "14-noyabr, 2026", "ru": "14 ноября 2026"},
+  "updated": {"uz": "15-noyabr, 2026", "ru": "15 ноября 2026"},
   "contact": "Telegram: @behruz_sk (https://t.me/behruz_sk), email: behryzmamajon@gmail.com",
   "team": [
     ["bexruz", "Mamajonov Bexruz", "Asoschi", "Основатель"],
@@ -63,7 +63,7 @@
         ["Qanday ma’lumot yig‘amiz", [
           "Telegram orqali kirishda: Telegram ID raqamingiz, Telegram foydalanuvchi nomingiz (username) va siz o‘zingiz ulashgan telefon raqamingiz.",
           "Profil: ism-familiyangiz va profil suratingiz (surat 512×512 o‘lchamga keltiriladi, undagi joylashuv kabi qo‘shimcha ma’lumotlar o‘chiriladi).",
-          "Koordinatorlik o‘rningiz: maktab, tuman yoki viloyat va yo‘nalish (masalan, «IT va sun’iy intellekt»).",
+          "Rolingiz va o‘rningiz: maktab, tuman yoki viloyat va yo‘nalish (masalan, «IT va sun’iy intellekt»); o‘quvchilar uchun — maktab va sinf (masalan, 7-B).",
           "Texnik: kirish kaliti (faqat shifrlangan xesh ko‘rinishida), oxirgi kirish vaqti, qoidalarga rozilik sanasi.",
           "Keyingi bosqichlarda: kanallardagi xabar va fayllaringiz, vazifa fotohisobotlari va tadbirlarga javoblaringiz.",
           "Biz joylashuv (GPS), kontaktlar ro‘yxati, reklama identifikatori yoki bank kartasi ma’lumotlarini yig‘maymiz. Ilovada reklama va kuzatuv (tracking) xizmatlari yo‘q."
@@ -72,12 +72,12 @@
           "Hisobingizga kirish, koordinatorlarni bir-biri bilan bog‘lash, kanallar, vazifalar va tadbirlarni ko‘rsatish uchun. Ma’lumotlaringizni sotmaymiz va reklama uchun bermaymiz."
         ]],
         ["Kimlar ko‘radi", [
-          "Ismingiz, suratingiz, o‘rningiz va Telegram havolangiz Kengashdagi barcha koordinatorlarga ko‘rinadi — shunda ular siz bilan bog‘lana oladi.",
-          "Telefon raqamingiz faqat sizdan yuqoridagi koordinatorlarga (tuman va viloyat koordinatorlari) va adminga ko‘rinadi.",
+          "Koordinator va maslahatchining ismi, surati, o‘rni va Telegram havolasi Kengashdagi koordinatorlarga ko‘rinadi — shunda ular bog‘lana oladi.",
+          "Telefon raqamingiz faqat sizdan yuqoridagilarga va adminga ko‘rinadi. O‘quvchilarning ismi, sinfi va telefoni faqat o‘z maktabining koordinatorlari va maslahatchisiga ko‘rinadi — tuman va viloyat koordinatorlari o‘quvchilarni ko‘rmaydi.",
           "Texnik xizmatlar: Render (server), Supabase (ma’lumotlar bazasi va fayllar), Telegram (kirish va bildirishnomalar — @KengashAppBot sizga yangi vazifa va xabarlar haqida yozadi; Profil bo‘limida o‘chirish mumkin). Serverlar O‘zbekistondan tashqarida bo‘lishi mumkin."
         ]],
         ["Foydalanuvchilar", [
-          "Ilova Kelajak O‘quvchilar Kengashi koordinatorlari (maktab o‘quvchilari) uchun. Ro‘yxatdan faqat yuqoridagi koordinator bergan kalit bilan o‘tiladi."
+          "Ilova Kelajak O‘quvchilar Kengashi koordinatorlari (maktab o‘quvchilari) uchun. Shuningdek, maktab maslahatchilari (o‘qituvchilar) va oddiy o‘quvchilar uchun. Ro‘yxat @KengashAppBot orqali: siz ismingizni, rolingizni, maktabingizni va sinfingizni (o‘quvchilar) yoki yo‘nalishingizni (koordinatorlar) ko‘rsatasiz. Koordinator va maslahatchi arizasini yuqoridagi koordinator yoki maslahatchi tasdiqlaydi; o‘quvchilar darhol faol bo‘ladi."
         ]],
         ["Qancha saqlaymiz", [
           "Hisob mavjud bo‘lguncha. Hisobni o‘chirsangiz, ma’lumotlar darhol bazadan o‘chiriladi."
@@ -99,7 +99,7 @@
         ["Какие данные мы собираем", [
           "При входе через Telegram: ваш Telegram ID, имя пользователя (username) и номер телефона, которым вы сами поделились.",
           "Профиль: имя и фамилия, фото профиля (фото приводится к размеру 512×512, дополнительные данные вроде геолокации из него удаляются).",
-          "Ваше место координатора: школа, район или область и направление (например, «IT и искусственный интеллект»).",
+          "Ваша роль и место: школа, район или область и направление (например, «IT и искусственный интеллект»); для учеников — школа и класс (например, 7-Б).",
           "Технические: ключ входа (только в виде хеша), время последнего входа, дата согласия с правилами.",
           "На следующих этапах: ваши сообщения и файлы в каналах, фотоотчёты по задачам и ответы на мероприятия.",
           "Мы не собираем геолокацию (GPS), список контактов, рекламный идентификатор или данные банковских карт. В приложении нет рекламы и сервисов слежения (трекинга)."
@@ -108,12 +108,12 @@
           "Чтобы вы могли войти, чтобы координаторы могли связаться друг с другом, и чтобы показывать каналы, задачи и мероприятия. Мы не продаём ваши данные и не передаём их для рекламы."
         ]],
         ["Кто видит данные", [
-          "Ваши имя, фото, место и ссылка на Telegram видны всем координаторам Kengash — чтобы они могли с вами связаться.",
-          "Ваш номер телефона видят только вышестоящие координаторы (района и области) и админ.",
+          "Имя, фото, место и ссылка на Telegram координатора и маслахатчи видны координаторам Kengash — чтобы они могли связаться.",
+          "Ваш номер телефона видят только вышестоящие и админ. Имя, класс и телефон ученика видят только координаторы и маслахатчи его школы — координаторы района и области учеников не видят.",
           "Технические сервисы: Render (сервер), Supabase (база данных и файлы), Telegram (вход и уведомления — @KengashAppBot пишет вам о новых задачах и сообщениях; можно отключить в разделе «Профиль»). Серверы могут находиться за пределами Узбекистана."
         ]],
         ["Пользователи", [
-          "Приложение предназначено для координаторов Совета учеников «Kelajak» (школьников). Регистрация возможна только с ключом от вышестоящего координатора."
+          "Приложение предназначено для координаторов Совета учеников «Kelajak» (школьников). Также для школьных маслахатчи (учителей) и обычных учеников. Регистрация через @KengashAppBot: вы указываете имя, роль, школу и класс (ученики) или направление (координаторы). Заявку координатора и маслахатчи подтверждает вышестоящий координатор или маслахатчи; ученики активны сразу."
         ]],
         ["Сколько храним", [
           "Пока существует аккаунт. Если вы удалите аккаунт, данные сразу удаляются из базы."
@@ -135,7 +135,7 @@
           "Kengash’dan foydalanish orqali siz ushbu shartlarga va Maxfiylik siyosatiga rozilik bildirasiz."
         ]],
         ["Hisob", [
-          "Haqiqiy ism-familiyangizni kiriting. Kalitni faqat o‘zingiz ishlating va boshqalarga bermang. Boshqa odam nomidan hisob ochish taqiqlanadi. Hisobingizdagi harakatlar uchun o‘zingiz javobgarsiz."
+          "Haqiqiy ism-familiyangizni kiriting. Boshqa odam nomidan hisob ochish taqiqlanadi. Hisobingizdagi harakatlar uchun o‘zingiz javobgarsiz."
         ]],
         ["Muloqot qoidalari", [
           "Hurmat bilan yozing. Haqoratli, odobsiz yoki boshqalarga zarar yetkazuvchi kontent, spam, boshqalarning suratini ruxsatsiz joylash va mualliflik huquqi bilan himoyalangan materiallarni ruxsatsiz yuklash taqiqlanadi.",
@@ -145,7 +145,7 @@
           "Vazifa bo‘yicha hisobot va suratlar haqiqiy bo‘lishi kerak."
         ]],
         ["Xizmat", [
-          "Ilova «boricha» taqdim etiladi. Biz uning doimiy ishlashiga harakat qilamiz, lekin uzilishlar bo‘lishi mumkin. Kelajakda ilova pullik obuna (oyiga 10 000 so‘m) bilan ishlashi mumkin — bu haqda oldindan e’lon qilamiz."
+          "Ilova «boricha» taqdim etiladi. Biz uning doimiy ishlashiga harakat qilamiz, lekin uzilishlar bo‘lishi mumkin. Kelajakda koordinatorlar va maslahatchilar uchun ilova pullik bo‘ladi (oyiga 5 000 so‘m), o‘quvchilar uchun bepul — bu haqda oldindan e’lon qilamiz."
         ]],
         ["Hisobni o‘chirish", [
           "Hisobingizni istalgan vaqtda Profil → «Hisobni o‘chirish» orqali o‘chirishingiz mumkin."
@@ -159,7 +159,7 @@
           "Пользуясь Kengash, вы соглашаетесь с этими условиями и Политикой конфиденциальности."
         ]],
         ["Аккаунт", [
-          "Указывайте настоящие имя и фамилию. Используйте ключ только сами и не передавайте его другим. Запрещено создавать аккаунт от имени другого человека. Вы отвечаете за действия в своём аккаунте."
+          "Указывайте настоящие имя и фамилию. Запрещено создавать аккаунт от имени другого человека. Вы отвечаете за действия в своём аккаунте."
         ]],
         ["Правила общения", [
           "Пишите уважительно. Запрещены оскорбительный, непристойный или вредный для других контент, спам, размещение чужих фото без разрешения и загрузка материалов, защищённых чужим авторским правом.",
@@ -169,7 +169,7 @@
           "Отчёты и фото по задачам должны быть настоящими."
         ]],
         ["Сервис", [
-          "Приложение предоставляется «как есть». Мы стараемся, чтобы оно работало постоянно, но возможны перебои. В будущем приложение может стать платным (подписка 10 000 сумов в месяц) — мы сообщим об этом заранее."
+          "Приложение предоставляется «как есть». Мы стараемся, чтобы оно работало постоянно, но возможны перебои. В будущем приложение станет платным для координаторов и маслахатчи (5 000 сумов в месяц), для учеников — бесплатно. Мы сообщим об этом заранее."
         ]],
         ["Удаление аккаунта", [
           "Вы можете удалить аккаунт в любой момент: Профиль → «Удалить аккаунт»."

@@ -48,25 +48,45 @@ def _dir_names(d):
 
 def auto_specs(c, u):
     """Foydalanuvchi a’zo bo‘lishi kerak bo‘lgan avtomatik kanallar / автоканалы пользователя.
-    -> {auto_key: (title_uz, title_ru, mode, role)}"""
+    -> {auto_key: (title_uz, title_ru, mode, role)}
+
+    Hamma: «Kengash e’lonlari» (faqat admin va viloyat Lideri yozadi).
+    O‘quvchi: + maktab yangiliklari (o‘qiydi) + maktab chati (yozadi). Tuman/viloyat kanallari — yo‘q.
+    Maslahatchi va maktab koordinatorlari: + maktab jamoasi (9 kishi) + maktab yangiliklari (yozadi) + maktab chati.
+    Maktab koordinatori: + tuman × yo‘nalish. Tuman/viloyat — avvalgidek.
+    """
     out = {}
     is_admin = u["role"] == "admin"
+    if u.get("status") != "active" and not is_admin:
+        return out
     lvl, pid, d = u.get("level"), u.get("place_id"), u.get("direction")
-    poster = is_admin or lvl == "region"
+    poster = is_admin or (lvl == "region" and d == LIDER)
     out["all"] = ("Kengash e’lonlari", "Объявления Kengash", "announce", "admin" if poster else "member")
-    if not lvl or u.get("status") != "active":
-        return out if is_admin or u.get("status") == "active" else {}
+    if not lvl:
+        return out
     chain = model.place_chain(c, lvl, pid)
     if not chain:
         return out
-    duz, dru = _dir_names(d)
-    lead = "admin" if d == LIDER else "member"
     if lvl == "school":
         p = core.place_info(c, "school", pid)
+        staff = d is not None  # koordinator yoki maslahatchi / координатор или маслахатчи
+        out[f"news:{pid}"] = (f"{p['name_uz']} · yangiliklar", f"{p['name_ru']} · новости", "announce",
+                              "admin" if staff else "member")
+        out[f"chat:{pid}"] = (f"{p['name_uz']} · umumiy chat", f"{p['name_ru']} · общий чат", "group",
+                              "admin" if staff else "member")
+        if not staff:
+            return out
+        team_role = "admin" if d in (model.MASLAHATCHI, LIDER) else "member"
+        out[f"school:{pid}"] = (f"{p['name_uz']} jamoasi", f"Команда: {p['name_ru']}", "group", team_role)
+        if d == model.MASLAHATCHI:
+            return out
+        duz, dru = _dir_names(d)
         dist = core.place_info(c, "district", chain["district"])
-        out[f"school:{pid}"] = (f"{p['name_uz']} jamoasi", f"Команда: {p['name_ru']}", "group", lead)
         out[f"dd:{chain['district']}:{d}"] = (f"{dist['name_uz']} · {duz}", f"{dist['name_ru']} · {dru}", "group", "member")
-    elif lvl == "district":
+        return out
+    duz, dru = _dir_names(d)
+    lead = "admin" if d == LIDER else "member"
+    if lvl == "district":
         dist = core.place_info(c, "district", pid)
         reg = core.place_info(c, "region", chain["region"])
         out[f"dd:{pid}:{d}"] = (f"{dist['name_uz']} · {duz}", f"{dist['name_ru']} · {dru}", "group", "admin")
@@ -153,7 +173,9 @@ def _delete_channel(c, cid):
 
 # ------------------------------------------------------------------ auditoriya / аудитория
 def can_create(u):
-    return u["role"] == "admin" or (u["status"] == "active" and u.get("level") in ("district", "region"))
+    """Kanal yarata oladi: admin, tuman/viloyat koordinatorlari, maslahatchi / может создавать каналы."""
+    return u["role"] == "admin" or (u["status"] == "active" and (
+        u.get("level") in ("district", "region") or u.get("direction") == model.MASLAHATCHI))
 
 
 def can_add(c, actor, target, peers=True):
@@ -181,7 +203,16 @@ def resolve_audience(c, actor, items, user_ids=(), peers=True):
         if level not in model.LEVELS:
             err(400, "bad_audience")
         where, params = ["u.level=?", "u.status='active'"], [level]
-        dirs = [d for d in (it.get("directions") or []) if d in DIRECTION_KEYS]
+        kind = it.get("kind") or "coordinator"
+        if kind == "student":
+            where.append("u.direction IS NULL")
+        elif kind == "maslahatchi":
+            where.append("u.direction=?")
+            params.append(model.MASLAHATCHI)
+        else:
+            where.append("u.direction IS NOT NULL AND u.direction<>?")
+            params.append(model.MASLAHATCHI)
+        dirs = [d for d in (it.get("directions") or []) if d in DIRECTION_KEYS] if kind == "coordinator" else []
         if dirs:
             where.append("u.direction IN (%s)" % ",".join("?" * len(dirs)))
             params += dirs

@@ -324,6 +324,7 @@ const Map<String, Color> kDirectionColors = {
   'ekologiya': Color(0xFF34C759),
   'sport': Color(0xFF00A89D),
   'madaniyat': Color(0xFFD6409F),
+  'maslahatchi': Color(0xFF032BA5),
 };
 
 const Map<String, IconData> kDirectionIcons = {
@@ -335,6 +336,7 @@ const Map<String, IconData> kDirectionIcons = {
   'ekologiya': Icons.eco_rounded,
   'sport': Icons.sports_soccer_rounded,
   'madaniyat': Icons.theater_comedy_rounded,
+  'maslahatchi': Icons.school_rounded,
 };
 
 Color directionColor(String? d) => kDirectionColors[d] ?? const Color(0xFF8E8E93);

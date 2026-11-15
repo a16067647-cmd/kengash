@@ -5,7 +5,6 @@ import '../brand.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
-import 'keys.dart' show showKeysResult;
 
 /// Koordinatorlar: viloyat → tumanlar → maktablar, har birida 8 o‘rin.
 /// Координаторы: область → районы → школы, в каждом 8 мест.
@@ -46,6 +45,10 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
     final s = AppScope.of(context);
     final c = s.c;
     final me = s.me;
+    if (s.isStudent && me?['place_id'] != null) {
+      final place = (me!['place'] as Map?)?.cast<String, dynamic>();
+      return SeatsView(level: 'school', placeId: me['place_id'] as String, title: place == null ? s.t('my_school') : s.pick(place, 'name'));
+    }
     final myDistrict = me?['level'] == 'district' ? me!['place_id'] : (me?['place'] as Map?)?['district_id'];
     return TabPage(
       title: s.t('directory'),
@@ -221,6 +224,8 @@ class SeatsView extends StatefulWidget {
 
 class _SeatsViewState extends State<SeatsView> {
   List<Json>? _seats;
+  int _students = 0;
+  bool _canSeeStudents = false;
   String? _error;
 
   @override
@@ -233,7 +238,13 @@ class _SeatsViewState extends State<SeatsView> {
     final s = AppScope.read(context);
     try {
       final r = await s.api.get('/api/seats', query: {'level': widget.level, 'place_id': widget.placeId});
-      if (mounted) setState(() => _seats = [for (final x in r['seats'] as List) (x as Map).cast<String, dynamic>()]);
+      if (mounted) {
+        setState(() {
+          _seats = [for (final x in r['seats'] as List) (x as Map).cast<String, dynamic>()];
+          _students = (r['students'] as num?)?.toInt() ?? 0;
+          _canSeeStudents = r['can_see_students'] == true;
+        });
+      }
     } on ApiError catch (e) {
       if (mounted) setState(() => _error = s.errText(e));
     }
@@ -242,10 +253,11 @@ class _SeatsViewState extends State<SeatsView> {
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
+    final c = s.c;
     final filled = _seats?.where((x) => x['user'] != null).length ?? 0;
     return TabPage(
       title: widget.title,
-      subtitle: '${s.levelName(widget.level)} · $filled/8',
+      subtitle: '${s.levelName(widget.level)} · $filled/${_seats?.length ?? 8}',
       onRefresh: _load,
       children: [
         if (_error != null)
@@ -261,7 +273,22 @@ class _SeatsViewState extends State<SeatsView> {
         else if (_seats == null)
           const SkeletonRows(count: 6)
         else
-          for (final x in _seats!) _SeatCard(seat: x, level: widget.level, placeId: widget.placeId, onChanged: _load),
+        ...[
+          if (_canSeeStudents)
+            AppCard(
+              key: const ValueKey('students-card'),
+              kind: CardKind.tinted,
+              onTap: () => Navigator.of(context)
+                  .push(AppRoute(builder: (_) => StudentsScreen(schoolId: widget.placeId, title: widget.title))),
+              child: Row(children: [
+                Icon(Icons.groups_2_rounded, color: c.accentText),
+                const SizedBox(width: S.x3),
+                Expanded(child: Text('${s.t('students')}: $_students', style: AppType.headline.copyWith(color: c.text))),
+                Icon(Icons.chevron_right_rounded, color: c.text3),
+              ]),
+            ),
+          for (final x in _seats!) _SeatCard(seat: x, onChanged: _load),
+        ],
       ],
     );
   }
@@ -269,10 +296,8 @@ class _SeatsViewState extends State<SeatsView> {
 
 class _SeatCard extends StatelessWidget {
   final Json seat;
-  final String level;
-  final String placeId;
   final VoidCallback onChanged;
-  const _SeatCard({required this.seat, required this.level, required this.placeId, required this.onChanged});
+  const _SeatCard({required this.seat, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -280,11 +305,7 @@ class _SeatCard extends StatelessWidget {
     final c = s.c;
     final dir = seat['direction'] as String;
     final user = (seat['user'] as Map?)?.cast<String, dynamic>();
-    final canManage = seat['can_manage'] == true;
-    final contact = (seat['contact'] ?? '').toString();
-    if (user != null) {
-      return UserCard(user: user, canManage: canManage, onChanged: onChanged);
-    }
+    if (user != null) return UserCard(user: user, canManage: seat['can_manage'] == true, onChanged: onChanged);
     return AppCard(
       key: ValueKey('seat-$dir'),
       kind: CardKind.inset,
@@ -294,57 +315,91 @@ class _SeatCard extends StatelessWidget {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(s.dirName(dir), style: AppType.headline.copyWith(color: c.text)),
-            Text(contact.isNotEmpty ? '${s.t('seat_empty')} · @$contact' : s.t('seat_empty'),
-                style: AppType.footnote.copyWith(color: c.text3)),
+            Text(s.t('seat_empty'), style: AppType.footnote.copyWith(color: c.text3)),
           ]),
         ),
-        if (canManage)
-          AppIconButton(Icons.key_rounded, tooltip: s.t('make_key'), color: c.accentText, onPressed: () async {
-            try {
-              final r = await s.api.post('/api/keys', {
-                'seats': [
-                  {'level': level, 'place_id': placeId, 'direction': dir}
-                ]
-              });
-              if (context.mounted) await showKeysResult(context, r);
-            } on ApiError catch (e) {
-              s.toast(s.errText(e));
-            }
-          }),
-        if (s.isAdmin) ...[
-          const SizedBox(width: S.x2),
-          AppIconButton(Icons.alternate_email_rounded, tooltip: s.t('seat_contact'), onPressed: () async {
-            final v = await _askContact(context, contact);
-            if (v == null) return;
-            try {
-              await s.api
-                  .post('/api/admin/seat-contact', {'level': level, 'place_id': placeId, 'direction': dir, 'tg_username': v});
-              onChanged();
-            } on ApiError catch (e) {
-              s.toast(s.errText(e));
-            }
-          }),
-        ],
       ]),
     );
   }
 }
 
-Future<String?> _askContact(BuildContext context, String current) {
-  final ctrl = TextEditingController(text: current);
-  final s = AppScope.read(context);
-  return showAppSheet<String>(context, builder: (ctx) {
-    final c = AppScope.of(ctx).c;
-    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text(s.t('seat_contact'), style: AppType.title3.copyWith(color: c.text)),
-      const SizedBox(height: S.x1),
-      Text(s.t('seat_contact_text'), style: AppType.subhead.copyWith(color: c.text2)),
-      const SizedBox(height: S.x4),
-      AppTextField(controller: ctrl, hint: '@username', icon: Icons.alternate_email_rounded, autocorrect: false),
-      const SizedBox(height: S.x4),
-      AppButton(s.t('save'), expand: true, onPressed: () => Navigator.of(ctx).pop(ctrl.text.trim())),
-    ]);
-  });
+/// Maktab o‘quvchilari (sinflar bo‘yicha) / ученики школы (по классам).
+class StudentsScreen extends StatefulWidget {
+  final String schoolId;
+  final String title;
+  const StudentsScreen({super.key, required this.schoolId, required this.title});
+
+  @override
+  State<StudentsScreen> createState() => _StudentsScreenState();
+}
+
+class _StudentsScreenState extends State<StudentsScreen> {
+  List<Json>? _list;
+  String _q = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final s = AppScope.read(context);
+    try {
+      final r = await s.api.get('/api/schools/${widget.schoolId}/students');
+      if (mounted) setState(() => _list = [for (final x in r['students'] as List) (x as Map).cast<String, dynamic>()]);
+    } on ApiError catch (e) {
+      s.toast(s.errText(e));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final c = s.c;
+    final list = (_list ?? []).where((u) => _q.isEmpty || (u['name'] ?? '').toString().toLowerCase().contains(_q)).toList();
+    final byClass = <String, List<Json>>{};
+    for (final u in list) {
+      byClass.putIfAbsent((u['class_name'] ?? '').toString(), () => []).add(u);
+    }
+    return PageShell(
+      child: TabPage(
+        title: s.t('students'),
+        subtitle: '${widget.title} · ${_list?.length ?? 0}',
+        onRefresh: _load,
+        children: [
+          AppTextField(hint: s.t('search_people'), icon: Icons.search_rounded, onChanged: (v) => setState(() => _q = v.trim().toLowerCase())),
+          if (_list == null)
+            const SkeletonRows(count: 5)
+          else if (_list!.isEmpty)
+            EmptyState(icon: Icons.school_rounded, title: s.t('students_none'), message: s.t('students_none_text'))
+          else
+            for (final e in byClass.entries) ...[
+              SectionHeader(e.key.isEmpty ? '—' : '${e.key} · ${e.value.length}'),
+              GroupList([
+                for (final u in e.value)
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => showUserSheet(context, u),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: S.x4, vertical: S.x3),
+                        child: Row(children: [
+                          AppAvatar(url: s.photoUrl(u['photo']), name: (u['name'] ?? '').toString(), size: 36),
+                          const SizedBox(width: S.x3),
+                          Expanded(child: Text((u['name'] ?? '').toString(), style: AppType.body.copyWith(color: c.text))),
+                          if ((u['phone'] ?? '').toString().isNotEmpty)
+                            Text(u['phone'] as String, style: AppType.footnote.copyWith(color: c.text3)),
+                        ]),
+                      ),
+                    ),
+                  ),
+              ]),
+            ],
+        ],
+      ),
+    );
+  }
 }
 
 /// Koordinator kartasi: surat, ism, o‘rin, Telegram / карточка координатора.

@@ -65,7 +65,8 @@ def chans(client, h):  # noqa: F811
 
 def test_auto_channels(client, ch):  # noqa: F811
     m1 = chans(client, ch["m1"])
-    assert set(m1) == {"all", f"school:{ch['s1']}", "dd:marhamat:it"}
+    assert set(m1) == {"all", f"school:{ch['s1']}", f"news:{ch['s1']}", f"chat:{ch['s1']}", "dd:marhamat:it"}
+    assert m1[f"news:{ch['s1']}"]["can_post"] and m1[f"news:{ch['s1']}"]["mode"] == "announce"
     assert m1["all"]["mode"] == "announce" and not m1["all"]["can_post"]
     tit = chans(client, ch["tit"])
     assert set(tit) == {"all", "dd:marhamat:it", "dt:marhamat", "rd:andijon:it"}
@@ -73,7 +74,7 @@ def test_auto_channels(client, ch):  # noqa: F811
     assert chans(client, ch["tlid"])["dt:marhamat"]["role"] == "admin"
     vit = chans(client, ch["vit"])
     assert {"all", "rd:andijon:it", "rt:andijon"} <= set(vit)
-    assert vit["all"]["can_post"] and vit["rd:andijon:it"]["role"] == "admin"
+    assert not vit["all"]["can_post"] and vit["rd:andijon:it"]["role"] == "admin"  # faqat viloyat Lideri / только Лидер
     assert "Marhamat tumani · IT va sun’iy intellekt" == m1["dd:marhamat:it"]["title_uz"]
     assert m1[f"school:{ch['s1']}"]["members"] == 2  # IT + Sport
 
@@ -103,7 +104,7 @@ def test_messages_and_unread(client, ch):  # noqa: F811
 def test_announcements(client, ch):  # noqa: F811
     cid = chans(client, ch["m1"])["all"]["id"]
     assert client.post(f"/api/channels/{cid}/messages", json={"text": "x"}, headers=ch["m1"]).json()["error"] == "read_only"
-    assert client.post(f"/api/channels/{cid}/messages", json={"text": "E’lon!"}, headers=ch["vit"]).status_code == 200
+    assert client.post(f"/api/channels/{cid}/messages", json={"text": "E’lon!"}, headers=ch["vit"]).status_code == 403
     assert client.post(f"/api/channels/{cid}/messages", json={"text": "Admin e’loni"}, headers=ch["admin"]).status_code == 200
     msgs = client.get(f"/api/channels/{cid}/messages", headers=ch["m1"]).json()["messages"]
     assert "seen" in msgs[0]

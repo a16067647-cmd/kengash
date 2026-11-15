@@ -1303,6 +1303,30 @@ List<(String, String, AudiencePick)> channelPresets(AppState s, {bool below = fa
   final dname = dir == null ? '' : s.dirName(dir);
   AudiencePick g(Json group) => AudiencePick([group], const []);
   final out = <(String, String, AudiencePick)>[];
+  if (lvl == 'school' && pid != null) {
+    if (dir == 'maslahatchi') {
+      out.add((
+        's-coordinators',
+        s.t('preset_my_coordinators'),
+        g({
+          'level': 'school',
+          'school_ids': [pid]
+        })
+      ));
+    }
+    if (dir != null) {
+      out.add((
+        's-students',
+        s.t('preset_my_students'),
+        g({
+          'level': 'school',
+          'kind': 'student',
+          'school_ids': [pid]
+        })
+      ));
+    }
+    return out;
+  }
   if (lvl == 'district' && pid != null) {
     if (lider) {
       out.add((
@@ -1320,6 +1344,15 @@ List<(String, String, AudiencePick)> channelPresets(AppState s, {bool below = fa
           'level': 'school',
           'district_ids': [pid],
           'directions': ['lider']
+        })
+      ));
+      out.add((
+        'd-maslahatchi',
+        s.t('preset_district_maslahatchi'),
+        g({
+          'level': 'school',
+          'kind': 'maslahatchi',
+          'district_ids': [pid]
         })
       ));
     } else {
@@ -1351,6 +1384,14 @@ List<(String, String, AudiencePick)> channelPresets(AppState s, {bool below = fa
         g({
           'level': 'school',
           'directions': ['lider']
+        })
+      ));
+      out.add((
+        'r-maslahatchi',
+        s.t('preset_all_maslahatchi'),
+        g({
+          'level': 'school',
+          'kind': 'maslahatchi'
         })
       ));
     } else {

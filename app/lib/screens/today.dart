@@ -4,6 +4,7 @@ import '../brand.dart';
 import '../main.dart' show openTool;
 import '../api.dart';
 import 'calendar.dart' show EventCard;
+import 'onboarding.dart' show ApprovalsScreen;
 import 'channels.dart' show ChannelIcon, channelTitle, openChannel, previewText;
 import 'tasks.dart' show TaskCard;
 import '../state.dart';
@@ -88,6 +89,7 @@ class TodayTab extends StatelessWidget {
               ),
             ]),
           ),
+        const _ApprovalsCard(),
         const _TodayPlan(),
         const _ChannelsCard(),
         GroupList([
@@ -95,16 +97,8 @@ class TodayTab extends StatelessWidget {
               key: const ValueKey('quick-directory'),
               icon: Icons.groups_rounded,
               color: c.accent,
-              title: s.t('directory'),
+              title: s.isStudent ? s.t('my_school') : s.t('directory'),
               onTap: () => openTool(context, 'directory')),
-          if (s.canKeys)
-            GroupRow(
-                key: const ValueKey('quick-keys'),
-                icon: Icons.key_rounded,
-                color: const Color(0xFFFF9F0A),
-                title: s.t('keys'),
-                value: s.t('quick_keys_short'),
-                onTap: () => openTool(context, 'keys')),
           if (s.isAdmin)
             GroupRow(
                 key: const ValueKey('quick-admin'),
@@ -114,6 +108,63 @@ class TodayTab extends StatelessWidget {
                 onTap: () => openTool(context, 'admin')),
         ]),
       ],
+    );
+  }
+}
+
+/// Tasdiqlash kutayotgan arizalar (bo‘lsa) / заявки на подтверждение (если есть).
+class _ApprovalsCard extends StatefulWidget {
+  const _ApprovalsCard();
+
+  @override
+  State<_ApprovalsCard> createState() => _ApprovalsCardState();
+}
+
+class _ApprovalsCardState extends State<_ApprovalsCard> {
+  int _n = 0;
+  int _version = -1;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final s = AppScope.of(context);
+    if (s.todayVersion != _version && !s.isStudent) {
+      _version = s.todayVersion;
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    final s = AppScope.read(context);
+    try {
+      final r = await s.api.get('/api/approvals');
+      if (mounted) setState(() => _n = (r['users'] as List).length);
+    } on ApiError catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final c = s.c;
+    if (_n == 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: S.x4),
+      child: AppCard(
+        key: const ValueKey('today-approvals'),
+        kind: CardKind.tinted,
+        tint: c.warningSoft,
+        borderColor: c.warning.withAlpha(0x55),
+        onTap: () async {
+          await Navigator.of(context).push(AppRoute(builder: (_) => const ApprovalsScreen()));
+          _load();
+        },
+        child: Row(children: [
+          Icon(Icons.how_to_reg_rounded, color: c.warning),
+          const SizedBox(width: S.x3),
+          Expanded(child: Text('${s.t('approvals')}: $_n', style: AppType.headline.copyWith(color: c.text))),
+          Icon(Icons.chevron_right_rounded, color: c.text3),
+        ]),
+      ),
     );
   }
 }

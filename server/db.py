@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS seat_contacts (
   PRIMARY KEY (level, place_id, direction)
 );
 CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS reg_sessions (tg_id BIGINT PRIMARY KEY, step TEXT NOT NULL, data TEXT NOT NULL DEFAULT '{}', updated_at BIGINT NOT NULL);
 CREATE TABLE IF NOT EXISTS channels (
   id TEXT PRIMARY KEY, kind TEXT NOT NULL, auto_key TEXT UNIQUE, title_uz TEXT NOT NULL, title_ru TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '', icon TEXT NOT NULL DEFAULT '', mode TEXT NOT NULL DEFAULT 'group',
@@ -189,6 +190,8 @@ def init():
 # Yangi ustunlar (eski bazalar uchun) / новые столбцы (для старых баз): (jadval, ustun, tavsif)
 COLUMNS = [
     ("users", "notify_tg", "INTEGER NOT NULL DEFAULT 1"),
+    ("users", "kind", "TEXT NOT NULL DEFAULT ''"),
+    ("users", "class_name", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 
