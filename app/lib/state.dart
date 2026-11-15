@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'sound.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'api.dart';
@@ -28,6 +30,7 @@ typedef Json = Map<String, dynamic>;
 class AppState extends ChangeNotifier {
   AppState({Api? api, this.testMode = false}) : api = api ?? Api() {
     chat = ChatStore(this.api, testMode: testMode);
+    if (testMode) Sfx.muted = true;
   }
 
   late final ChatStore chat;
@@ -41,6 +44,7 @@ class AppState extends ChangeNotifier {
   String lang = 'uz';
   String theme = 'system';
   bool bgMotion = true;
+  bool sounds = true;
   bool sideOpen = true;
   Brightness platformBrightness = WidgetsBinding.instance.platformDispatcher.platformBrightness;
 
@@ -145,6 +149,8 @@ class AppState extends ChangeNotifier {
       lang = p.getString('lang') ?? 'uz';
       theme = p.getString('theme') ?? 'system';
       bgMotion = p.getBool('bg_motion') ?? true;
+      sounds = p.getBool('sounds') ?? true;
+      Sfx.enabled = sounds;
       sideOpen = p.getBool('side_open') ?? true;
       api.token = p.getString('token');
       final cached = p.getString('meta');
@@ -261,6 +267,14 @@ class AppState extends ChangeNotifier {
   void setTheme(String v) {
     theme = v;
     _prefs?.setString('theme', v);
+    notifyListeners();
+  }
+
+  void setSounds(bool v) {
+    sounds = v;
+    Sfx.enabled = v;
+    _prefs?.setBool('sounds', v);
+    if (v) Sfx.success();
     notifyListeners();
   }
 

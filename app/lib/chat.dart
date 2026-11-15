@@ -8,6 +8,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'api.dart';
 import 'state.dart' show Json;
+import 'sound.dart';
 
 /// Kanallar holati va jonli ulanish / состояние каналов и живое соединение.
 class ChatStore extends ChangeNotifier {
@@ -116,6 +117,7 @@ class ChatStore extends ChangeNotifier {
       'seq': 1 << 50,
     };
     messages.putIfAbsent(cid, () => []).insert(0, tmp);
+    Sfx.send(); // iPhone kabi darhol / сразу, как на iPhone
     notifyListeners();
     try {
       final atts = upload == null ? <Json>[] : await upload();
@@ -275,8 +277,12 @@ class ChatStore extends ChangeNotifier {
             list.insert(0, m);
           }
         }
-        _touchChannel(cid, m, mine: (m['user'] as Map?)?['id'] == myId);
-        if (openChannel == cid) markRead(cid);
+        final mineMsg = (m['user'] as Map?)?['id'] == myId;
+        _touchChannel(cid, m, mine: mineMsg);
+        if (openChannel == cid) {
+          markRead(cid);
+          if (!mineMsg) Sfx.receive();
+        }
         notifyListeners();
       case 'message.update':
         final cid = ev['channel_id'] as String;

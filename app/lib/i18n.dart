@@ -490,6 +490,7 @@ const Map<String, Map<String, String>> kStrings = {
     'calm_title': 'Bugun reja bo‘sh',
     'calm_text': 'Yangi vazifa yoki tadbir kelsa, shu yerda ko‘rinadi. Hozircha Oy kitobini o‘qib turing 📚',
     'calm_admin': 'Vazifa va tadbirlar yo‘q. Tezkor amallar:',
+    'sounds': 'Ovozlar',
   },
   'ru': {
     'back': 'Назад',
@@ -966,6 +967,7 @@ const Map<String, Map<String, String>> kStrings = {
     'calm_title': 'Сегодня план пуст',
     'calm_text': 'Новые задачи и мероприятия появятся здесь. А пока — почитайте книгу месяца 📚',
     'calm_admin': 'Задач и мероприятий нет. Быстрые действия:',
+    'sounds': 'Звуки',
   },
 };
 

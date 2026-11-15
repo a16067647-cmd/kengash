@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../sound.dart';
 import '../theme.dart';
 
 /// Ochilish animatsiyasi (har safar ilova ochilganda, tugmasiz, ~5 soniya):
@@ -21,8 +22,24 @@ class IntroScreen extends StatefulWidget {
 
 class _IntroScreenState extends State<IntroScreen> with SingleTickerProviderStateMixin {
   static const total = Duration(milliseconds: 5200);
-  late final AnimationController _c = AnimationController(vsync: this, duration: total);
+  late final AnimationController _c = AnimationController(vsync: this, duration: total)..addListener(_sound);
   bool _done = false;
+  int _chimes = 0;
+  bool _chord = false;
+
+  /// Har nuqta halqaga qo‘nganda — bitta shisha nota (ko‘tarilib boradi), belgi tugaganda — akkord.
+  /// Каждая точка садится на кольцо — стеклянная нота (по возрастающей), знак готов — аккорд.
+  void _sound() {
+    final t = _c.value;
+    while (_chimes < 8 && t >= 0.04 + _chimes * 0.035 + 0.30 * 0.55) {
+      Sfx.chime(_chimes);
+      _chimes++;
+    }
+    if (!_chord && t >= 0.585) {
+      _chord = true;
+      Sfx.introChord();
+    }
+  }
 
   @override
   void didChangeDependencies() {

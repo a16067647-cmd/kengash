@@ -101,6 +101,13 @@ class ProfileTab extends StatelessWidget {
             ),
           ),
           GroupRow(
+            key: const ValueKey('row-sounds'),
+            icon: Icons.music_note_rounded,
+            color: const Color(0xFFD6409F),
+            title: s.t('sounds'),
+            trailing: Switch.adaptive(value: s.sounds, activeTrackColor: c.accent, onChanged: s.setSounds),
+          ),
+          GroupRow(
             icon: Icons.blur_on_rounded,
             color: const Color(0xFF00A89D),
             title: s.t('bg_motion'),

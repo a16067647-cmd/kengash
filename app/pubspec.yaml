@@ -45,6 +45,7 @@ flutter:
     - assets/team/
     - assets/legal.json
     - assets/brand/kelajak_white.png
+    - assets/sounds/
   fonts:
     - family: Manrope
       fonts:
