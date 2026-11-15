@@ -15,6 +15,7 @@ import 'package:flutter/services.dart';
 
 import 'config.dart';
 import 'motion_lab.dart';
+import 'sound.dart';
 import 'state.dart';
 import 'theme.dart';
 
@@ -134,6 +135,7 @@ class _PressableState extends State<Pressable> {
         onTap: enabled
             ? () {
                 if (widget.haptic) HapticFeedback.selectionClick();
+                Sfx.tap();
                 widget.onTap!();
               }
             : null,
@@ -196,6 +198,7 @@ class _AppButtonState extends State<AppButton> {
   void _fire() {
     if (widget.onPressed == null || widget.loading) return;
     HapticFeedback.lightImpact();
+    Sfx.tap();
     widget.onPressed!();
   }
 
@@ -860,6 +863,7 @@ class Segmented<T> extends StatelessWidget {
                   onTap: () {
                     if (values[i] == value) return;
                     HapticFeedback.selectionClick();
+                Sfx.tap();
                     onChanged(values[i]);
                   },
                   child: Center(
@@ -1571,6 +1575,8 @@ class GroupRow extends StatelessWidget {
             ? null
             : () {
                 HapticFeedback.selectionClick();
+                Sfx.tap();
+                Sfx.tap();
                 onTap!();
               },
         child: Padding(
@@ -1809,6 +1815,7 @@ class FloatingNavBar extends StatelessWidget {
                           behavior: HitTestBehavior.opaque,
                           onTap: () {
                             if (i != index) HapticFeedback.selectionClick();
+                Sfx.tap();
                             onTap(i);
                           },
                           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [

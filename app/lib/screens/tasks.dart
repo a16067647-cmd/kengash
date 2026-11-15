@@ -9,6 +9,7 @@ import '../api.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../sound.dart';
 import 'audience.dart';
 import 'channels.dart' show PresetTile, channelPresets;
 import 'directory.dart' show confirmSheet;
@@ -326,6 +327,7 @@ class _TaskScreenState extends State<TaskScreen> {
         'comment': _comment.text.trim(),
         'photos': [for (final p in _photos) p.$1]
       });
+      Sfx.success();
       s.toast(s.t('task_sent'), icon: Icons.check_circle_rounded);
       _photos.clear();
       _previews.clear();
@@ -548,6 +550,7 @@ class _TaskScreenState extends State<TaskScreen> {
         try {
           await s.api
               .post('/api/tasks/${widget.taskId}/review', {'user_id': user['id'], 'action': action, 'note': note.text.trim()});
+          if (action == 'accept') Sfx.success();
           if (ctx.mounted) Navigator.of(ctx).pop();
           _load();
         } on ApiError catch (e) {
@@ -810,6 +813,7 @@ class _RateRowState extends State<RateRow> {
     setState(() => _busy = true);
     try {
       await widget.onChanged(next);
+      if (next > 0) Sfx.success();
       if (mounted) setState(() => _v = next);
     } on ApiError catch (e) {
       s.toast(s.errText(e));

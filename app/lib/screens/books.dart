@@ -13,6 +13,7 @@ import '../api.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../sound.dart';
 import 'directory.dart' show confirmSheet;
 
 String bookEmoji(String? d) => kDirectionEmoji[d] ?? '📖';
@@ -218,7 +219,10 @@ class _BookScreenState extends State<BookScreen> {
     try {
       final r = await s.api.post('/api/books/${_b['id']}/read', {'read': next});
       setState(() => _b = {..._b, 'my_read': r['my_read'], 'reads': r['reads']});
-      if (next) s.toast(s.t('book_read_toast'), icon: Icons.check_circle_rounded);
+      if (next) {
+        Sfx.success();
+        s.toast(s.t('book_read_toast'), icon: Icons.check_circle_rounded);
+      }
     } on ApiError catch (e) {
       s.toast(s.errText(e));
     } finally {

@@ -10,6 +10,7 @@ import '../api.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../sound.dart';
 import 'pickers.dart';
 
 // ============================================================ adminga yozish / написать админу
@@ -55,6 +56,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         'text': _text.text.trim(),
         if (_photo != null) 'photo': base64Encode(_photo!),
       }, const Duration(seconds: 60));
+      Sfx.success();
       setState(() => _sent = true);
     } on ApiError catch (e) {
       s.toast(s.errText(e));
@@ -180,6 +182,7 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
     setState(() => _busy = true);
     try {
       final r = await s.api.post('/api/admin/broadcast', {'text': _text.text.trim(), 'filter': _filter});
+      Sfx.success();
       s.toast('${s.t('bc_sent')}: ${r['count']}', icon: Icons.check_circle_rounded);
       if (mounted) Navigator.of(context).pop();
     } on ApiError catch (e) {

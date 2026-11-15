@@ -10,6 +10,7 @@ import '../motion_lab.dart' show MotionLevel;
 import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../sound.dart';
 import 'directory.dart' show UserCard;
 
 /// Botda ro‘yxatdan o‘tish: ism yoziladi, qolgani — tugmalar. Tugagach ilova o‘zi ochiladi.
@@ -193,6 +194,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     final s = AppScope.read(context);
     try {
       await s.api.post('/api/approvals/${u['id']}', {'approve': approve});
+      if (approve) Sfx.success();
       s.toast(s.t(approve ? 'approved_toast' : 'rejected_toast'), icon: approve ? Icons.check_circle_rounded : Icons.cancel_rounded);
       s.todayVersion++;
       _load();
