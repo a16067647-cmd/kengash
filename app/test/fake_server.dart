@@ -11,6 +11,25 @@ class FakeServer {
   final List<Map<String, dynamic>> sent = [];
   final List<Map<String, dynamic>> created = [];
   Map<String, dynamic> lastBody = {};
+  final List<Map<String, dynamic>> posts = [];
+  String rsvp = '';
+  String myStatus = 'new';
+
+  Map<String, dynamic> task({bool given = false}) => {
+        'id': 't1', 'title': 'Robototexnika to‘garagi hisoboti', 'description': 'To‘garakda nechta o‘quvchi borligini yozing.',
+        'deadline': DateTime.now().add(const Duration(days: 1)).millisecondsSinceEpoch ~/ 1000,
+        'photo_required': false, 'created_at': 0,
+        'by': {'id': 'ait', 'name': 'Asaka IT', 'photo': '', 'direction': 'it'},
+        'total': 62, 'counts': {'new': 20, 'submitted': 3, 'accepted': 38, 'returned': 1}, 'done': 41,
+        'is_giver': given, 'overdue': false,
+        if (!given) 'my': {'status': myStatus, 'comment': '', 'review_note': '', 'photos': [], 'submitted_at': 0, 'photo_urls': []},
+      };
+
+  Map<String, dynamic> event() => {
+        'id': 'e1', 'title': 'IT koordinatorlar uchrashuvi', 'description': '', 'place': 'Asaka, Yoshlar markazi',
+        'starts_at': DateTime.now().add(const Duration(days: 2)).millisecondsSinceEpoch ~/ 1000, 'ends_at': 0,
+        'by': {'id': 'ait', 'name': 'Asaka IT'}, 'is_organizer': me['level'] != 'school', 'guests': 62, 'yes': 40, 'no': 3, 'my_rsvp': rsvp,
+      };
 
   static Map<String, dynamic> ch(String id, String key, String uz, String ru,
           {String mode = 'group',
@@ -430,6 +449,19 @@ class FakeServer {
                 {...newUser(), 'id': 'x', 'name': 'Yangi bola', 'status': 'blocked'}
               ],
             };
+          case 'GET /api/today':
+            out = {'tasks': me['level'] == 'school' && myStatus == 'new' ? [task()] : [], 'events': [event()], 'to_review': me['level'] == 'school' ? 0 : 3};
+          case 'GET /api/tasks':
+            final given = req.url.queryParameters['box'] == 'given';
+            out = {'tasks': given ? [task(given: true)] : (me['level'] == 'school' ? [task()] : []), 'can_give': me['level'] != 'school' || me['role'] == 'admin'};
+          case 'POST /api/tasks':
+            posts.add({'path': path, ...body});
+            out = {...task(given: true), 'total': 12};
+          case 'GET /api/events':
+            out = {'events': [event()], 'can_create': me['level'] != 'school' || me['role'] == 'admin'};
+          case 'POST /api/events':
+            posts.add({'path': path, ...body});
+            out = {...event(), 'guests': 12};
           case 'GET /api/channels':
             out = {
               'channels': [...channels(), ...created],
@@ -462,7 +494,37 @@ class FakeServer {
             out = {'ok': true};
           default:
             final seg = path.split('/');
-            if (req.method == 'GET' && seg.length == 4 && seg[2] == 'channels') {
+            if (req.method == 'GET' && path == '/api/tasks/t1') {
+              out = {
+                ...task(given: me['level'] != 'school'),
+                'can_review': me['level'] != 'school',
+                'people': me['level'] == 'school'
+                    ? []
+                    : [
+                        {'user': person('m59it', 'Karimova Madina', 'school', 'it'), 'status': 'submitted', 'comment': '15 o‘quvchi qatnashdi',
+                          'review_note': '', 'photos': [], 'photo_urls': [], 'submitted_at': 0},
+                        {'user': person('m60it', 'Yusupov Jasur', 'school', 'it'), 'status': 'new', 'comment': '', 'review_note': '',
+                          'photos': [], 'photo_urls': [], 'submitted_at': 0},
+                      ],
+              };
+            } else if (req.method == 'POST' && path.startsWith('/api/tasks/t1/')) {
+              posts.add({'path': path, ...body});
+              if (path.endsWith('/submit')) myStatus = 'submitted';
+              out = {'ok': true};
+            } else if (req.method == 'GET' && path == '/api/events/e1') {
+              out = {
+                ...event(),
+                if (me['level'] != 'school')
+                  'people': [
+                    {'user': person('m59it', 'Karimova Madina', 'school', 'it'), 'rsvp': 'yes'},
+                    {'user': person('m60it', 'Yusupov Jasur', 'school', 'it'), 'rsvp': ''},
+                  ],
+              };
+            } else if (req.method == 'POST' && path == '/api/events/e1/rsvp') {
+              rsvp = body['rsvp'] as String;
+              posts.add({'path': path, ...body});
+              out = {'ok': true};
+            } else if (req.method == 'GET' && seg.length == 4 && seg[2] == 'channels') {
               out = [...channels(), ...created].firstWhere((c) => c['id'] == seg[3]);
             } else if (req.method == 'GET' && path.endsWith('/messages')) {
               out = {'messages': messagesFor(seg[3]), 'has_more': false, 'my_read': 5};

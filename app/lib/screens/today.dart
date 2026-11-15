@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../brand.dart';
 import '../main.dart' show openTool;
+import '../api.dart';
+import 'calendar.dart' show EventCard;
 import 'channels.dart' show ChannelIcon, channelTitle, openChannel, previewText;
+import 'tasks.dart' show TaskCard;
 import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -38,7 +41,10 @@ class TodayTab extends StatelessWidget {
     final tg = (s.me?['tg_username'] ?? '').toString();
 
     return TabPage(
-      onRefresh: s.refreshMe,
+      onRefresh: () async {
+        s.todayVersion++;
+        await s.refreshMe();
+      },
       split: tg.isEmpty ? 3 : 2,
       children: [
         // Qahramon karta / карточка-герой
@@ -82,6 +88,7 @@ class TodayTab extends StatelessWidget {
               ),
             ]),
           ),
+        const _TodayPlan(),
         const _ChannelsCard(),
         GroupList([
           GroupRow(
@@ -108,6 +115,84 @@ class TodayTab extends StatelessWidget {
         ]),
       ],
     );
+  }
+}
+
+/// Bugungi ishlar: tekshirish, muddati yaqin vazifalar, yaqin tadbirlar. Bo‘sh bo‘lsa — hech narsa ko‘rinmaydi.
+/// Дела на сегодня: проверка, задачи со сроком, ближайшие мероприятия. Если пусто — ничего не видно.
+class _TodayPlan extends StatefulWidget {
+  const _TodayPlan();
+
+  @override
+  State<_TodayPlan> createState() => _TodayPlanState();
+}
+
+class _TodayPlanState extends State<_TodayPlan> {
+  Json? _d;
+  int _version = -1;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final s = AppScope.of(context);
+    if (s.todayVersion != _version) {
+      _version = s.todayVersion;
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    final s = AppScope.read(context);
+    try {
+      final d = await s.api.get('/api/today');
+      if (mounted) setState(() => _d = d);
+    } on ApiError catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final c = s.c;
+    final d = _d;
+    if (d == null) return const SizedBox.shrink();
+    final tasks = [for (final x in d['tasks'] as List) (x as Map).cast<String, dynamic>()];
+    final events = [for (final x in d['events'] as List) (x as Map).cast<String, dynamic>()];
+    final review = (d['to_review'] as num?)?.toInt() ?? 0;
+    if (tasks.isEmpty && events.isEmpty && review == 0) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (review > 0) ...[
+        AppCard(
+          key: const ValueKey('today-review'),
+          kind: CardKind.tinted,
+          onTap: () {
+            s.tasksBox = 'given';
+            s.go('tasks');
+          },
+          child: Row(children: [
+            Icon(Icons.fact_check_rounded, color: c.accentText),
+            const SizedBox(width: S.x3),
+            Expanded(child: Text('${s.t('to_review')}: $review', style: AppType.headline.copyWith(color: c.text))),
+            Icon(Icons.chevron_right_rounded, color: c.text3),
+          ]),
+        ),
+        const SizedBox(height: S.x4),
+      ],
+      if (tasks.isNotEmpty) ...[
+        SectionHeader(s.t('today_tasks')),
+        const SizedBox(height: S.x3),
+        for (final t in tasks.take(3)) ...[TaskCard(task: t, onChanged: _load), const SizedBox(height: S.x3)],
+        if (tasks.length > 3)
+          Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(onPressed: () => s.go('tasks'), child: Text('${s.t('all')} (${tasks.length})'))),
+        const SizedBox(height: S.x2),
+      ],
+      if (events.isNotEmpty) ...[
+        SectionHeader(s.t('today_events')),
+        const SizedBox(height: S.x3),
+        for (final e in events.take(3)) ...[EventCard(event: e, onChanged: _load), const SizedBox(height: S.x3)],
+      ],
+    ]);
   }
 }
 
@@ -161,34 +246,4 @@ class _ChannelsCard extends StatelessWidget {
       },
     );
   }
-}
-
-/// Keyingi bosqichlarda to‘ladigan bo‘limlar / разделы следующих этапов.
-class _ComingTab extends StatelessWidget {
-  final String titleKey;
-  final IconData icon;
-  final String textKey;
-  const _ComingTab({required this.titleKey, required this.icon, required this.textKey});
-
-  @override
-  Widget build(BuildContext context) {
-    final s = AppScope.of(context);
-    return TabPage(title: s.t(titleKey), children: [
-      EmptyState(icon: icon, title: s.t('soon_title'), message: s.t(textKey)),
-    ]);
-  }
-}
-
-class TasksTab extends StatelessWidget {
-  const TasksTab({super.key});
-  @override
-  Widget build(BuildContext context) =>
-      const _ComingTab(titleKey: 'tab_tasks', icon: Icons.task_alt_rounded, textKey: 'soon_tasks');
-}
-
-class CalendarTab extends StatelessWidget {
-  const CalendarTab({super.key});
-  @override
-  Widget build(BuildContext context) =>
-      const _ComingTab(titleKey: 'tab_calendar', icon: Icons.event_rounded, textKey: 'soon_calendar');
 }
