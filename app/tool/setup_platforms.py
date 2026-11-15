@@ -41,6 +41,43 @@ def android():
     m.write_text(s, encoding="utf-8")
 
 
+def android_signing():
+    """Doimiy imzo: android/key.properties bo‘lsa (CI uni GitHub secret dan yozadi) — release kalit, bo‘lmasa debug.
+    Har yangilanish bir xil kalit bilan imzolanadi — telefonda eski ilova ustiga o‘rnatiladi.
+    Постоянная подпись: если есть android/key.properties (CI пишет его из секрета) — релизный ключ, иначе debug.
+    Все обновления подписаны одним ключом — ставятся поверх старой версии."""
+    g = APP / "android/app/build.gradle.kts"
+    if not g.exists():
+        return
+    s = g.read_text(encoding="utf-8")
+    if "keystoreProperties" in s:
+        return
+    s = "import java.io.FileInputStream\nimport java.util.Properties\n\n" + s
+    s = s.replace("\nandroid {", """
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
+android {""", 1)
+    s = s.replace("    buildTypes {", """    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+            }
+        }
+    }
+
+    buildTypes {""", 1)
+    s = s.replace('signingConfig = signingConfigs.getByName("debug")',
+                  'signingConfig = signingConfigs.getByName(if (keystorePropertiesFile.exists()) "release" else "debug")', 1)
+    g.write_text(s, encoding="utf-8")
+
+
 def ios():
     p = APP / "ios/Runner/Info.plist"
     s = p.read_text(encoding="utf-8")
@@ -72,6 +109,7 @@ if __name__ == "__main__":
     if sample.exists() and "MyApp" in sample.read_text(encoding="utf-8"):
         sample.unlink()
     android()
+    android_signing()
     ios()
     sh(flutter, "pub", "get")
     sh(shutil.which("dart") or "dart", "run", "flutter_launcher_icons")
