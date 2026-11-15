@@ -270,6 +270,7 @@ class _EventScreenState extends State<EventScreen> {
                         color: c.text2)),
               ]),
             ),
+            if (people.any((p) => p['can_mark'] == true)) SectionHeader(s.t('attendance')),
             if (people.isNotEmpty)
               GroupList([
                 for (final p in people)
@@ -284,6 +285,14 @@ class _EventScreenState extends State<EventScreen> {
                       Expanded(
                           child: Text(((p['user'] as Map)['name'] ?? '').toString(),
                               maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.body.copyWith(color: c.text))),
+                      if (p['can_mark'] == true)
+                        _Attend(
+                          key: ValueKey('attend-${(p['user'] as Map)['id']}'),
+                          came: p['came'] as bool?,
+                          onChanged: (v) => s.api.post('/api/events/${widget.eventId}/attendance',
+                              {'user_id': (p['user'] as Map)['id'], 'came': v}),
+                        )
+                      else
                       Icon(
                           p['rsvp'] == 'yes'
                               ? Icons.check_circle_rounded
@@ -450,5 +459,62 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         ],
       ),
     );
+  }
+}
+
+
+/// Keldi (+1) / kelmadi (−1); qayta bosish — belgini olib tashlash.
+/// Пришёл (+1) / не пришёл (−1); повторное нажатие снимает отметку.
+class _Attend extends StatefulWidget {
+  final bool? came;
+  final Future<Object?> Function(bool? came) onChanged;
+  const _Attend({super.key, required this.came, required this.onChanged});
+
+  @override
+  State<_Attend> createState() => _AttendState();
+}
+
+class _AttendState extends State<_Attend> {
+  late bool? _came = widget.came;
+
+  Future<void> _set(bool v) async {
+    final s = AppScope.read(context);
+    final next = _came == v ? null : v;
+    final prev = _came;
+    setState(() => _came = next);
+    try {
+      await widget.onChanged(next);
+    } on ApiError catch (e) {
+      if (mounted) setState(() => _came = prev);
+      s.toast(s.errText(e));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppScope.of(context).c;
+    Widget b(bool v, IconData icon, Color color, String k) {
+      final on = _came == v;
+      return Pressable(
+        key: ValueKey(k),
+        onTap: () => _set(v),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 40,
+          height: 34,
+          decoration: BoxDecoration(
+            color: on ? color : c.surfaceAlt,
+            borderRadius: R.all(R.sm),
+          ),
+          child: Icon(icon, size: 20, color: on ? Colors.white : c.text3),
+        ),
+      );
+    }
+
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      b(true, Icons.check_rounded, const Color(0xFF1F9D55), 'came'),
+      const SizedBox(width: 6),
+      b(false, Icons.close_rounded, const Color(0xFFE5484D), 'missed'),
+    ]);
   }
 }

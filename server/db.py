@@ -96,6 +96,11 @@ CREATE TABLE IF NOT EXISTS event_guests (
   event_id TEXT NOT NULL, user_id TEXT NOT NULL, rsvp TEXT NOT NULL DEFAULT '', PRIMARY KEY (event_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS event_guests_user ON event_guests(user_id);
+CREATE TABLE IF NOT EXISTS points (
+  kind TEXT NOT NULL, ref_id TEXT NOT NULL, user_id TEXT NOT NULL, by_id TEXT NOT NULL,
+  value INTEGER NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (kind, ref_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS points_user ON points(user_id, created_at);
 CREATE TABLE IF NOT EXISTS push_tokens (
   token TEXT PRIMARY KEY, user_id TEXT NOT NULL, platform TEXT NOT NULL DEFAULT '', created_at BIGINT NOT NULL
 );

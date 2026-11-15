@@ -183,6 +183,19 @@ Keys are gone. The admin never hands out keys or free months.
 - **Payments:** 5 000 so‘m/month for coordinators (all levels) and maslahatchi; students free. Unpaid → the app is locked,
   opens right after paying. Switched off (`PAYMENTS_ENABLED`) until Click/Payme and a YaTT/MChJ exist.
 
+### 3.3b Rating (coordinators only)
+- **Tasks:** after the report (or after the deadline), the task giver may give **+1** or **−1** — or nothing.
+  Not rating is normal; it keeps points precious. Tapping the chosen value again removes it.
+- **Meetings:** after the start time, the organizer marks each guest **came (+1)** or **missed (−1)**, or leaves them unmarked.
+- **Public leaderboard** (*Reyting*): everyone who is not a student can see it. Default group: your level in your area
+  (school coordinators in the tuman, tuman coordinators in the viloyat, viloyat team). Filters: level, tuman, direction.
+- Score **restarts every quarter** (Tashkent time); the history of points is kept.
+- Students and maslahatchi are not rated. Students don't see the rating.
+
+### 3.3c Safety
+- Students in the school chat send **text and voice only** (no photos, videos, files). Coordinators and the maslahatchi can.
+- Every message has a report button; the admin deletes and blocks. Nobody is anonymous.
+
 ### 3.4 Profiles and the directory
 - **Koordinatorlar / Координаторы** screen: browse by tuman → school, filter by direction, search by name.
 - Profile card: photo, name, seat, direction colour chip, **"Telegram'da yozish / Написать в Telegram"** button (`https://t.me/<username>`).

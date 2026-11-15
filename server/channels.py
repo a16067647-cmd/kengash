@@ -144,6 +144,7 @@ def remove_user(c, uid):
         paths += json.loads(r["photos"] or "[]")
     c.x("DELETE FROM task_assignees WHERE user_id=?", (uid,))
     c.x("DELETE FROM event_guests WHERE user_id=?", (uid,))
+    c.x("DELETE FROM points WHERE user_id=?", (uid,))
     c.x("DELETE FROM push_tokens WHERE user_id=?", (uid,))
     admin = c.one("SELECT id FROM users WHERE role='admin' AND id<>? ORDER BY created_at LIMIT 1", (uid,))
     if admin:
@@ -270,6 +271,11 @@ def member_ids(c, cid):
     return [r["user_id"] for r in c.q("SELECT user_id FROM channel_members WHERE channel_id=?", (cid,))]
 
 
+def media_ok(u):
+    """O‘quvchi faqat matn va ovoz yuboradi / ученик отправляет только текст и голос."""
+    return u.get("kind") != "student"
+
+
 def channel_json(c, ch, u, m):
     last = c.one("SELECT * FROM messages WHERE channel_id=? AND seq=?", (ch["id"], ch["msg_seq"])) if ch["msg_seq"] else None
     preview = None
@@ -286,7 +292,7 @@ def channel_json(c, ch, u, m):
         "created_by": ch["created_by"], "last_msg_at": ch["last_msg_at"], "seq": ch["msg_seq"],
         "unread": max(0, ch["msg_seq"] - (m["last_read"] if m else ch["msg_seq"])),
         "muted": bool(m and m["muted"]), "role": m["role"] if m else None, "member": m is not None,
-        "can_post": can_post(ch, m, u), "can_manage": is_mod(ch, m, u) and ch["kind"] == "custom" or u["role"] == "admin",
+        "can_post": can_post(ch, m, u), "can_media": media_ok(u), "can_manage": is_mod(ch, m, u) and ch["kind"] == "custom" or u["role"] == "admin",
         "is_mod": is_mod(ch, m, u), "pinned": ch["pinned_msg"], "last": preview,
     }
 
@@ -557,6 +563,8 @@ async def message_send(cid: str, request: Request, authorization: Optional[str] 
         if not core.rate_ok("msg:" + u["id"], MSG_PER_MIN, 60):
             err(429, "too_many")
         atts = _valid_attachments(c, cid, b.get("attachments"))
+        if not media_ok(u) and any(a["kind"] != "voice" for a in atts):
+            err(403, "text_only")
         if not text and not atts:
             err(400, "empty")
         reply = b.get("reply_to")
@@ -703,6 +711,8 @@ async def upload_url(cid: str, request: Request, authorization: Optional[str] = 
         ch, m = access(c, cid, u)
         if not can_post(ch, m, u):
             err(403, "read_only")
+        if kind != "voice" and not media_ok(u):
+            err(403, "text_only")
         if not core.rate_ok("upload:" + u["id"], UPLOADS_PER_HOUR, 3600):
             err(429, "too_many")
     if not storage.enabled():
@@ -733,6 +743,8 @@ async def upload_photo(cid: str, request: Request, authorization: Optional[str] 
         ch, m = access(c, cid, u)
         if not can_post(ch, m, u):
             err(403, "read_only")
+        if not media_ok(u):
+            err(403, "text_only")
         if not core.rate_ok("upload:" + u["id"], UPLOADS_PER_HOUR, 3600):
             err(429, "too_many")
     try:

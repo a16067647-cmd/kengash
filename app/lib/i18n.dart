@@ -389,6 +389,18 @@ const Map<String, Map<String, String>> kStrings = {
     'preset_my_students': 'Maktabim o‘quvchilari',
     'preset_district_maslahatchi': 'Tumanimdagi maslahatchilar',
     'preset_all_maslahatchi': 'Barcha maslahatchilar',
+    // reyting
+    'rating': 'Reyting',
+    'rating_sub': 'chorak · har chorakda noldan boshlanadi',
+    'rating_mine': 'Mening ballarim',
+    'rating_place': 'o‘rin',
+    'rating_how': 'Ball vazifa va yig‘ilishlardan keladi',
+    'rating_none': 'Bu yerda hali hech kim yo‘q',
+    'rate_title': 'Baho (ixtiyoriy)',
+    'attendance': 'Kim keldi? (+1 / −1)',
+    'err_text_only': 'O‘quvchilar chatda faqat matn va ovoz yuboradi.',
+    'err_too_early': 'Hali erta: muddat yoki tadbir vaqti kelmagan.',
+    'err_not_rated': 'Bu odam reytingda qatnashmaydi.',
   },
   'ru': {
     'back': 'Назад',
@@ -764,6 +776,18 @@ const Map<String, Map<String, String>> kStrings = {
     'preset_my_students': 'Ученики моей школы',
     'preset_district_maslahatchi': 'Маслахатчи моего района',
     'preset_all_maslahatchi': 'Все маслахатчи',
+    // рейтинг
+    'rating': 'Рейтинг',
+    'rating_sub': 'квартал · каждый квартал с нуля',
+    'rating_mine': 'Мои баллы',
+    'rating_place': 'е место',
+    'rating_how': 'Баллы дают за задачи и встречи',
+    'rating_none': 'Здесь пока никого нет',
+    'rate_title': 'Оценка (необязательно)',
+    'attendance': 'Кто пришёл? (+1 / −1)',
+    'err_text_only': 'Ученики в чате отправляют только текст и голос.',
+    'err_too_early': 'Ещё рано: срок или время встречи не наступили.',
+    'err_not_rated': 'Этот человек не участвует в рейтинге.',
   },
 };
 

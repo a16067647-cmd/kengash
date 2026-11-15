@@ -619,7 +619,7 @@ class _ChannelScreenState extends State<ChannelScreen> {
                       _editing = null;
                     }),
                     onSend: _send,
-                    onAttach: _attach,
+                    onAttach: ch['can_media'] == false ? null : _attach,
                     onVoice: _voice,
                   )
                 else if (ch.isNotEmpty)
@@ -865,7 +865,7 @@ class Composer extends StatefulWidget {
   final Json? editing;
   final VoidCallback onCancel;
   final VoidCallback onSend;
-  final VoidCallback onAttach;
+  final VoidCallback? onAttach;
   final Future<void> Function(VoiceClip) onVoice;
   const Composer(
       {super.key,
@@ -875,7 +875,7 @@ class Composer extends StatefulWidget {
       this.editing,
       required this.onCancel,
       required this.onSend,
-      required this.onAttach,
+      this.onAttach,
       required this.onVoice});
 
   @override
@@ -933,7 +933,7 @@ class _ComposerState extends State<Composer> {
           child: VoiceRecorderBar(
             onDone: widget.onVoice,
             idle: (startRecording) => Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              if (widget.editing == null)
+              if (widget.editing == null && widget.onAttach != null)
                 IconButton(
                   key: const ValueKey('attach'),
                   tooltip: s.t('att_send'),

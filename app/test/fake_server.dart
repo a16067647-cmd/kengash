@@ -15,6 +15,7 @@ class FakeServer {
   String rsvp = '';
   String myStatus = 'new';
   final List<Map<String, dynamic>> approvals = [];
+  int points = 0;
 
   Map<String, dynamic> task({bool given = false}) => {
         'id': 't1', 'title': 'Robototexnika to‘garagi hisoboti', 'description': 'To‘garakda nechta o‘quvchi borligini yozing.',
@@ -72,7 +73,9 @@ class FakeServer {
               },
       };
 
-  List<Map<String, dynamic>> channels() => [
+  List<Map<String, dynamic>> channels() => [for (final x in _channels()) {...x, 'can_media': me['kind'] != 'student'}];
+
+  List<Map<String, dynamic>> _channels() => [
         ch('c-all', 'all', 'Kengash e’lonlari', 'Объявления Kengash',
             mode: 'announce',
             unread: 2,
@@ -413,6 +416,22 @@ class FakeServer {
           case 'POST /api/approvals/p1':
             approvals.clear();
             out = {'ok': true};
+          case 'GET /api/rating':
+            final lvl = req.url.queryParameters['level'] ?? (me['level'] == 'district' ? 'district' : 'school');
+            out = {
+              'quarter': '2026 · IV',
+              'level': lvl,
+              'place_id': lvl == 'school' ? 'asaka' : 'andijon',
+              'people': [
+                {'rank': 1, 'score': 7, 'user': person('m59it', 'Karimova Madina', lvl, 'it')},
+                {'rank': 2, 'score': 4, 'user': person('m59l', 'Toshpo‘latov Sardorbek', lvl, 'lider')},
+                {'rank': 3, 'score': 2, 'user': {...me}},
+                {'rank': 4, 'score': 0, 'user': person('m60it', 'Yusupov Jasur', lvl, 'it')},
+                {'rank': 5, 'score': -2, 'user': person('m61s', 'Aliyeva Nodira', lvl, 'sport')},
+              ],
+              'total': 5,
+              'me': {'score': 2, 'rank': 3, 'rated': me['role'] != 'admin'},
+            };
           case 'GET /api/users/search':
             out = {
               'users': [person('m59it', 'Karimova Madina', 'school', 'it')]
@@ -490,24 +509,28 @@ class FakeServer {
                     ? []
                     : [
                         {'user': person('m59it', 'Karimova Madina', 'school', 'it'), 'status': 'submitted', 'comment': '15 o‘quvchi qatnashdi',
-                          'review_note': '', 'photos': [], 'photo_urls': [], 'submitted_at': 0},
+                          'review_note': '', 'photos': [], 'photo_urls': [], 'submitted_at': 0, 'can_rate': true, 'points': points},
                         {'user': person('m60it', 'Yusupov Jasur', 'school', 'it'), 'status': 'new', 'comment': '', 'review_note': '',
-                          'photos': [], 'photo_urls': [], 'submitted_at': 0},
+                          'photos': [], 'photo_urls': [], 'submitted_at': 0, 'can_rate': true, 'points': 0},
                       ],
               };
             } else if (req.method == 'POST' && path.startsWith('/api/tasks/t1/')) {
               posts.add({'path': path, ...body});
               if (path.endsWith('/submit')) myStatus = 'submitted';
+              if (path.endsWith('/rate')) points = body['value'] as int;
               out = {'ok': true};
             } else if (req.method == 'GET' && path == '/api/events/e1') {
               out = {
                 ...event(),
                 if (me['level'] != 'school')
                   'people': [
-                    {'user': person('m59it', 'Karimova Madina', 'school', 'it'), 'rsvp': 'yes'},
-                    {'user': person('m60it', 'Yusupov Jasur', 'school', 'it'), 'rsvp': ''},
+                    {'user': person('m59it', 'Karimova Madina', 'school', 'it'), 'rsvp': 'yes', 'can_mark': true, 'came': null},
+                    {'user': person('m60it', 'Yusupov Jasur', 'school', 'it'), 'rsvp': '', 'can_mark': true, 'came': false},
                   ],
               };
+            } else if (req.method == 'POST' && path == '/api/events/e1/attendance') {
+              posts.add({'path': path, ...body});
+              out = {'ok': true};
             } else if (req.method == 'POST' && path == '/api/events/e1/rsvp') {
               rsvp = body['rsvp'] as String;
               posts.add({'path': path, ...body});

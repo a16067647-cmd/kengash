@@ -801,6 +801,9 @@ app.include_router(channels.router)
 import plan  # noqa: E402
 
 app.include_router(plan.router)
+import rating  # noqa: E402
+
+app.include_router(rating.router)
 
 
 if __name__ == "__main__":
