@@ -210,6 +210,7 @@ COLUMNS = [
     ("reports", "photo_path", "TEXT NOT NULL DEFAULT ''"),
     ("reports", "reply", "TEXT NOT NULL DEFAULT ''"),
     ("channels", "photo_ver", "TEXT NOT NULL DEFAULT ''"),
+    ("books", "colors", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 

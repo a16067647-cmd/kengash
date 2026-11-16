@@ -492,6 +492,13 @@ const Map<String, Map<String, String>> kStrings = {
     'calm_admin': 'Vazifa va tadbirlar yo‘q. Tezkor amallar:',
     'sounds': 'Ovozlar',
     'glass_fx': 'Suyuq shisha effekti',
+    'book_pages': 'sahifa',
+    'book_progress': 'o‘qildi',
+    'book_page_short': 'bet',
+    'book_more': 'Ko‘proq',
+    'book_less': 'Kamroq',
+    'book_and_more': 'va yana {n} kishi o‘qidi',
+    'book_read_one': 'o‘qidi',
   },
   'ru': {
     'back': 'Назад',
@@ -970,6 +977,13 @@ const Map<String, Map<String, String>> kStrings = {
     'calm_admin': 'Задач и мероприятий нет. Быстрые действия:',
     'sounds': 'Звуки',
     'glass_fx': 'Эффект «жидкое стекло»',
+    'book_pages': 'страниц',
+    'book_progress': 'прочитано',
+    'book_page_short': 'стр.',
+    'book_more': 'Подробнее',
+    'book_less': 'Свернуть',
+    'book_and_more': 'и ещё {n} прочитали',
+    'book_read_one': 'прочитал(а)',
   },
 };
 

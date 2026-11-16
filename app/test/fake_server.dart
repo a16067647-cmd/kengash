@@ -440,6 +440,14 @@ class FakeServer {
                   'my_read': d['id'] == 'it' && iRead,
                   'pdf_size': 3000000,
                   'created_at': 0,
+                  'colors': d['id'] == 'it' ? ['#e4ded2', '#cdb682', '#979188'] : [],
+                  'readers': d['id'] == 'it'
+                      ? [
+                          {'id': 'r1', 'name': 'Karimova Madina', 'photo': ''},
+                          {'id': 'r2', 'name': 'Yusupov Jasur', 'photo': ''},
+                          {'id': 'r3', 'name': 'Aliyeva Nodira', 'photo': ''},
+                        ]
+                      : [],
                 }
             ]..sort((a, b) => (a['direction'] == mine ? 0 : 1).compareTo(b['direction'] == mine ? 0 : 1));
             out = {'books': list};

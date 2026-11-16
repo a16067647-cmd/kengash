@@ -38,6 +38,7 @@ def test_books_flow(client, w, monkeypatch):  # noqa: F811
     books = client.get("/api/books", headers=st).json()["books"]
     assert {b["direction"] for b in books} == {"it", "sport"}
     assert books[0]["pdf_url"].endswith(".pdf") and books[0]["cover_url"]
+    assert len(books[0]["colors"]) == 3 and all(x.startswith("#") for x in books[0]["colors"])
     sport_first = client.get("/api/books", headers=w["m1s"]).json()["books"]
     assert sport_first[0]["direction"] == "sport"
 
@@ -48,6 +49,7 @@ def test_books_flow(client, w, monkeypatch):  # noqa: F811
     assert client.post(f"/api/books/{it['id']}/read", json={"read": False}, headers=w["m1"]).json()["reads"] == 1
     mine = [b for b in client.get("/api/books", headers=st).json()["books"] if b["direction"] == "it"][0]
     assert mine["my_read"] and mine["reads"] == 1
+    assert [r["name"] for r in mine["readers"]] == ["Kitob Talaba"]
 
     # yangi kitob eskisini almashtiradi, eski fayllar o‘chadi / новая заменяет старую, старые файлы удаляются
     add_book(client, w["admin"], title="Yangi IT kitob")

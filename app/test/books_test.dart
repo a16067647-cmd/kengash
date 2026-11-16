@@ -14,10 +14,12 @@ void main() {
   setUpAll(loadFonts);
 
   testWidgets('Oy kitobi: Bugun javoni, kitob, O‘qidim', (tester) async {
-    HttpOverrides.global = PngHttp(await makePng(tester, w: 600, h: 900, a: const Color(0xFF3D1E8C), b: const Color(0xFFFFBB02)));
+    HttpOverrides.global = PngHttp(await makePng(tester, w: 600, h: 900, a: const Color(0xFFEDE8DE), b: const Color(0xFFCDB682)));
     addTearDown(() => HttpOverrides.global = null);
     final server = FakeServer(me: FakeServer.seated('school', 'sport'))..booksCovers = true;
-    await boot(tester, server);
+    final s = await boot(tester, server);
+    s.setBookPage('bit', 25);
+    s.setBookTotal('bit', 280);
     await reveal(tester, find.byKey(const ValueKey('books-shelf')));
     expect(find.text(tr('uz', 'books_title')), findsNothing); // sarlavha emoji bilan / заголовок с эмодзи
     expect(find.text('📚 ${tr('uz', 'books_title')}'), findsOneWidget);
@@ -35,11 +37,16 @@ void main() {
         scrollable: find.descendant(of: find.byKey(const ValueKey('books-shelf')), matching: find.byType(Scrollable)).first);
     await tap(tester, find.byKey(const ValueKey('book-it')));
     expect(find.text('Sun’iy intellekt asoslari'), findsOneWidget);
-    expect(find.text('👥 ${tr('uz', 'book_reads')}: 41'), findsOneWidget);
+    expect(find.text('41'), findsOneWidget); // o‘qiganlar soni / число прочитавших
+    expect(find.text('9%'), findsOneWidget); // 25 / 280
+    expect(find.byKey(const ValueKey('book-progress')), findsOneWidget);
+    // 3D muqovani aylantirish / покрутить 3D-обложку
+    await tester.drag(find.byKey(const ValueKey('book-cover-3d')), const Offset(60, -20));
+    await tester.pump(const Duration(milliseconds: 50));
     await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 300)));
     await shot(tester, 'phone-light-uz-16-book');
     await tap(tester, find.byKey(const ValueKey('book-mark')));
-    expect(find.text('👥 ${tr('uz', 'book_reads')}: 42'), findsOneWidget);
+    expect(find.text('42'), findsOneWidget);
     expect(find.text(tr('uz', 'book_done')), findsOneWidget);
     await back(tester);
   });

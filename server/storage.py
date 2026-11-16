@@ -80,6 +80,14 @@ def sign(paths, seconds=SIGN_SECONDS):
     return out
 
 
+def get(path):
+    """Fayl baytlari / байты файла (yopiq bucket — service kalit bilan)."""
+    req = urllib.request.Request(f"{URL}/storage/v1/object/authenticated/{BUCKET}/{q(path)}",
+                                 headers={"apikey": KEY, "Authorization": f"Bearer {KEY}"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return r.read()
+
+
 def remove(paths):
     if paths and enabled():
         try:
