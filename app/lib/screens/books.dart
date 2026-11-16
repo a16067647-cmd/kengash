@@ -159,6 +159,18 @@ class BookCard extends StatelessWidget {
                   ),
                 ),
               ]),
+              if (s.bookPage(book['id'] as String) > 1 && s.bookTotal(book['id'] as String) > 0) ...[
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: R.all(R.pill),
+                  child: LinearProgressIndicator(
+                    value: (s.bookPage(book['id'] as String) / s.bookTotal(book['id'] as String)).clamp(0.0, 1.0),
+                    minHeight: 4,
+                    backgroundColor: c.hairline,
+                    color: col,
+                  ),
+                ),
+              ],
               const SizedBox(height: S.x2),
               Text((book['title'] ?? '').toString(),
                   maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.bodyStrong.copyWith(color: c.text, height: 1.2)),
@@ -200,6 +212,27 @@ class BookCover extends StatelessWidget {
 }
 
 // ============================================================ kitob sahifasi / страница книги
+Color _hex(Object? h, Color fallback) {
+  final v = (h ?? '').toString().replaceFirst('#', '');
+  final n = int.tryParse(v, radix: 16);
+  return v.length == 6 && n != null ? Color(0xFF000000 | n) : fallback;
+}
+
+/// Kitob ranglari (server muqovadan hisoblaydi): asosiy, aksent, to‘q.
+/// Цвета книги (сервер вычисляет по обложке): основной, акцент, тёмный.
+(Color, Color, Color) bookColors(Json b) {
+  final fb = directionColor(b['direction'] as String?);
+  final cols = (b['colors'] as List?) ?? const [];
+  final base = _hex(cols.isNotEmpty ? cols[0] : null, Color.lerp(fb, kWhite, 0.6)!);
+  final accent = _hex(cols.length > 1 ? cols[1] : null, fb);
+  final deep = _hex(cols.length > 2 ? cols[2] : null, Color.lerp(fb, Colors.black, 0.5)!);
+  return (base, accent, deep);
+}
+
+/// Kitob sahifasi: muqova ranglaridan butun ekranli gradient, aylantirsa bo‘ladigan 3D muqova,
+/// o‘qish jarayoni, o‘qiganlar, tavsif.
+/// Страница книги: полноэкранный градиент из цветов обложки, 3D-обложка (можно покрутить),
+/// прогресс чтения, кто прочитал, описание.
 class BookScreen extends StatefulWidget {
   final Json book;
   const BookScreen({super.key, required this.book});
@@ -208,9 +241,26 @@ class BookScreen extends StatefulWidget {
   State<BookScreen> createState() => _BookScreenState();
 }
 
-class _BookScreenState extends State<BookScreen> {
+class _BookScreenState extends State<BookScreen> with SingleTickerProviderStateMixin {
   late Json _b = widget.book;
   bool _busy = false;
+  bool _more = false;
+  double _rx = 0, _ry = 0;
+  late final AnimationController _back = AnimationController(vsync: this, duration: const Duration(milliseconds: 650))
+    ..addListener(() {
+      final t = Curves.elasticOut.transform(_back.value);
+      setState(() {
+        _rx = _fromX * (1 - t);
+        _ry = _fromY * (1 - t);
+      });
+    });
+  double _fromX = 0, _fromY = 0;
+
+  @override
+  void dispose() {
+    _back.dispose();
+    super.dispose();
+  }
 
   Future<void> _toggleRead() async {
     final s = AppScope.read(context);
@@ -230,99 +280,321 @@ class _BookScreenState extends State<BookScreen> {
     }
   }
 
+  Future<void> _open() async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReaderScreen(book: _b)));
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final c = s.c;
+    final id = _b['id'] as String;
     final dir = _b['direction'] as String?;
-    final col = directionColor(dir);
-    final page = s.bookPage(_b['id'] as String);
+    final (base, accent, deep) = bookColors(_b);
+    final page = s.bookPage(id);
+    final total = s.bookTotal(id);
+    final started = page > 1;
+    final pct = total > 0 ? (page / total).clamp(0.0, 1.0) : 0.0;
     final read = _b['my_read'] == true;
     final cover = (_b['cover_url'] ?? '').toString();
+    final desc = (_b['description'] ?? '').toString();
+    final readers = [for (final x in (_b['readers'] as List? ?? const [])) (x as Map).cast<String, dynamic>()];
+    final reads = (_b['reads'] as num?)?.toInt() ?? 0;
+
     return PageShell(
       child: Stack(children: [
-        // muqovadan xira rangli fon / размытый цветной фон из обложки
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 420,
+        // Muqova ranglaridan butun ekranli gradient (keskin chegara yo‘q) / полноэкранный градиент без резких краёв
+        Positioned.fill(
           child: IgnorePointer(
-            child: ShaderMask(
-              shaderCallback: (r) => const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.white, Colors.transparent],
-              ).createShader(r),
-              blendMode: BlendMode.dstIn,
-              child: RepaintBoundary(child: ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-                child: cover.isEmpty
-                    ? Container(color: col.withValues(alpha: 0.4))
-                    : Image.network(cover, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: col)),
-              )),
+            child: DecoratedBox(
+              key: const ValueKey('book-bg'),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [base, Color.lerp(base, accent, 0.6)!, Color.lerp(accent, c.bg, 0.55)!, c.bg],
+                  stops: const [0, 0.3, 0.6, 0.92],
+                ),
+              ),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: const Alignment(0, -0.45),
+                    radius: 0.75,
+                    colors: [accent.withValues(alpha: 0.55), accent.withValues(alpha: 0)],
+                  ),
+                ),
+              ),
             ),
           ),
         ),
-        TabPage(
+        ListView(
+          padding: EdgeInsets.fromLTRB(S.page, S.x2, S.page, MediaQuery.paddingOf(context).bottom + S.x8),
+          physics: const BouncingScrollPhysics(),
           children: [
-            Center(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: R.all(R.lg),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 30, offset: const Offset(0, 16))],
+            Row(children: [
+              Pressable(
+                key: const ValueKey('book-back'),
+                onTap: () => Navigator.of(context).maybePop(),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: c.surface.withValues(alpha: 0.8),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: c.hairline),
+                  ),
+                  child: Icon(Icons.arrow_back_rounded, color: c.text, size: 22),
                 ),
-                child: Hero(tag: 'book-cover-${_b['id']}', child: BookCover(url: cover, width: 200, height: 290)),
+              ),
+            ]),
+            const SizedBox(height: S.x4),
+            // 3D muqova: barmoq bilan aylantiring / 3D-обложка: покрутите пальцем
+            Center(
+              child: GestureDetector(
+                key: const ValueKey('book-cover-3d'),
+                onPanStart: (_) => _back.stop(),
+                onPanUpdate: (d) => setState(() {
+                  _rx = (_rx - d.delta.dy * 0.008).clamp(-0.35, 0.35);
+                  _ry = (_ry + d.delta.dx * 0.008).clamp(-0.5, 0.5);
+                }),
+                onPanEnd: (_) {
+                  _fromX = _rx;
+                  _fromY = _ry;
+                  _back.forward(from: 0);
+                },
+                onTap: (_b['pdf_url'] ?? '').toString().isEmpty ? null : _open,
+                child: Hero(
+                  tag: 'book-cover-$id',
+                  child: _Book3D(url: cover, width: 210, height: 300, deep: deep, rx: _rx, ry: _ry),
+                ),
               ),
             ),
-            Glass(
-              color: col.withValues(alpha: c.isDark ? 0.18 : 0.10),
-              padding: const EdgeInsets.all(S.x4),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: col.withValues(alpha: 0.16), borderRadius: R.all(R.pill)),
-                    child: Text('${bookEmoji(dir)} ${s.dirName(dir)}',
-                        style: AppType.caption.copyWith(color: c.text, fontWeight: FontWeight.w700)),
-                  ),
-                  const Spacer(),
-                  Text('👥 ${s.t('book_reads')}: ${_b['reads']}',
-                      key: const ValueKey('book-reads'), style: AppType.footnote.copyWith(color: c.text2)),
-                ]),
-                const SizedBox(height: S.x3),
-                Text((_b['title'] ?? '').toString(), style: AppType.title2.copyWith(color: c.text)),
-                if ((_b['author'] ?? '').toString().isNotEmpty)
-                  Text(_b['author'] as String, style: AppType.callout.copyWith(color: c.text2)),
-                if ((_b['description'] ?? '').toString().isNotEmpty) ...[
+            const SizedBox(height: S.x6),
+            Appear(
+              index: 1,
+              child: Container(
+                padding: const EdgeInsets.all(S.x5),
+                decoration: BoxDecoration(
+                  color: Color.alphaBlend(accent.withValues(alpha: c.isDark ? 0.10 : 0.06), c.surface),
+                  borderRadius: R.all(R.xl),
+                  border: Border.all(color: accent.withValues(alpha: 0.25)),
+                  boxShadow: [BoxShadow(color: deep.withValues(alpha: 0.18), blurRadius: 30, offset: const Offset(0, 12))],
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(color: accent.withValues(alpha: 0.18), borderRadius: R.all(R.pill)),
+                      child: Text('${bookEmoji(dir)} ${s.dirName(dir)}',
+                          style: AppType.caption.copyWith(color: c.text, fontWeight: FontWeight.w700)),
+                    ),
+                    const Spacer(),
+                    if ((_b['month'] ?? '').toString().isNotEmpty)
+                      Text((_b['month']).toString(), style: AppType.footnote.copyWith(color: c.text3)),
+                  ]),
                   const SizedBox(height: S.x3),
-                  Text(_b['description'] as String, style: AppType.body.copyWith(color: c.text, height: 1.45)),
-                ],
-              ]),
+                  Text((_b['title'] ?? '').toString(),
+                      style: AppType.title1.copyWith(color: c.text, height: 1.1, letterSpacing: -0.6)),
+                  if ((_b['author'] ?? '').toString().isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(_b['author'] as String, style: AppType.callout.copyWith(color: c.text2)),
+                  ],
+                  const SizedBox(height: S.x4),
+                  // ko‘rsatkichlar / показатели
+                  Row(children: [
+                    _Stat(value: '$reads', label: s.t('book_reads'), key: const ValueKey('book-reads')),
+                    _Stat(value: total > 0 ? '$total' : '—', label: s.t('book_pages')),
+                    _Stat(value: started ? '${(pct * 100).round()}%' : '0%', label: s.t('book_progress')),
+                  ]),
+                  if (started) ...[
+                    const SizedBox(height: S.x4),
+                    ClipRRect(
+                      borderRadius: R.all(R.pill),
+                      child: LinearProgressIndicator(
+                        key: const ValueKey('book-progress'),
+                        value: total > 0 ? pct : null,
+                        minHeight: 8,
+                        backgroundColor: c.hairline,
+                        color: accent.computeLuminance() > 0.75 ? deep : accent,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(total > 0 ? '$page / $total ${s.t('book_page_short')}' : '$page-${s.t('book_page')}',
+                        style: AppType.caption.copyWith(color: c.text2)),
+                  ],
+                  if (desc.isNotEmpty) ...[
+                    const SizedBox(height: S.x4),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 220),
+                      alignment: Alignment.topCenter,
+                      child: Text(desc,
+                          maxLines: _more ? null : 4,
+                          overflow: _more ? TextOverflow.visible : TextOverflow.fade,
+                          style: AppType.body.copyWith(color: c.text, height: 1.5)),
+                    ),
+                    if (desc.length > 180)
+                      Pressable(
+                        onTap: () => setState(() => _more = !_more),
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(s.t(_more ? 'book_less' : 'book_more'),
+                              style: AppType.subhead.copyWith(color: c.accentText, fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                  ],
+                  if (readers.isNotEmpty) ...[
+                    const SizedBox(height: S.x4),
+                    Row(children: [
+                      SizedBox(
+                        width: 26.0 * readers.take(5).length + 10,
+                        height: 34,
+                        child: Stack(children: [
+                          for (final (i, u) in readers.take(5).indexed)
+                            Positioned(
+                              left: i * 26.0,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(color: c.surface, shape: BoxShape.circle),
+                                child: AppAvatar(url: s.photoUrl(u['photo']), name: (u['name'] ?? '').toString(), size: 30),
+                              ),
+                            ),
+                        ]),
+                      ),
+                      const SizedBox(width: S.x2),
+                      Expanded(
+                        child: Text(
+                            reads > 1
+                                ? '${givenFirst(readers.first['name'])} ${s.t('book_and_more').replaceAll('{n}', '${reads - 1}')}'
+                                : '${givenFirst(readers.first['name'])} ${s.t('book_read_one')}',
+                            maxLines: 2,
+                            style: AppType.footnote.copyWith(color: c.text2)),
+                      ),
+                    ]),
+                  ],
+                ]),
+              ),
             ),
-            AppButton(
-              page > 1 ? '${s.t('book_continue')} · $page-${s.t('book_page')}' : s.t('book_read_btn'),
-              key: const ValueKey('book-open'),
-              icon: Icons.auto_stories_rounded,
-              expand: true,
-              onPressed: (_b['pdf_url'] ?? '').toString().isEmpty
-                  ? null
-                  : () async {
-                      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReaderScreen(book: _b)));
-                      if (mounted) setState(() {});
-                    },
+            const SizedBox(height: S.x5),
+            Appear(
+              index: 2,
+              child: AppButton(
+                started ? '${s.t('book_continue')} · $page-${s.t('book_page')}' : s.t('book_read_btn'),
+                key: const ValueKey('book-open'),
+                icon: Icons.auto_stories_rounded,
+                expand: true,
+                onPressed: (_b['pdf_url'] ?? '').toString().isEmpty ? null : _open,
+              ),
             ),
-            AppButton(
-              read ? s.t('book_done') : s.t('book_mark'),
-              key: const ValueKey('book-mark'),
-              kind: BtnKind.secondary,
-              icon: read ? Icons.check_circle_rounded : Icons.check_circle_outline_rounded,
-              expand: true,
-              onPressed: _busy ? null : _toggleRead,
+            const SizedBox(height: S.x3),
+            Appear(
+              index: 3,
+              child: AppButton(
+                read ? s.t('book_done') : s.t('book_mark'),
+                key: const ValueKey('book-mark'),
+                kind: BtnKind.secondary,
+                icon: read ? Icons.check_circle_rounded : Icons.check_circle_outline_rounded,
+                expand: true,
+                onPressed: _busy ? null : _toggleRead,
+              ),
             ),
           ],
         ),
       ]),
+    );
+  }
+}
+
+String givenFirst(Object? name) => (name ?? '').toString().trim().split(RegExp(r'\s+')).last;
+
+class _Stat extends StatelessWidget {
+  final String value;
+  final String label;
+  const _Stat({super.key, required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = colorsOf(context);
+    return Expanded(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(value, style: AppType.title3.copyWith(color: c.text, fontWeight: FontWeight.w800)),
+        Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.caption.copyWith(color: c.text3)),
+      ]),
+    );
+  }
+}
+
+/// Haqiqiy kitobga o‘xshash muqova: umurtqa, varaq qirrasi, yaltiroq, rangli soya; 3D burilish.
+/// Обложка как у настоящей книги: корешок, край страниц, блик, цветная тень; 3D-поворот.
+class _Book3D extends StatelessWidget {
+  final String url;
+  final double width;
+  final double height;
+  final Color deep;
+  final double rx;
+  final double ry;
+  const _Book3D(
+      {required this.url, required this.width, required this.height, required this.deep, this.rx = 0, this.ry = 0});
+
+  @override
+  Widget build(BuildContext context) {
+    const radius = BorderRadius.only(
+        topLeft: Radius.circular(4), bottomLeft: Radius.circular(4), topRight: Radius.circular(12), bottomRight: Radius.circular(12));
+    return Transform(
+      alignment: Alignment.center,
+      transform: Matrix4.identity()
+        ..setEntry(3, 2, 0.0014)
+        ..rotateX(rx)
+        ..rotateY(ry),
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          boxShadow: [
+            BoxShadow(
+                color: deep.withValues(alpha: 0.55), blurRadius: 40, spreadRadius: -6, offset: Offset(-ry * 40, 26 + rx * 30)),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 8, offset: const Offset(0, 4)),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: radius,
+          child: Stack(fit: StackFit.expand, children: [
+            BookCover(url: url, width: width, height: height, radius: 0),
+            // umurtqa / корешок
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 18,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [
+                    Colors.black.withValues(alpha: 0.38),
+                    Colors.black.withValues(alpha: 0.06),
+                    Colors.white.withValues(alpha: 0.18),
+                    Colors.black.withValues(alpha: 0.0),
+                  ], stops: const [0, 0.45, 0.6, 1]),
+                ),
+              ),
+            ),
+            // yaltiroq (burilishga qarab siljiydi) / блик (смещается при повороте)
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment(-1 + ry * 2, -1),
+                    end: Alignment(1 + ry * 2, 1),
+                    colors: [Colors.white.withValues(alpha: 0.0), Colors.white.withValues(alpha: 0.22), Colors.white.withValues(alpha: 0.0)],
+                    stops: const [0.3, 0.5, 0.7],
+                  ),
+                ),
+              ),
+            ),
+          ]),
+        ),
+      ),
     );
   }
 }
@@ -387,7 +659,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
             pageDropShadow: const BoxShadow(color: Color(0x66000000), blurRadius: 12, offset: Offset(0, 4)),
             pageImageColorFilter: _night ? _invert : null,
             textSelectionParams: const PdfTextSelectionParams(enabled: false),
-            onViewerReady: (doc, ctl) => setState(() => _count = doc.pages.length),
+            onViewerReady: (doc, ctl) {
+              s.setBookTotal(_id, doc.pages.length);
+              setState(() => _count = doc.pages.length);
+            },
             onPageChanged: (p) {
               if (p == null) return;
               s.setBookPage(_id, p);

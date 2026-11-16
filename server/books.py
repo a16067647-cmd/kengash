@@ -33,20 +33,77 @@ def process_cover(data: bytes):
     return out.getvalue()
 
 
+def cover_colors(data: bytes):
+    """Muqovadan 3 ta rang: asosiy (eng ko‘p), yorqin aksent, to‘q. Masalan, «Atomic Habits»: oq, oltin, to‘q.
+    Aksent — yorqin piksellarning o‘rtachasi (kichik maydon bo‘lsa ham: oltin harflar).
+    3 цвета обложки: основной (самый частый), яркий акцент (среднее насыщенных пикселей), тёмный."""
+    import colorsys
+    from PIL import Image
+    im = Image.open(io.BytesIO(data)).convert("RGB")
+    im.thumbnail((96, 96))
+    q = im.quantize(colors=5, method=Image.Quantize.MEDIANCUT)
+    pal = q.getpalette()
+    cols = [tuple(pal[i * 3:i * 3 + 3]) for n, i in sorted(q.getcolors() or [], reverse=True)]
+    if not cols:
+        return []
+
+    def hsv(c):
+        return colorsys.rgb_to_hsv(*[x / 255 for x in c])
+
+    base = cols[0]
+    deep = min(cols, key=lambda c: hsv(c)[2])
+    pixels = list(im.getdata()) if not hasattr(im, "get_flattened_data") else list(im.get_flattened_data())
+    vivid = [p for p in pixels if hsv(p)[1] > 0.3 and hsv(p)[2] > 0.25]
+    if len(vivid) >= 0.015 * len(pixels):
+        # eng ko‘p uchraydigan rang tusi atrofidagi piksellar / пиксели вокруг самого частого тона
+        buckets = {}
+        for p in vivid:
+            buckets.setdefault(int(hsv(p)[0] * 12) % 12, []).append(p)
+        bh, bs, _ = hsv(base)
+        base_bucket = int(bh * 12) % 12 if bs > 0.3 else -1
+        ranked = sorted(buckets.items(), key=lambda kv: -len(kv[1]))
+        # fondan farqli tus bo‘lsa — o‘sha (sariq harflar ko‘k fonda) / тон, отличный от фона
+        other = [v for k, v in ranked if abs(k - base_bucket) % 12 not in (0, 1, 11) and len(v) >= 0.015 * len(pixels)]
+        top = other[0] if other else ranked[0][1]
+        accent = tuple(sum(p[k] for p in top) // len(top) for k in range(3))
+    else:
+        accent = max(cols, key=lambda c: hsv(c)[1])
+    return ["#%02x%02x%02x" % c for c in (base, accent, deep)]
+
+
+def _ensure_colors(c, b):
+    """Eski kitoblar uchun ranglarni bir marta hisoblaydi / один раз вычисляет цвета для старых книг."""
+    if b.get("colors") or not storage.enabled():
+        return b
+    try:
+        cols = cover_colors(storage.get(b["cover_path"]))
+    except Exception:
+        return b
+    c.x("UPDATE books SET colors=? WHERE id=?", (",".join(cols), b["id"]))
+    return {**b, "colors": ",".join(cols)}
+
+
+def _readers(c, bid, limit=6):
+    rows = c.q("SELECT u.id, u.name, u.photo_ver FROM book_reads r JOIN users u ON u.id=r.user_id "
+               "WHERE r.book_id=? ORDER BY r.at DESC LIMIT ?", (bid, limit))
+    return [{"id": r["id"], "name": r["name"], "photo": core.photo_url(r)} for r in rows]
+
+
 def _json(c, b, viewer, urls):
     n = c.one("SELECT COUNT(*) AS n FROM book_reads WHERE book_id=?", (b["id"],))["n"]
     mine = c.one("SELECT 1 AS x FROM book_reads WHERE book_id=? AND user_id=?", (b["id"], viewer["id"]))
     return {"id": b["id"], "direction": b["direction"], "title": b["title"], "author": b["author"],
             "description": b["description"], "month": b["month"], "pdf_size": b["pdf_size"],
             "cover_url": urls.get(b["cover_path"], ""), "pdf_url": urls.get(b["pdf_path"], ""),
-            "reads": n, "my_read": bool(mine), "created_at": b["created_at"]}
+            "reads": n, "my_read": bool(mine), "created_at": b["created_at"],
+            "colors": [x for x in (b.get("colors") or "").split(",") if x], "readers": _readers(c, b["id"])}
 
 
 @router.get("/api/books")
 def books_list(authorization: Optional[str] = Header(default=None)):
     with db.tx() as c:
         u = core.current_user(c, authorization)
-        rows = c.q("SELECT * FROM books")
+        rows = [_ensure_colors(c, b) for b in c.q("SELECT * FROM books")]
         urls = {}
         if rows and storage.enabled():
             try:
@@ -120,6 +177,7 @@ async def book_save(request: Request, authorization: Optional[str] = Header(defa
     if size is None:
         err(400, "upload_failed")
     bid = core.new_id()
+    colors = cover_colors(jpg)
     cover_path = f"books/{bid}-cover.jpg"
     await asyncio.to_thread(storage.put, cover_path, jpg, "image/jpeg")
     old_paths = []
@@ -130,9 +188,9 @@ async def book_save(request: Request, authorization: Optional[str] = Header(defa
             c.x("DELETE FROM book_reads WHERE book_id=?", (old["id"],))
             c.x("DELETE FROM books WHERE direction=?", (direction,))
         c.x("INSERT INTO books (direction, id, title, author, description, month, cover_path, pdf_path, pdf_size, "
-            "created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "created_by, created_at, colors) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (direction, bid, title, clean(b.get("author"), 120), str(b.get("description") or "").strip()[:600],
-             clean(b.get("month"), 30), cover_path, pdf_path, size or 0, u["id"], db.now()))
+             clean(b.get("month"), 30), cover_path, pdf_path, size or 0, u["id"], db.now(), ",".join(colors)))
     storage.remove([p for p in old_paths if p])
     return {"ok": True, "id": bid}
 
@@ -152,6 +210,7 @@ async def _edit(c, direction, title, b, raw, pdf_path):
         cover_path = f"books/{core.new_id()}-cover.jpg"
         await asyncio.to_thread(storage.put, cover_path, jpg, "image/jpeg")
         drop.append(old["cover_path"])
+        c.x("UPDATE books SET colors=? WHERE direction=?", (",".join(cover_colors(jpg)), direction))
     if pdf_path:
         size = (await asyncio.to_thread(storage.info, pdf_path) if storage.enabled() else 0)
         if size is None:
