@@ -62,3 +62,42 @@ def test_books_flow(client, w, monkeypatch):  # noqa: F811
     assert client.post("/api/admin/books/sport/delete", headers=w["tit"]).status_code == 403
     assert client.post("/api/admin/books/sport/delete", headers=w["admin"]).status_code == 200
     assert [b["direction"] for b in client.get("/api/books", headers=st).json()["books"]] == ["it"]
+
+
+def _book_photo(w=185, h=234):
+    """Oq fonda turgan kichik kitob rasmi (umurtqa va soya bilan) / маленькое фото книги на белом фоне."""
+    import io
+    from PIL import Image, ImageDraw
+    im = Image.new("RGB", (w, h), (255, 255, 255))
+    d = ImageDraw.Draw(im)
+    d.rectangle((28, 22, 157, 206), fill=(228, 222, 210))  # old yuz / лицо
+    d.rectangle((28, 22, 37, 206), fill=(200, 196, 188))  # umurtqa / корешок
+    d.line((37, 22, 37, 206), fill=(110, 110, 110), width=1)  # bukilish / сгиб
+    d.rectangle((60, 80, 130, 120), fill=(205, 180, 120))  # oltin sarlavha / золотой заголовок
+    out = io.BytesIO()
+    im.save(out, "JPEG", quality=80)
+    return out.getvalue()
+
+
+def test_cover_enhance_trims_and_upscales():
+    import io
+    from PIL import Image
+    import cover
+    out = Image.open(io.BytesIO(cover.enhance(_book_photo()))).convert("RGB")
+    assert out.height >= 1400  # kichik rasm katta va tiniq bo‘ldi / маленькая стала большой
+    # oq fon va umurtqa qolmadi: chap va o‘ng chetlar muqova rangida / нет белого фона и корешка
+    for x in (2, out.width - 3):
+        r, g, b = out.getpixel((x, out.height // 2))
+        assert 200 < r < 245 and abs(r - b) > 8, (x, r, g, b)
+
+
+def test_cover_enhance_keeps_flat_cover():
+    import io
+    from PIL import Image
+    import cover
+    im = Image.new("RGB", (600, 900), (20, 60, 140))
+    im.paste((250, 200, 0), (0, 0, 600, 120))
+    b = io.BytesIO()
+    im.save(b, "JPEG")
+    out = Image.open(io.BytesIO(cover.enhance(b.getvalue())))
+    assert abs(out.width / out.height - 600 / 900) < 0.01  # hech narsa kesilmadi / ничего не обрезано

@@ -211,6 +211,7 @@ COLUMNS = [
     ("reports", "reply", "TEXT NOT NULL DEFAULT ''"),
     ("channels", "photo_ver", "TEXT NOT NULL DEFAULT ''"),
     ("books", "colors", "TEXT NOT NULL DEFAULT ''"),
+    ("books", "cover_hq", "INTEGER NOT NULL DEFAULT 0"),
 ]
 
 
