@@ -413,7 +413,7 @@ class _BookScreenState extends State<BookScreen> with TickerProviderStateMixin {
                 onTap: (_b['pdf_url'] ?? '').toString().isEmpty ? null : _open,
                 child: Hero(
                   tag: 'book-cover-$id',
-                  child: _Book3D(url: cover, width: 230, height: 336, deep: deep, rx: _rx, ry: _ry),
+                  child: _Book3D(url: cover, width: 230, height: 316, deep: deep, rx: _rx, ry: _ry),
                 ),
               ),
               ]),

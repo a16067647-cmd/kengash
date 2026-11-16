@@ -22,11 +22,14 @@ PDF_MAX = 50 * 1024 * 1024  # Supabase bepul tarif: fayl ≤ 50 MB / беспл�
 BOOK_SIGN_SECONDS = 6 * 3600  # uzoq o‘qish uchun / для долгого чтения
 
 
-def process_cover(data: bytes):
+COVER_HQ = 2  # muqova ishlov versiyasi / версия обработки обложки
+
+
+def process_cover(data: bytes, title: str = "", author: str = ""):
     """Muqova: fon kesiladi, AI bilan tiniqlashtiriladi, 1000×1500 gacha (cover.py).
     Обложка: обрезка фона, улучшение нейросетью, до 1000×1500 (cover.py)."""
     import cover
-    return cover.enhance(data)
+    return cover.enhance(data, title, author)
 
 
 def cover_colors(data: bytes):
@@ -70,25 +73,25 @@ def cover_colors(data: bytes):
 def _ensure_cover(c, b):
     """Eski kitoblar uchun bir marta: muqovani yaxshilash va ranglarni hisoblash.
     Один раз для старых книг: улучшить обложку и вычислить цвета."""
-    if (b.get("cover_hq") and b.get("colors")) or not storage.enabled():
+    if ((b.get("cover_hq") or 0) >= COVER_HQ and b.get("colors")) or not storage.enabled():
         return b
     try:
         data = storage.get(b["cover_path"])
         path = b["cover_path"]
-        if not b.get("cover_hq"):
-            data = process_cover(data)
+        if (b.get("cover_hq") or 0) < COVER_HQ:
+            data = process_cover(data, b["title"], b.get("author") or "")
             path = f"books/{core.new_id()}-cover.jpg"
             storage.put(path, data, "image/jpeg")
         cols = ",".join(cover_colors(data))
     except Exception:
         return b
-    c.x("UPDATE books SET cover_path=?, cover_hq=1, colors=? WHERE id=?", (path, cols, b["id"]))
+    c.x("UPDATE books SET cover_path=?, cover_hq=?, colors=? WHERE id=?", (path, COVER_HQ, cols, b["id"]))
     if path != b["cover_path"]:
         try:
             storage.remove([b["cover_path"]])
         except Exception:
             pass
-    return {**b, "cover_path": path, "cover_hq": 1, "colors": cols}
+    return {**b, "cover_path": path, "cover_hq": COVER_HQ, "colors": cols}
 
 
 def _readers(c, bid, limit=6):
@@ -178,7 +181,8 @@ async def book_save(request: Request, authorization: Optional[str] = Header(defa
     if not pdf_path:
         err(400, "bad_attachment")
     try:
-        jpg = await asyncio.to_thread(process_cover, base64.b64decode(raw, validate=False))
+        jpg = await asyncio.to_thread(process_cover, base64.b64decode(raw, validate=False), title,
+                                    clean(b.get("author"), 120))
     except Exception:
         err(400, "bad_photo")
     size = await asyncio.to_thread(storage.info, pdf_path) if storage.enabled() else 0
@@ -196,9 +200,9 @@ async def book_save(request: Request, authorization: Optional[str] = Header(defa
             c.x("DELETE FROM book_reads WHERE book_id=?", (old["id"],))
             c.x("DELETE FROM books WHERE direction=?", (direction,))
         c.x("INSERT INTO books (direction, id, title, author, description, month, cover_path, pdf_path, pdf_size, "
-            "created_by, created_at, colors, cover_hq) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
+            "created_by, created_at, colors, cover_hq) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (direction, bid, title, clean(b.get("author"), 120), str(b.get("description") or "").strip()[:600],
-             clean(b.get("month"), 30), cover_path, pdf_path, size or 0, u["id"], db.now(), ",".join(colors)))
+             clean(b.get("month"), 30), cover_path, pdf_path, size or 0, u["id"], db.now(), ",".join(colors), COVER_HQ))
     storage.remove([p for p in old_paths if p])
     return {"ok": True, "id": bid}
 
@@ -212,13 +216,14 @@ async def _edit(c, direction, title, b, raw, pdf_path):
     cover_path, size, drop = old["cover_path"], old["pdf_size"], []
     if raw:
         try:
-            jpg = await asyncio.to_thread(process_cover, base64.b64decode(raw, validate=False))
+            jpg = await asyncio.to_thread(process_cover, base64.b64decode(raw, validate=False), title,
+                                        clean(b.get("author"), 120))
         except Exception:
             err(400, "bad_photo")
         cover_path = f"books/{core.new_id()}-cover.jpg"
         await asyncio.to_thread(storage.put, cover_path, jpg, "image/jpeg")
         drop.append(old["cover_path"])
-        c.x("UPDATE books SET colors=?, cover_hq=1 WHERE direction=?", (",".join(cover_colors(jpg)), direction))
+        c.x("UPDATE books SET colors=?, cover_hq=? WHERE direction=?", (",".join(cover_colors(jpg)), COVER_HQ, direction))
     if pdf_path:
         size = (await asyncio.to_thread(storage.info, pdf_path) if storage.enabled() else 0)
         if size is None:

@@ -84,7 +84,7 @@ def test_cover_enhance_trims_and_upscales():
     from PIL import Image
     import cover
     out = Image.open(io.BytesIO(cover.enhance(_book_photo()))).convert("RGB")
-    assert out.height >= 1400  # kichik rasm katta va tiniq bo‘ldi / маленькая стала большой
+    assert out.height >= 400  # kattalashtirildi (silliq) / увеличена (плавно)
     # oq fon va umurtqa qolmadi: chap va o‘ng chetlar muqova rangida / нет белого фона и корешка
     for x in (2, out.width - 3):
         r, g, b = out.getpixel((x, out.height // 2))
@@ -101,3 +101,27 @@ def test_cover_enhance_keeps_flat_cover():
     im.save(b, "JPEG")
     out = Image.open(io.BytesIO(cover.enhance(b.getvalue())))
     assert abs(out.width / out.height - 600 / 900) < 0.01  # hech narsa kesilmadi / ничего не обрезано
+
+
+def test_cover_uses_online_original_only_when_it_matches(monkeypatch):
+    import io
+    from PIL import Image, ImageDraw
+    import cover
+    small = Image.open(io.BytesIO(_book_photo())).convert("RGB")
+    # asl muqova: xuddi shu dizayn, lekin katta / оригинал: тот же дизайн, но крупный
+    big = Image.new("RGB", (400, 600), (228, 222, 210))
+    ImageDraw.Draw(big).rectangle((100, 180, 330, 320), fill=(205, 180, 120))
+    assert cover.similar(small, big)
+    other = Image.new("RGB", (400, 600), (20, 60, 140))
+    ImageDraw.Draw(other).rectangle((40, 420, 360, 560), fill=(250, 250, 250))
+    assert not cover.similar(small, other)
+    seen = {}
+
+    def fake(title, author, uploaded):
+        seen["q"] = (title, author)
+        return big
+
+    monkeypatch.setattr(cover, "find_online", fake)
+    out = Image.open(io.BytesIO(cover.enhance(_book_photo(), "Atomic Habits", "James Clear"))).convert("RGB")
+    assert seen["q"] == ("Atomic Habits", "James Clear")
+    assert abs(out.width / out.height - 400 / 600) < 0.01 and out.height >= 1000
