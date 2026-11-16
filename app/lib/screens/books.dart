@@ -2,7 +2,6 @@
 // Книга месяца: по одной книге на направление; чтение PDF внутри приложения.
 import 'dart:convert';
 import 'dart:typed_data';
-import 'dart:ui' show ImageFilter;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -206,7 +205,14 @@ class BookCover extends StatelessWidget {
       borderRadius: R.all(radius),
       child: (url ?? '').isEmpty
           ? ph
-          : Image.network(url!, width: width, height: height, fit: BoxFit.cover, errorBuilder: (_, __, ___) => ph),
+          : Image.network(url!,
+              width: width,
+              height: height,
+              fit: BoxFit.cover,
+              // tiniq: katta muqova kichraytirilganda ham silliq / чётко: большая обложка уменьшается без «лесенки»
+              filterQuality: FilterQuality.high,
+              gaplessPlayback: true,
+              errorBuilder: (_, __, ___) => ph),
     );
   }
 }
@@ -407,7 +413,7 @@ class _BookScreenState extends State<BookScreen> with TickerProviderStateMixin {
                 onTap: (_b['pdf_url'] ?? '').toString().isEmpty ? null : _open,
                 child: Hero(
                   tag: 'book-cover-$id',
-                  child: _Book3D(url: cover, width: 210, height: 300, deep: deep, rx: _rx, ry: _ry),
+                  child: _Book3D(url: cover, width: 230, height: 336, deep: deep, rx: _rx, ry: _ry),
                 ),
               ),
               ]),

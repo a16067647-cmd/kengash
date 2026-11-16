@@ -23,14 +23,10 @@ BOOK_SIGN_SECONDS = 6 * 3600  # uzoq o‘qish uchun / для долгого чт
 
 
 def process_cover(data: bytes):
-    """Muqova: 600×900 gacha, JPEG, EXIF yo‘q / обложка: до 600×900, JPEG, без EXIF."""
-    from PIL import Image, ImageOps
-    im = Image.open(io.BytesIO(data))
-    im = ImageOps.exif_transpose(im).convert("RGB")
-    im.thumbnail((600, 900), Image.LANCZOS)
-    out = io.BytesIO()
-    im.save(out, "JPEG", quality=86, optimize=True)
-    return out.getvalue()
+    """Muqova: fon kesiladi, AI bilan tiniqlashtiriladi, 1000×1500 gacha (cover.py).
+    Обложка: обрезка фона, улучшение нейросетью, до 1000×1500 (cover.py)."""
+    import cover
+    return cover.enhance(data)
 
 
 def cover_colors(data: bytes):
@@ -71,16 +67,28 @@ def cover_colors(data: bytes):
     return ["#%02x%02x%02x" % c for c in (base, accent, deep)]
 
 
-def _ensure_colors(c, b):
-    """Eski kitoblar uchun ranglarni bir marta hisoblaydi / один раз вычисляет цвета для старых книг."""
-    if b.get("colors") or not storage.enabled():
+def _ensure_cover(c, b):
+    """Eski kitoblar uchun bir marta: muqovani yaxshilash va ranglarni hisoblash.
+    Один раз для старых книг: улучшить обложку и вычислить цвета."""
+    if (b.get("cover_hq") and b.get("colors")) or not storage.enabled():
         return b
     try:
-        cols = cover_colors(storage.get(b["cover_path"]))
+        data = storage.get(b["cover_path"])
+        path = b["cover_path"]
+        if not b.get("cover_hq"):
+            data = process_cover(data)
+            path = f"books/{core.new_id()}-cover.jpg"
+            storage.put(path, data, "image/jpeg")
+        cols = ",".join(cover_colors(data))
     except Exception:
         return b
-    c.x("UPDATE books SET colors=? WHERE id=?", (",".join(cols), b["id"]))
-    return {**b, "colors": ",".join(cols)}
+    c.x("UPDATE books SET cover_path=?, cover_hq=1, colors=? WHERE id=?", (path, cols, b["id"]))
+    if path != b["cover_path"]:
+        try:
+            storage.remove([b["cover_path"]])
+        except Exception:
+            pass
+    return {**b, "cover_path": path, "cover_hq": 1, "colors": cols}
 
 
 def _readers(c, bid, limit=6):
@@ -103,7 +111,7 @@ def _json(c, b, viewer, urls):
 def books_list(authorization: Optional[str] = Header(default=None)):
     with db.tx() as c:
         u = core.current_user(c, authorization)
-        rows = [_ensure_colors(c, b) for b in c.q("SELECT * FROM books")]
+        rows = [_ensure_cover(c, b) for b in c.q("SELECT * FROM books")]
         urls = {}
         if rows and storage.enabled():
             try:
@@ -188,7 +196,7 @@ async def book_save(request: Request, authorization: Optional[str] = Header(defa
             c.x("DELETE FROM book_reads WHERE book_id=?", (old["id"],))
             c.x("DELETE FROM books WHERE direction=?", (direction,))
         c.x("INSERT INTO books (direction, id, title, author, description, month, cover_path, pdf_path, pdf_size, "
-            "created_by, created_at, colors) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "created_by, created_at, colors, cover_hq) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
             (direction, bid, title, clean(b.get("author"), 120), str(b.get("description") or "").strip()[:600],
              clean(b.get("month"), 30), cover_path, pdf_path, size or 0, u["id"], db.now(), ",".join(colors)))
     storage.remove([p for p in old_paths if p])
@@ -210,7 +218,7 @@ async def _edit(c, direction, title, b, raw, pdf_path):
         cover_path = f"books/{core.new_id()}-cover.jpg"
         await asyncio.to_thread(storage.put, cover_path, jpg, "image/jpeg")
         drop.append(old["cover_path"])
-        c.x("UPDATE books SET colors=? WHERE direction=?", (",".join(cover_colors(jpg)), direction))
+        c.x("UPDATE books SET colors=?, cover_hq=1 WHERE direction=?", (",".join(cover_colors(jpg)), direction))
     if pdf_path:
         size = (await asyncio.to_thread(storage.info, pdf_path) if storage.enabled() else 0)
         if size is None:
