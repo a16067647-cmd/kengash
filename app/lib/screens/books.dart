@@ -241,7 +241,7 @@ class BookScreen extends StatefulWidget {
   State<BookScreen> createState() => _BookScreenState();
 }
 
-class _BookScreenState extends State<BookScreen> with SingleTickerProviderStateMixin {
+class _BookScreenState extends State<BookScreen> with TickerProviderStateMixin {
   late Json _b = widget.book;
   bool _busy = false;
   bool _more = false;
@@ -256,8 +256,24 @@ class _BookScreenState extends State<BookScreen> with SingleTickerProviderStateM
     });
   double _fromX = 0, _fromY = 0;
 
+  /// Nur juda sekin «nafas oladi» (faqat yorug‘lik qatlami qayta chiziladi)
+  /// Свечение медленно «дышит» (перерисовывается только слой света)
+  late final AnimationController _glow = AnimationController(vsync: this, duration: const Duration(milliseconds: 3600));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final s = AppScope.read(context);
+    if (MediaQuery.disableAnimationsOf(context) || s.testMode) {
+      _glow.value = 0.6;
+    } else if (!_glow.isAnimating) {
+      _glow.repeat(reverse: true);
+    }
+  }
+
   @override
   void dispose() {
+    _glow.dispose();
     _back.dispose();
     super.dispose();
   }
@@ -313,7 +329,12 @@ class _BookScreenState extends State<BookScreen> with SingleTickerProviderStateM
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [base, Color.lerp(base, accent, 0.6)!, Color.lerp(accent, c.bg, 0.55)!, c.bg],
+                  colors: [
+                    Color.lerp(base, deep, 0.35)!,
+                    Color.lerp(Color.lerp(base, accent, 0.6)!, deep, 0.18)!,
+                    Color.lerp(accent, c.bg, 0.55)!,
+                    c.bg
+                  ],
                   stops: const [0, 0.3, 0.6, 0.92],
                 ),
               ),
@@ -350,9 +371,28 @@ class _BookScreenState extends State<BookScreen> with SingleTickerProviderStateM
               ),
             ]),
             const SizedBox(height: S.x4),
-            // 3D muqova: barmoq bilan aylantiring / 3D-обложка: покрутите пальцем
+            // 3D muqova: barmoq bilan aylantiring; ortida — yorug‘lik (kitob «porlaydi»)
+            // 3D-обложка: покрутите пальцем; сзади — свет (книга «светится»)
             Center(
-              child: GestureDetector(
+              child: Stack(alignment: Alignment.center, clipBehavior: Clip.none, children: [
+                Positioned(
+                  left: -150,
+                  right: -150,
+                  top: -110,
+                  bottom: -110,
+                  child: IgnorePointer(
+                    child: RepaintBoundary(
+                      child: AnimatedBuilder(
+                        animation: _glow,
+                        builder: (_, __) => CustomPaint(
+                          key: const ValueKey('book-glow'),
+                          painter: _BookGlow(accent: accent, base: base, t: Curves.easeInOut.transform(_glow.value)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                GestureDetector(
                 key: const ValueKey('book-cover-3d'),
                 onPanStart: (_) => _back.stop(),
                 onPanUpdate: (d) => setState(() {
@@ -370,6 +410,7 @@ class _BookScreenState extends State<BookScreen> with SingleTickerProviderStateM
                   child: _Book3D(url: cover, width: 210, height: 300, deep: deep, rx: _rx, ry: _ry),
                 ),
               ),
+              ]),
             ),
             const SizedBox(height: S.x6),
             Appear(
@@ -523,6 +564,78 @@ class _Stat extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// Kitob ortidagi nur: oq-iliq yadro, kitob rangidagi halo va tarqaluvchi yumshoq nurlar.
+/// Свет за книгой: тёплое белое ядро, ореол цвета книги и мягкие расходящиеся лучи.
+class _BookGlow extends CustomPainter {
+  final Color accent;
+  final Color base;
+  final double t; // 0..1 nafas / «дыхание»
+  _BookGlow({required this.accent, required this.base, required this.t});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final r = size.shortestSide * 0.62;
+    final light = Color.lerp(accent, kWhite, 0.3)!;
+
+    // tarqaluvchi nurlar / расходящиеся лучи
+    final rays = Paint()
+      ..shader = SweepGradient(
+        center: Alignment.center,
+        transform: GradientRotation(t * 0.25),
+        colors: [
+          for (var i = 0; i < 16; i++) ...[
+            light.withValues(alpha: 0.0),
+            light.withValues(alpha: 0.42 + 0.18 * t),
+          ],
+          light.withValues(alpha: 0.0),
+        ],
+      ).createShader(Rect.fromCircle(center: center, radius: r * 1.4));
+    canvas.save();
+    // nurlar chetga qarab so‘nadi / лучи гаснут к краям
+    canvas.saveLayer(Offset.zero & size, Paint());
+    canvas.drawCircle(center, r * 1.4, rays);
+    canvas.drawCircle(
+      center,
+      r * 1.4,
+      Paint()
+        ..blendMode = BlendMode.dstIn
+        ..shader = RadialGradient(colors: [
+          Colors.white,
+          Colors.white.withValues(alpha: 0.5),
+          Colors.white.withValues(alpha: 0.0),
+        ], stops: const [0.2, 0.62, 1]).createShader(Rect.fromCircle(center: center, radius: r * 1.4)),
+    );
+    canvas.restore();
+    canvas.restore();
+
+    // kitob rangidagi halo / ореол цвета книги
+    canvas.drawCircle(
+      center,
+      r * (0.95 + 0.06 * t),
+      Paint()
+        ..shader = RadialGradient(colors: [
+          Color.lerp(accent, kWhite, 0.2)!.withValues(alpha: 0.85 + 0.15 * t),
+          accent.withValues(alpha: 0.35),
+          accent.withValues(alpha: 0.0),
+        ], stops: const [0.0, 0.55, 1]).createShader(Rect.fromCircle(center: center, radius: r)),
+    );
+    // oq-iliq yadro (kitob ortida porlash) / тёплое белое ядро
+    canvas.drawOval(
+      Rect.fromCenter(center: center, width: r * 1.15, height: r * 1.45),
+      Paint()
+        ..shader = RadialGradient(colors: [
+          Colors.white.withValues(alpha: 0.95),
+          const Color(0xFFFFF6DC).withValues(alpha: 0.55 + 0.25 * t),
+          Colors.white.withValues(alpha: 0.0),
+        ]).createShader(Rect.fromCenter(center: center, width: r * 1.15, height: r * 1.45)),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_BookGlow old) => old.t != t || old.accent != accent || old.base != base;
 }
 
 /// Haqiqiy kitobga o‘xshash muqova: umurtqa, varaq qirrasi, yaltiroq, rangli soya; 3D burilish.
