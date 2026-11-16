@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,6 +28,14 @@ const List<Map<String, dynamic>> kFallbackDirections = [
 
 typedef Json = Map<String, dynamic>;
 
+/// APK raqami (CI: --dart-define=BUILD=N). 0 — mahalliy/test yig‘ish.
+/// Номер сборки APK (CI: --dart-define=BUILD=N). 0 — локальная/тестовая сборка.
+const int kAppBuild = int.fromEnvironment('BUILD');
+
+/// Saytda: {"build": N, "min": M, "apk": "Kengash.apk"} — CI har chiqishda yozadi.
+/// На сайте: {"build": N, "min": M, "apk": "Kengash.apk"} — CI пишет при каждом выпуске.
+const String kSiteUrl = 'https://a16067647-cmd.github.io/kengash/';
+
 class AppState extends ChangeNotifier {
   AppState({Api? api, this.testMode = false}) : api = api ?? Api() {
     chat = ChatStore(this.api, testMode: testMode);
@@ -45,6 +54,16 @@ class AppState extends ChangeNotifier {
   String theme = 'system';
   // Ikkalasi ham standart o‘chiq (tezlik) — Profilda yoqiladi / оба выключены по умолчанию (скорость)
   bool bgMotion = false;
+
+  // ---------------------------------------------------------------- yangilanish / обновление
+  int appBuild = kAppBuild;
+  bool updateCheckOn = !kIsWeb && defaultTargetPlatform == TargetPlatform.android && kAppBuild > 0;
+  Future<String?> Function(Uri url)? fetchText; // testlar uchun / для тестов
+  Json? update; // yangi versiya haqida / о новой версии
+  bool updateHidden = false; // «Keyinroq» bosildi (shu ochilishgacha) / нажали «Позже» (до перезапуска)
+  DateTime? _updateCheckedAt;
+  bool get updateAvailable => update != null && !updateHidden && !updateRequired;
+  bool get updateRequired => update != null && ((update!['min'] as num?)?.toInt() ?? 0) > appBuild;
   bool glassFx = false;
   bool sounds = true;
   bool sideOpen = true;
@@ -166,6 +185,44 @@ class AppState extends ChangeNotifier {
     if (api.token != null) await refreshMe(first: true);
     ready = true;
     notifyListeners();
+    checkUpdate();
+  }
+
+  /// Saytdagi version.json bilan solishtiradi (soatiga ko‘pi bilan 1 marta).
+  /// Сверяется с version.json на сайте (не чаще раза в час).
+  Future<void> checkUpdate({bool force = false}) async {
+    if (!updateCheckOn) return;
+    final now = DateTime.now();
+    if (!force && _updateCheckedAt != null && now.difference(_updateCheckedAt!) < const Duration(hours: 1)) return;
+    _updateCheckedAt = now;
+    try {
+      final url = Uri.parse('${kSiteUrl}version.json?t=${now.millisecondsSinceEpoch}');
+      final String? body;
+      if (fetchText != null) {
+        body = await fetchText!(url);
+      } else {
+        final r = await api.client.get(url).timeout(const Duration(seconds: 12));
+        body = r.statusCode == 200 ? r.body : null;
+      }
+      if (body == null) return;
+      final j = (jsonDecode(body) as Map).cast<String, dynamic>();
+      final b = (j['build'] as num?)?.toInt() ?? 0;
+      update = b > appBuild ? j : null;
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  void hideUpdate() {
+    updateHidden = true;
+    notifyListeners();
+  }
+
+  /// Yangi APK’ni yuklab olish (Android o‘zi «Yangilash?» deb so‘raydi).
+  /// Скачать новый APK (Android сам спросит «Обновить?»).
+  Future<void> installUpdate() async {
+    final apk = (update?['apk'] ?? 'Kengash.apk').toString();
+    final url = apk.startsWith('https://') ? apk : '$kSiteUrl$apk';
+    await openUrl('$url?v=${update?['build'] ?? ''}');
   }
 
   void _applyMeta(Json m) {

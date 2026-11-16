@@ -18,6 +18,7 @@ import 'screens/profile.dart';
 import 'screens/rating.dart';
 import 'screens/tasks.dart';
 import 'screens/today.dart';
+import 'screens/update.dart';
 import 'state.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -58,7 +59,10 @@ class _KengashAppState extends State<KengashApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final s = widget.state;
-    if (state == AppLifecycleState.resumed && s.loggedIn) s.refreshMe();
+    if (state == AppLifecycleState.resumed) {
+      if (s.loggedIn) s.refreshMe();
+      s.checkUpdate();
+    }
   }
 
   @override
@@ -81,7 +85,11 @@ class _KengashAppState extends State<KengashApp> with WidgetsBindingObserver {
           themeAnimationDuration: const Duration(milliseconds: 320),
           themeAnimationCurve: Motion.curve,
           // bitta umumiy fon barcha sahifalar ostida / один общий фон под всеми страницами
-          builder: (context, child) => AppBackground(global: true, motion: MotionLevel.normal, child: child!),
+          // yangi versiya banneri hamma ekranlar ustida / баннер новой версии поверх всех экранов
+          builder: (context, child) => AppBackground(
+              global: true,
+              motion: MotionLevel.normal,
+              child: Stack(fit: StackFit.expand, children: [child!, const UpdateBanner()])),
           home: const RootScreen(),
         );
       }),
@@ -103,6 +111,8 @@ class RootScreen extends StatelessWidget {
       screen = IntroScreen(key: const ValueKey('intro'), onDone: s.finishIntro);
     } else if (!s.ready) {
       screen = const SplashScreen(key: ValueKey('splash'));
+    } else if (s.updateRequired) {
+      screen = const UpdateRequiredScreen(key: ValueKey('update-required'));
     } else if (!s.loggedIn) {
       screen = const AuthScreen(key: ValueKey('auth'));
     } else if (s.needsRegistration) {

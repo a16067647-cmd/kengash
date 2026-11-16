@@ -65,7 +65,7 @@ jobs:
             echo "::warning::ANDROID_KEYSTORE_B64 yo'q — debug kalit (har build boshqa, eski ilova ustiga o'rnatilmaydi)"
           fi
       - name: APK
-        run: set -o pipefail; flutter build apk --release --build-number=${{ github.run_number }} 2>&1 | tee "$GITHUB_WORKSPACE/ci-logs/4-build-apk.txt"
+        run: set -o pipefail; flutter build apk --release --build-number=${{ github.run_number }} --dart-define=BUILD=${{ github.run_number }} 2>&1 | tee "$GITHUB_WORKSPACE/ci-logs/4-build-apk.txt"
       - name: Imzoni tekshirish / проверка подписи
         run: |
           AS=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
@@ -167,7 +167,18 @@ jobs:
         with:
           name: kengash-android
           path: apk
-      - run: cp apk/app-release.apk site/Kengash.apk && ls -la site
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+          sparse-checkout: app/update_min_build.txt
+          sparse-checkout-cone-mode: false
+      # Ilova shu fayl bilan yangi versiyani biladi / по этому файлу приложение узнаёт о новой версии
+      - name: APK va version.json
+        run: |
+          cp apk/app-release.apk site/Kengash.apk
+          MIN=$(tr -dc 0-9 < repo/app/update_min_build.txt 2>/dev/null || true)
+          printf '{"build": %s, "min": %s, "apk": "Kengash.apk"}\n' "${{ github.run_number }}" "${MIN:-0}" > site/version.json
+          cat site/version.json && ls -la site
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
