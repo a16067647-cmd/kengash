@@ -106,7 +106,8 @@ def _telegram(user_ids, title, body, data):
     if not targets:
         return
     text = f"<b>{html.escape(title)}</b>\n{html.escape(body)}"
-    markup = {"inline_keyboard": [[{"text": "Ochish / Открыть", "url": telegram.APP_URL}]]}
+    # Telegram ichida ochiladi (Mini App), darhol kirilgan holda / открывается внутри Telegram, сразу с входом
+    markup = {"inline_keyboard": [[{"text": "Ochish / Открыть", "web_app": {"url": telegram.APP_URL}}]]}
 
     def run():
         for chat in targets:

@@ -436,6 +436,8 @@ class FakeServer {
             };
           case 'POST /api/auth/telegram/start':
             out = {'id': 'r1', 'url': 'https://t.me/KengashAppBot?start=login_r1'};
+          case 'POST /api/auth/telegram/webapp':
+            out = body['init_data'] == 'good' ? {'token': 'tok', 'me': me} : {'need_bot': true, 'bot': 'KengashAppBot'};
           case 'GET /api/auth/telegram/status':
             statusPolls++;
             out = statusPolls < 2 ? {'status': 'waiting'} : {'status': 'done', 'token': 'tok', 'me': me};

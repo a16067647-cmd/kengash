@@ -200,7 +200,7 @@ def test_telegram_notifications(client, w, monkeypatch):  # noqa: F811
     chats = {p["chat_id"] for p in sent}
     assert {tg["m1"], tg["m2"]} <= chats
     mine = [p for p in sent if "Telegram sinovi" in p["text"]]
-    assert mine and mine[-1]["reply_markup"]["inline_keyboard"][0][0]["url"]
+    assert mine and mine[-1]["reply_markup"]["inline_keyboard"][0][0]["web_app"]["url"]
     # o‘chirib qo‘yganlarga yuborilmaydi / отключившим не отправляется
     me = client.post("/api/me/notify", json={"telegram": False}, headers=w["m2"]).json()
     assert me["notify_tg"] is False

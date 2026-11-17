@@ -137,6 +137,10 @@ def setup_webhook():
         "url": f"{PUBLIC_URL}/api/telegram/webhook", "secret_token": WEBHOOK_SECRET,
         "allowed_updates": ["message", "callback_query"], "drop_pending_updates": True,
     }), daemon=True).start()
+    # Bot menyusidagi tugma ilovani Telegram ichida ochadi (Mini App) / кнопка меню бота открывает приложение в Telegram
+    threading.Thread(target=lambda: api("setChatMenuButton", {
+        "menu_button": {"type": "web_app", "text": "Kengash", "web_app": {"url": APP_URL}},
+    }), daemon=True).start()
 
 
 def _esc(s):

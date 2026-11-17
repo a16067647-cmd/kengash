@@ -2,6 +2,7 @@
 // Проще: умные значения по умолчанию, эффекты в одной строке, кнопка голосового отчёта.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kengash/state.dart';
 
 import 'app_test.dart' show boot, shot, tap, back, loadFonts;
 import 'fake_server.dart';
@@ -56,5 +57,19 @@ void main() {
     expect(find.byKey(const ValueKey('report-mic')), findsOneWidget);
     await shot(tester, 'phone-light-uz-report-voice');
     await back(tester);
+  });
+
+  testWidgets('Telegram ichida ochilsa — darhol kiradi', (tester) async {
+    AppState.telegramInitData = 'good';
+    addTearDown(() => AppState.telegramInitData = null);
+    await boot(tester, FakeServer(me: FakeServer.seated('school', 'it')), loggedIn: false);
+    expect(find.byKey(const ValueKey('nav-today')), findsOneWidget);
+  });
+
+  testWidgets('Telegram ichida, lekin ro‘yxatdan o‘tmagan — oddiy kirish ekrani', (tester) async {
+    AppState.telegramInitData = 'new-person';
+    addTearDown(() => AppState.telegramInitData = null);
+    await boot(tester, FakeServer(me: FakeServer.seated('school', 'it')), loggedIn: false);
+    expect(find.byKey(const ValueKey('nav-today')), findsNothing);
   });
 }

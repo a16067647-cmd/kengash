@@ -374,6 +374,58 @@ def finish_login(c, req):
     return token, c.one("SELECT * FROM users WHERE id=?", (uid,))
 
 
+WEBAPP_MAX_AGE = 86400  # Mini App ma’lumoti 1 kun amal qiladi / данные Mini App действуют 1 день
+
+
+def check_webapp_init(init_data, bot_token, now=None):
+    """Telegram Mini App `initData` imzosini tekshiradi → foydalanuvchi (dict) yoki None.
+    Проверяет подпись `initData` Telegram Mini App → пользователь (dict) или None.
+    https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app"""
+    import hmac
+    import json
+    from urllib.parse import parse_qsl
+    if not bot_token or not init_data or len(init_data) > 4096:
+        return None
+    try:
+        pairs = dict(parse_qsl(init_data, keep_blank_values=True, strict_parsing=True))
+    except ValueError:
+        return None
+    got = pairs.pop("hash", "")
+    check = "\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
+    secret = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
+    want = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
+    if not got or not hmac.compare_digest(got, want):
+        return None
+    try:
+        if (now or db.now()) - int(pairs.get("auth_date") or 0) > WEBAPP_MAX_AGE:
+            return None
+        user = json.loads(pairs.get("user") or "{}")
+    except ValueError:
+        return None
+    return user if isinstance(user, dict) and int(user.get("id") or 0) > 0 else None
+
+
+@app.post("/api/auth/telegram/webapp")
+async def tg_webapp_login(request: Request):
+    """Telegram ichida ochilganda — bir zumda kirish (botda ro‘yxatdan o‘tganlar uchun).
+    Открыто внутри Telegram — мгновенный вход (для прошедших регистрацию в боте)."""
+    if not rate_ok("webapp:" + client_ip(request), 60, 600):
+        err(429, "too_many")
+    b = await request.json()
+    tu = check_webapp_init(str(b.get("init_data") or ""), telegram.BOT_TOKEN)
+    if not tu:
+        err(403, "bad_signature")
+    with db.tx() as c:
+        u = c.one("SELECT * FROM users WHERE tg_id=?", (int(tu["id"]),))
+        if not u or not u["phone"]:
+            # telefon raqami faqat bot orqali olinadi / номер телефона — только через бота
+            return {"need_bot": True, "bot": telegram.BOT_USERNAME}
+        if tu.get("username") and tu["username"] != u["tg_username"]:
+            c.x("UPDATE users SET tg_username=? WHERE id=?", (clean(tu["username"], 40), u["id"]))
+        token = issue_token(c, u["id"])
+        return {"token": token, "me": me_json(c, c.one("SELECT * FROM users WHERE id=?", (u["id"],)))}
+
+
 @app.get("/api/auth/telegram/status")
 def tg_status(id: str, request: Request):
     if not rate_ok("status:" + client_ip(request), 600, 600):

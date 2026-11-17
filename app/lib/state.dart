@@ -195,11 +195,41 @@ class AppState extends ChangeNotifier {
     introDone = false;
     notifyListeners();
     await loadMeta();
+    if (api.token == null && telegramInitData != null) await _telegramLogin(telegramInitData!);
     if (api.token != null) await refreshMe(first: true);
     ready = true;
     notifyListeners();
     checkUpdate();
     runPendingCheckin();
+  }
+
+  /// Telegram ichida (Mini App) ochilganmi: Telegram imzolangan ma’lumotni URL’ning # qismida beradi.
+  /// Открыто ли внутри Telegram (Mini App): подписанные данные приходят в части # адреса.
+  static String? telegramInitData = _tgInitData();
+
+  static String? _tgInitData() {
+    if (!kIsWeb) return null;
+    try {
+      final v = Uri.splitQueryString(Uri.base.fragment)['tgWebAppData'];
+      return (v == null || v.isEmpty) ? null : v;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Telegram orqali bir zumda kirish (botda ro‘yxatdan o‘tganlar) / мгновенный вход через Telegram.
+  Future<void> _telegramLogin(String initData) async {
+    try {
+      final r = await api.post('/api/auth/telegram/webapp', {'init_data': initData});
+      if (r['token'] is String) {
+        api.token = r['token'] as String;
+        me = (r['me'] as Map).cast<String, dynamic>();
+        await _prefs?.setString('token', api.token!);
+        await _prefs?.setString('me', jsonEncode(me));
+      }
+    } on ApiError {
+      // oddiy kirish ekrani qoladi / остаётся обычный экран входа
+    }
   }
 
   static ({String eid, String code})? _webCheckin() {
