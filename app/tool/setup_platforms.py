@@ -83,6 +83,17 @@ def android_ota():
     if "isCoreLibraryDesugaringEnabled" not in s:
         s = s.replace("    compileOptions {", "    compileOptions {\n        isCoreLibraryDesugaringEnabled = true", 1)
     s = s.replace("minSdk = flutter.minSdkVersion", "minSdk = maxOf(flutter.minSdkVersion, 23)")
+    # Eng mos APK: kutubxonalar oddiy (siqilgan) holda, o‘rnatishda ochiladi — ba’zi telefonlar (Honor/Huawei)
+    # siqilmagan kutubxonali APK’ni «paket noto‘g‘ri» deb rad etadi. Yuklab olish ham kichikroq.
+    # Максимально совместимый APK: библиотеки сжаты и распаковываются при установке (как раньше).
+    if "useLegacyPackaging" not in s:
+        s = s.replace("    buildTypes {", """    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
+    buildTypes {""", 1)
     if "desugar_jdk_libs" not in s:
         s += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
     g.write_text(s, encoding="utf-8")
@@ -116,6 +127,11 @@ android {""", 1)
                 storeFile = file(keystoreProperties["storeFile"] as String)
                 storePassword = keystoreProperties["storePassword"] as String
             }
+            // eski (v1) va yangi (v2, v3) imzo birga — hamma telefon o‘rnatuvchisi tekshira oladi
+            // старая (v1) и новые (v2, v3) подписи вместе — проверит любой установщик
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
         }
     }
 
