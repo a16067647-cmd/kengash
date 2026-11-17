@@ -79,3 +79,25 @@ def test_webapp_login(client, w, monkeypatch):  # noqa: F811
     assert client.post(url, json={"init_data": _init_data("123:abc", {"id": 3004}, auth_date=old)}).status_code == 403
     assert client.post(url, json={"init_data": "garbage"}).status_code == 403
     assert core.check_webapp_init("", "123:abc") is None
+
+
+# --- E’lonni kim ko‘rdi + bir martalik eslatma / кто видел объявление + одно напоминание ----------------------------
+def test_announcement_seen_and_single_reminder(client, w):  # noqa: F811
+    import push
+    body = {"title": "E’lonlar", "mode": "announce",
+            "audience": [{"level": "school", "district_ids": ["paxtaobod"], "directions": ["it"]}]}
+    cid = client.post("/api/channels", json=body, headers=w["tit"]).json()["id"]
+    mid = client.post(f"/api/channels/{cid}/messages", json={"text": "Ertaga 10:00 da yig‘ilish"}, headers=w["tit"]).json()["id"]
+    first = client.get(f"/api/channels/{cid}/messages", headers=w["tit"]).json()["messages"][0]
+    assert (first["seen"], first["seen_of"]) == (0, 2)  # muallif hisobga olinmaydi / автор не считается
+    client.post(f"/api/channels/{cid}/read", json={"seq": first["seq"]}, headers=w["m1"])
+    first = client.get(f"/api/channels/{cid}/messages", headers=w["tit"]).json()["messages"][0]
+    assert (first["seen"], first["seen_of"]) == (1, 2)
+    # oddiy a’zo eslata olmaydi / обычный участник не может напомнить
+    assert client.post(f"/api/messages/{mid}/remind", headers=w["m1"]).status_code == 403
+    push.SENT.clear()
+    r = client.post(f"/api/messages/{mid}/remind", headers=w["tit"])
+    assert r.status_code == 200 and r.json()["sent"] == 1
+    assert push.SENT[-1]["users"] == [uid(client, w["m2"])]  # faqat ko‘rmagan / только не видевший
+    # ikkinchi marta — yo‘q (bezovta qilmaymiz) / второй раз — нет (не надоедаем)
+    assert client.post(f"/api/messages/{mid}/remind", headers=w["tit"]).status_code == 409

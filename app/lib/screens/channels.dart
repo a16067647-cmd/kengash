@@ -446,8 +446,20 @@ class _ChannelScreenState extends State<ChannelScreen> {
     final a = await showAppSheet<String>(context, builder: (ctx) {
       Widget row(String id, IconData icon, Color color, String title) =>
           GroupRow(key: ValueKey('act-$id'), icon: icon, color: color, title: title, onTap: () => Navigator.of(ctx).pop(id));
+      final seen = (m['seen'] as num?)?.toInt(), of = (m['seen_of'] as num?)?.toInt();
+      final canRemind = (mine || mod) && seen != null && of != null && seen < of && m['deleted'] != true;
       return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (seen != null && of != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: S.x3),
+            child: Text(s.t('seen_of').replaceAll('{n}', '$seen').replaceAll('{of}', '$of'),
+                key: const ValueKey('seen-line'), style: AppType.headline.copyWith(color: c.text)),
+          ),
         GroupList([
+          // Ko‘rmaganlarga bir marta eslatish / один раз напомнить не видевшим
+          if (canRemind)
+            row('remind', Icons.notifications_active_rounded, const Color(0xFF5B2DC9),
+                s.t('remind_unseen').replaceAll('{n}', '${of - seen}')),
           if (ch['can_post'] == true) row('reply', Icons.reply_rounded, c.accent, s.t('reply')),
           if ((m['text'] ?? '').toString().isNotEmpty) row('copy', Icons.copy_rounded, const Color(0xFF0A84D6), s.t('copy')),
           if (canEdit) row('edit', Icons.edit_rounded, const Color(0xFFFF9F0A), s.t('edit')),
@@ -466,6 +478,9 @@ class _ChannelScreenState extends State<ChannelScreen> {
             _editing = null;
           });
           _focus.requestFocus();
+        case 'remind':
+          final r = await s.api.post('/api/messages/${m['id']}/remind');
+          s.toast(s.t('reminded').replaceAll('{n}', '${r['sent']}'), icon: Icons.notifications_active_rounded);
         case 'copy':
           s.copy((m['text'] ?? '').toString());
         case 'edit':
@@ -801,7 +816,8 @@ class MessageBubble extends StatelessWidget {
             if (m['edited'] == true) Text('${s.t('edited')} · ', style: AppType.caption.copyWith(color: sub, fontWeight: w6)),
             if (announce && m['seen'] != null) ...[
               Icon(Icons.visibility_rounded, size: 12, color: sub),
-              Text(' ${m['seen']} · ', style: AppType.caption.copyWith(color: sub, fontWeight: w6)),
+              Text(m['seen_of'] != null ? ' ${m['seen']}/${m['seen_of']} · ' : ' ${m['seen']} · ',
+                  style: AppType.caption.copyWith(color: sub, fontWeight: w6)),
             ],
             Text(hourMinute(m['created_at'] as num?), style: AppType.caption.copyWith(color: sub, fontWeight: w6)),
             if (m['pending'] == true && m['failed'] != true) ...[

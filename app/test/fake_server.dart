@@ -169,7 +169,8 @@ class FakeServer {
         'reply': {'id': 'x3', 'text': 'Kim tanlovga tayyor?', 'user': madina},
         'edited': false,
         'deleted': false,
-        'seen': 9
+        'seen': 9,
+        'seen_of': 12
       },
       {
         'id': 'x4',
@@ -795,7 +796,7 @@ class FakeServer {
               out = m;
             } else {
               if (req.method == 'POST') posts.add({'path': path, ...body});
-              out = {'ok': true, 'count': 37};
+              out = {'ok': true, 'count': 37, if (path.endsWith('/remind')) 'sent': 3};
             }
         }
         return http.Response.bytes(utf8.encode(jsonEncode(out)), 200, headers: {'content-type': 'application/json'});

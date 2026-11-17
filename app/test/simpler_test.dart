@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kengash/state.dart';
 
-import 'app_test.dart' show boot, shot, tap, back, loadFonts;
+import 'app_test.dart' show boot, shot, tap, back, loadFonts, settle;
 import 'fake_server.dart';
 
 void main() {
@@ -71,5 +71,19 @@ void main() {
     addTearDown(() => AppState.telegramInitData = null);
     await boot(tester, FakeServer(me: FakeServer.seated('school', 'it')), loggedIn: false);
     expect(find.byKey(const ValueKey('nav-today')), findsNothing);
+  });
+
+  testWidgets('e’lon: muallif «Ko‘rdi 9/12» ni ko‘radi va bir marta eslatadi', (tester) async {
+    final server = FakeServer(me: FakeServer.seated('district', 'it'));
+    await boot(tester, server);
+    await tap(tester, find.byKey(const ValueKey('nav-channels')));
+    await tap(tester, find.text('IT tanlovi 2026').first);
+    expect(find.textContaining('9/12'), findsOneWidget);
+    await tester.longPress(find.textContaining('Men tayyorman', findRichText: true));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('seen-line')), findsOneWidget);
+    await shot(tester, 'phone-light-uz-remind');
+    await tap(tester, find.byKey(const ValueKey('act-remind')));
+    expect(server.posts.last['path'], '/api/messages/x5/remind');
   });
 }
