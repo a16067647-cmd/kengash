@@ -20,6 +20,7 @@ import argparse
 import asyncio
 import glob
 import html
+import json
 import os
 import re
 import shutil
@@ -226,14 +227,87 @@ def _mms_phrase(text: str, out: Path) -> None:
     sf.write(out, wav, model.config.sampling_rate)
 
 
+# ---- Studiya sifatidagi ovoz (API kalit bo‘lsa) / студийный голос (если есть API-ключ) ----------------------------
+# Kalitlar faqat muhit o‘zgaruvchisidan olinadi va hech qayerga yozilmaydi / ключи только из окружения, нигде не пишутся.
+ELEVEN_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice}?output_format=mp3_44100_128"
+ELEVEN_MODEL = os.environ.get("ELEVENLABS_MODEL", "eleven_v3")          # 70+ til, o‘zbekcha ham
+ELEVEN_VOICE = os.environ.get("ELEVENLABS_VOICE_ID", "pNInz6obpgDQGcFmaJgB")  # premade «Adam»; o‘zingiznikini qo‘ying
+OPENAI_URL = "https://api.openai.com/v1/audio/speech"
+OPENAI_MODEL = os.environ.get("OPENAI_TTS_MODEL", "gpt-4o-mini-tts")
+OPENAI_VOICE = os.environ.get("OPENAI_TTS_VOICE", "ash")
+OPENAI_STYLE = ("O‘zbek tilida, tabiiy va iliq ovozda, taqdimot boshlovchisidek gapiring. "
+                "Speak natural Uzbek like a warm, confident presenter: calm pace, natural breathing, clear o‘ and g‘.")
+
+
+def _post(url: str, headers: dict, body: dict, out: Path, timeout: int = 120) -> None:
+    """Oddiy HTTPS so‘rov (qo‘shimcha kutubxonasiz), 429/5xx da qayta urinish. Javob — audio fayl."""
+    import time
+    import urllib.error
+    import urllib.request
+    data = json.dumps(body).encode()
+    for attempt in range(5):
+        req = urllib.request.Request(url, data=data, headers={**headers, "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                out.write_bytes(r.read())
+            if out.stat().st_size > 0:
+                return
+        except urllib.error.HTTPError as e:
+            msg = e.read()[:300].decode("utf-8", "replace")
+            if e.code in (429, 500, 502, 503, 504) and attempt < 4:
+                time.sleep(2 * (attempt + 1))
+                continue
+            raise RuntimeError(f"TTS API xatosi {e.code}: {msg}") from None
+        except urllib.error.URLError:
+            if attempt == 4:
+                raise
+            time.sleep(2 * (attempt + 1))
+
+
+def _eleven_phrase(text: str, out: Path, prev: str, nxt: str) -> None:
+    """ElevenLabs: eng tabiiy ovoz. Qo‘shni iboralar (previous/next_text) intonatsiyani bir oqimda saqlaydi."""
+    body = {"text": spoken(text), "model_id": ELEVEN_MODEL,
+            "voice_settings": {"stability": 0.45, "similarity_boost": 0.8, "style": 0.2, "use_speaker_boost": True}}
+    if not ELEVEN_MODEL.startswith("eleven_v3"):  # v3 bu maydonlarni qabul qilmaydi / v3 не принимает эти поля
+        body.update(previous_text=spoken(prev), next_text=spoken(nxt))
+    _post(ELEVEN_URL.format(voice=ELEVEN_VOICE), {"xi-api-key": os.environ["ELEVENLABS_API_KEY"], "Accept": "audio/mpeg"},
+          body, out)
+
+
+def _openai_phrase(text: str, out: Path) -> None:
+    _post(OPENAI_URL, {"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"},
+          {"model": OPENAI_MODEL, "voice": OPENAI_VOICE, "input": spoken(text), "instructions": OPENAI_STYLE,
+           "response_format": "mp3"}, out)
+
+
+def pick_tts(choice: str) -> str:
+    """auto: ElevenLabs (kalit bo‘lsa) → OpenAI (kalit bo‘lsa) → edge-tts."""
+    if choice != "auto":
+        need = {"elevenlabs": "ELEVENLABS_API_KEY", "openai": "OPENAI_API_KEY"}.get(choice)
+        if need and not os.environ.get(need):
+            sys.exit(f"{need} o‘rnatilmagan / не задан {need}")
+        return choice
+    if os.environ.get("ELEVENLABS_API_KEY"):
+        return "elevenlabs"
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai"
+    return "edge"
+
+
 def synth_scene(sc: dict, work: Path, args) -> tuple[Path, list[tuple[float, float, str]]]:
-    """Sahna ovozi iboralardan yig‘iladi: ibora + aniq pauza. Natija: wav va (boshlanish, tugash, gap) ro‘yxati.
-    Озвучка сцены собирается из фраз с точными паузами. Возвращает wav и тайминги предложений."""
+    """Sahna ovozi iboralardan yig‘iladi: ibora + aniq pauza. Natija: wav va (boshlanish, tugash, ibora) ro‘yxati.
+    Озвучка сцены собирается из фраз с точными паузами. Возвращает wav и тайминги фраз."""
     pcm, t, spans = b"", 0.0, []
-    for i, (ph, gap) in enumerate(phrases(sc["text"])):
-        raw = work / f"{sc['id']}_p{i:02d}.{'mp3' if args.tts == 'edge' else 'wav'}"
+    items = phrases(sc["text"])
+    for i, (ph, gap) in enumerate(items):
+        ext = "wav" if args.tts == "mms" else "mp3"
+        raw = work / f"{sc['id']}_{args.tts}_p{i:02d}.{ext}"
         if not (args.reuse_audio and raw.exists() and raw.stat().st_size > 0):
-            if args.tts == "edge":
+            if args.tts == "elevenlabs":
+                _eleven_phrase(ph, raw, items[i - 1][0] if i else "", items[i + 1][0] if i + 1 < len(items) else "")
+            elif args.tts == "openai":
+                _openai_phrase(ph, raw)
+            elif args.tts == "edge":
                 asyncio.run(_edge_phrase(ph, raw, args.voice, args.rate, args.pitch))
             else:
                 _mms_phrase(ph, raw)
@@ -253,11 +327,6 @@ def synth_scene(sc: dict, work: Path, args) -> tuple[Path, list[tuple[float, flo
 
 
 # ------------------------------------------------------------------------------------------------ SUBTITR
-def ass_time(t: float) -> str:
-    cs = int(round(t * 100))
-    return f"{cs // 360000}:{cs // 6000 % 60:02d}:{cs // 100 % 60:02d}.{cs % 100:02d}"
-
-
 def srt_time(t: float) -> str:
     ms = int(round(t * 1000))
     return f"{ms // 3600000:02d}:{ms // 60000 % 60:02d}:{ms // 1000 % 60:02d},{ms % 1000:03d}"
@@ -295,22 +364,98 @@ def cues_from(spans: list[tuple[float, float, str]]) -> list[tuple[float, float,
     return cues
 
 
-def write_ass(path: Path, cues, font: str) -> None:
-    """Professional subtitr: oq qalin shrift, 50% shaffof qora fon, pastda markazda, interfeysdan uzoqda.
-    Профессиональные субтитры: белый жирный шрифт, полупрозрачный тёмный фон, по центру внизу."""
-    # &HAABBGGRR: AA=80 → ~50% shaffof. BorderStyle=3 — har qator orqasida quti (libass OutlineColour’ni quti rangi qiladi)
-    style = (f"Style: Default,{font},50,&H00FFFFFF,&H00FFFFFF,&H80000000,&H80000000,"
-             "-1,0,0,0,100,100,0.2,0,3,14,0,2,260,260,64,1")
-    head = ("[Script Info]\nScriptType: v4.00+\nPlayResX: 1920\nPlayResY: 1080\nWrapStyle: 2\n"
-            "ScaledBorderAndShadow: yes\nYCbCr Matrix: TV.709\n\n"
-            "[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
-            "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
-            f"Alignment, MarginL, MarginR, MarginV, Encoding\n{style}\n\n"
-            "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n")
-    nl = "\\N"  # ASS qator uzilishi / перенос строки ASS (Python 3.8+ mos)
-    ev = "".join("Dialogue: 0,{},{},Default,,0,0,0,,{{\\fad(120,120)}}{}\n".format(ass_time(a), ass_time(b), nl.join(c))
-                 for a, b, c in cues)
-    path.write_text(head + ev, encoding="utf-8")
+SUB_H = 260          # subtitr chizig‘i balandligi (kadr pastida) / высота полосы субтитров внизу кадра
+SUB_FONT_PX = 46
+SUB_BOTTOM = 58      # quti pastidan kadr chetigacha / отступ блока от нижнего края
+
+
+def find_font(name: str) -> str:
+    """Qalin shrift fayli: berilgan yo‘l → fontconfig → Windows/macOS/Linux odatiy joylari."""
+    if name and Path(name).is_file():
+        return name
+    try:
+        p = subprocess.run(["fc-match", "-f", "%{file}", f"{name or 'Inter'}:bold"], capture_output=True, text=True).stdout
+        if p and Path(p).is_file():
+            return p
+    except FileNotFoundError:
+        pass
+    for c in ["C:/Windows/Fonts/arialbd.ttf", "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+              "/Library/Fonts/Arial Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]:
+        if Path(c).is_file():
+            return c
+    sys.exit("Shrift topilmadi: --font bilan .ttf/.otf yo‘lini bering / шрифт не найден: укажите путь --font")
+
+
+def render_sub_png(lines: list[str], out: Path, font_path: str, opacity: float, fade: float = 1.0) -> None:
+    """Bitta subtitr = bitta PNG: barcha qatorlar BITTA yumaloq qora quti ichida (qutilar hech qachon ustma-ust tushmaydi).
+    Один субтитр = один PNG: все строки внутри ОДНОГО скруглённого блока (блоки никогда не накладываются)."""
+    from PIL import Image, ImageDraw, ImageFont
+    font = ImageFont.truetype(font_path, SUB_FONT_PX)
+    im = Image.new("RGBA", (W, SUB_H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    gap = int(SUB_FONT_PX * 0.28)
+    sizes = [d.textbbox((0, 0), ln, font=font) for ln in lines]
+    lh = max(b[3] - b[1] for b in sizes)
+    tw = max(b[2] - b[0] for b in sizes)
+    th = lh * len(lines) + gap * (len(lines) - 1)
+    px, py = 34, 18
+    x0, y1 = (W - tw) // 2 - px, SUB_H - SUB_BOTTOM
+    y0 = y1 - th - 2 * py
+    d.rounded_rectangle((x0, y0, x0 + tw + 2 * px, y1), radius=18, fill=(10, 8, 20, int(255 * opacity * fade)))
+    y = y0 + py
+    for ln, bb in zip(lines, sizes):
+        w = bb[2] - bb[0]
+        d.text(((W - w) // 2 - bb[0], y - bb[1]), ln, font=font, fill=(255, 255, 255, int(255 * fade)))
+        y += lh + gap
+    im.save(out)
+
+
+def build_sub_track(cues, total: float, work: Path, font: str, opacity: float) -> Path:
+    """Subtitrlar → bitta shaffof video yo‘lak (qtrle+alpha). Har vaqtda ko‘pi bilan BITTA subtitr ko‘rinadi.
+    Субтитры → одна прозрачная видеодорожка. В каждый момент виден максимум ОДИН субтитр."""
+    font_path = find_font(font)
+    sd = work / "subs"
+    shutil.rmtree(sd, ignore_errors=True)
+    sd.mkdir(parents=True)
+    blank = sd / "blank.png"
+    from PIL import Image
+    Image.new("RGBA", (W, SUB_H), (0, 0, 0, 0)).save(blank)
+    step = 2 / FPS                   # yumshoq paydo bo‘lish: 2 qadam × 2 kadr / мягкое появление: 2 шага × 2 кадра
+    clean, t = [], 0.0
+    cues = sorted(cues)
+    for i, (a, b, lines) in enumerate(cues):
+        b = min(b, cues[i + 1][0]) if i + 1 < len(cues) else b   # ustma-ust tushish yo‘q / без наложения
+        a = max(a, t)
+        if b - a >= 0.2:
+            clean.append((a, b, lines))
+            t = b
+    seq, t = [], 0.0
+    for i, (a, b, lines) in enumerate(clean):
+        if a > t:
+            seq.append((blank, a - t))
+        main = sd / f"s{i:03d}.png"
+        render_sub_png(lines, main, font_path, opacity)
+        f1, f2 = sd / f"s{i:03d}_f1.png", sd / f"s{i:03d}_f2.png"
+        render_sub_png(lines, f1, font_path, opacity, 0.35)
+        render_sub_png(lines, f2, font_path, opacity, 0.7)
+        # bo‘shliqdan keyin — paydo bo‘ladi, bo‘shliqdan oldin — so‘nadi; ketma-ket subtitrlar to‘g‘ridan almashadi
+        fin = i == 0 or a - clean[i - 1][1] > 1e-3
+        fout = i == len(clean) - 1 or clean[i + 1][0] - b > 1e-3
+        body = b - a - 2 * step * (fin + fout)
+        if body < 0.3:
+            fin = fout = False
+            body = b - a
+        seq += ([(f1, step), (f2, step)] if fin else []) + [(main, body)] + ([(f2, step), (f1, step)] if fout else [])
+        t = b
+    if total > t:
+        seq.append((blank, total - t))
+    lst = work / "subs.ffconcat"
+    body = "ffconcat version 1.0\n" + "".join(f"file '{p.as_posix()}'\nduration {d:.4f}\n" for p, d in seq)
+    lst.write_text(body + f"file '{seq[-1][0].as_posix()}'\n", encoding="utf-8")
+    track = work / "subs.mov"
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", str(lst),
+                    "-vf", f"fps={FPS},format=argb", "-c:v", "qtrle", "-t", f"{total:.3f}", str(track)], check=True)
+    return track
 
 
 def write_srt(path: Path, cues) -> None:
@@ -439,7 +584,10 @@ def build(args) -> None:
     print("2/4 Playwright: sahnalar chizilmoqda…")
     beats = render_beats(work)
 
-    print(f"3/4 Ovoz ({args.tts}: {args.voice if args.tts == 'edge' else 'MMS'}) va subtitr…")
+    args.tts = pick_tts(args.tts)
+    who = {"elevenlabs": f"ElevenLabs {ELEVEN_MODEL}", "openai": f"OpenAI {OPENAI_MODEL}/{OPENAI_VOICE}",
+           "edge": args.voice, "mms": "MMS (sinov)"}[args.tts]
+    print(f"3/4 Ovoz: {who} · subtitr…")
     lead = 0.35                     # har sahna boshida qisqa nafas / короткий вдох в начале сцены
     starts, t, cues, plan, audio = {}, 0.0, [], [], {}
     for sc in SCENES:
@@ -454,9 +602,9 @@ def build(args) -> None:
         t += d
     total = t
 
-    ass, srt = work / "presentation_uz.ass", work / "presentation_uz.srt"
-    write_ass(ass, cues, args.font)
+    srt = work / "presentation_uz.srt"
     write_srt(srt, cues)
+    subs = build_sub_track(cues, total, work, args.font, args.sub_opacity)
 
     # Har beat — sekin zoom bilan klip / каждый beat — клип с медленным зумом
     clips = []
@@ -496,17 +644,14 @@ def build(args) -> None:
                     f"apad,atrim=0:{total:.3f},loudnorm=I=-16:TP=-1.5:LRA=9[a]",
                     "-map", "[a]", "-ar", "48000", "-c:a", "aac", "-b:a", "192k", str(voice)], check=True)
 
-    print("4/4 FFmpeg: yakuniy video (ASS subtitr)…")
+    print("4/4 FFmpeg: yakuniy video (PNG subtitr overlay)…")
     final = Path(args.out).resolve()
-    esc = lambda p: str(p).replace("\\", "/").replace(":", "\\:").replace("'", "\\'")  # noqa: E731
-    vf = f"ass='{esc(ass)}'" + (f":fontsdir='{esc(args.fonts_dir)}'" if args.fonts_dir else "")
-    subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(video), "-i", str(voice), "-vf", vf,
-                    "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-                    "-pix_fmt", "yuv420p", "-r", str(FPS), "-c:a", "copy", "-shortest",
-                    "-movflags", "+faststart", str(final)], check=True)
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(video), "-i", str(subs), "-i", str(voice),
+                    "-filter_complex", f"[0:v][1:v]overlay=0:{H - SUB_H}:format=auto:eof_action=pass,format=yuv420p[v]",
+                    "-map", "[v]", "-map", "2:a", "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+                    "-r", str(FPS), "-c:a", "copy", "-shortest", "-movflags", "+faststart", str(final)], check=True)
     shutil.copy(srt, final.with_suffix(".srt"))
-    shutil.copy(ass, final.with_suffix(".ass"))
-    print(f"Tayyor: {final} ({total:.1f} s), {final.with_suffix('.srt').name}, {final.with_suffix('.ass').name}")
+    print(f"Tayyor: {final} ({total:.1f} s) va {final.with_suffix('.srt').name}")
 
 
 def write_script_md(path: Path) -> None:
@@ -520,12 +665,13 @@ def write_script_md(path: Path) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Kengash taqdimot videosi (o‘zbekcha)")
-    ap.add_argument("--tts", choices=["edge", "mms"], default="edge", help="edge = Sardor (internet), mms = internetsiz sinov")
+    ap.add_argument("--tts", choices=["auto", "elevenlabs", "openai", "edge", "mms"], default="auto",
+                    help="auto: ELEVENLABS_API_KEY → OPENAI_API_KEY → edge-tts; mms = internetsiz sinov")
     ap.add_argument("--voice", default=VOICE, help="uz-UZ-SardorNeural (erkak) yoki uz-UZ-MadinaNeural (ayol)")
     ap.add_argument("--rate", default="-6%", help="nutq tezligi, masalan -6%% (sekinroq, tabiiyroq)")
     ap.add_argument("--pitch", default="+0Hz")
-    ap.add_argument("--font", default="Inter", help="subtitr shrifti (yo‘q bo‘lsa: Arial)")
-    ap.add_argument("--fonts-dir", default="", help="shrift fayllari papkasi (ixtiyoriy)")
+    ap.add_argument("--font", default="Inter", help="subtitr shrifti: nom yoki .ttf yo‘li (yo‘q bo‘lsa Arial Bold)")
+    ap.add_argument("--sub-opacity", type=float, default=0.78, help="subtitr qutisi qoraligi 0–1 (standart 0.78)")
     ap.add_argument("--reuse-audio", action="store_true", help="avval yozilgan iboralarni qayta ishlatish")
     ap.add_argument("--work", default=str(HERE / "build"))
     ap.add_argument("--out", default="presentation_uz.mp4")
