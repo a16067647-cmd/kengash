@@ -97,21 +97,31 @@ class Sfx {
     if (_on) _play('success', _volume);
   }
 
-  /// Ochilish musiqasi: animatsiya [startedAt] da boshlangan — fayl kech tayyor bo‘lsa, o‘sha joydan davom etadi,
-  /// shuning uchun notalar nuqtalar bilan bir vaqtda. Juda kech bo‘lsa (akkorddan keyin) — chalinmaydi.
-  /// Музыка интро: если файл готов позже старта анимации, играем с нужного места — ноты совпадают с точками.
-  static Future<void> intro(DateTime startedAt) async {
-    if (!_on) return;
+  /// Ochilish musiqasini boshlash: fayl tayyor bo‘lishini kutadi va haqiqatan chala boshlagach `true` qaytaradi —
+  /// shundan keyin animatsiya boshlanadi (animatsiya musiqaga ergashadi, aksincha emas). Ovoz bo‘lmasa — `false`.
+  /// Запуск музыки интро: ждём готовности и реального начала воспроизведения → `true`; анимация стартует после
+  /// (анимация следует за музыкой, а не наоборот). Без звука — `false`.
+  static Future<bool> introStart() async {
+    if (!_on) return false;
     try {
-      await (_introReady ?? Future<void>.value());
+      await (_introReady ?? Future<void>.value()).timeout(const Duration(milliseconds: 900));
       final p = _intro;
-      if (p == null || !_on) return;
-      final late = DateTime.now().difference(startedAt);
-      if (late > const Duration(milliseconds: 2800)) return;
-      if (late > const Duration(milliseconds: 40)) await p.seek(late);
+      if (p == null || !_on) return false;
+      final playing = p.onPlayerStateChanged
+          .firstWhere((st) => st == PlayerState.playing)
+          .timeout(const Duration(milliseconds: 700));
       await p.resume();
+      await playing;
+      return true;
     } catch (e) {
       if (kDebugMode) debugPrint('sfx intro: $e');
+      return false;
     }
   }
+
+  /// Ochilish musiqasi chalinishi mumkinmi (yoqilgan va tayyorlanmoqda) / может ли играть музыка интро.
+  static bool get introPlayable => _on && _introReady != null;
+
+  /// Musiqaning haqiqiy joyi (animatsiyani tuzatish uchun) / реальная позиция музыки (для подстройки анимации).
+  static Stream<Duration>? get introPosition => _intro?.onPositionChanged;
 }
