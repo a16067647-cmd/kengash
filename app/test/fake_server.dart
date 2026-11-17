@@ -21,6 +21,15 @@ class FakeServer {
   bool booksCovers = false;
   bool feedbackDone = false;
   bool checkedIn = false;
+  bool withPoll = false;
+  Map<String, dynamic> poll = {
+    'id': 'pl1', 'question': 'Uchrashuv qaysi kuni bo‘lsin?', 'multi': false, 'closed': false, 'created_by': 'm59l', 'voters': 12,
+    'my': <int>[],
+    'options': [
+      {'text': 'Shanba, 10:00', 'count': 7},
+      {'text': 'Yakshanba, 11:00', 'count': 5},
+    ],
+  };
 
   Map<String, dynamic> task({bool given = false}) => {
         'id': 't1', 'title': 'Robototexnika to‘garagi hisoboti', 'description': 'To‘garakda nechta o‘quvchi borligini yozing.',
@@ -117,6 +126,21 @@ class FakeServer {
     final t = 1794600000;
     return [
       for (final m in sent.reversed) m,
+      if (withPoll)
+        {
+          'id': 'xp',
+          'channel_id': cid,
+          'seq': 6,
+          'created_at': t + 30,
+          'user': sardor,
+          'text': 'Uchrashuv qaysi kuni bo‘lsin?',
+          'attachments': [
+            {'kind': 'poll', 'poll_id': 'pl1', 'poll': poll},
+          ],
+          'reply': null,
+          'edited': false,
+          'deleted': false,
+        },
       {
         'id': 'x5',
         'channel_id': cid,
@@ -649,6 +673,18 @@ class FakeServer {
               checkedIn = true;
               out = {'ok': true, 'already': false, 'title': 'IT koordinatorlar uchrashuvi'};
             } else if (req.method == 'POST' && path == '/api/events/e1/attendance') {
+              posts.add({'path': path, ...body});
+              out = {'ok': true};
+            } else if (req.method == 'POST' && path == '/api/polls/pl1/vote') {
+              posts.add({'path': path, ...body});
+              final pick = (body['options'] as List).cast<int>();
+              final opts = [for (final o in poll['options'] as List) Map<String, dynamic>.from(o as Map)];
+              for (final i in pick) {
+                opts[i]['count'] = (opts[i]['count'] as int) + 1;
+              }
+              poll = {...poll, 'options': opts, 'voters': 13, 'my': pick};
+              out = poll;
+            } else if (req.method == 'POST' && path.endsWith('/polls')) {
               posts.add({'path': path, ...body});
               out = {'ok': true};
             } else if (req.method == 'POST' && path.startsWith('/api/admin/staff/')) {

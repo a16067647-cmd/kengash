@@ -77,6 +77,13 @@ CREATE TABLE IF NOT EXISTS messages (
   edited_at BIGINT NOT NULL DEFAULT 0, deleted INTEGER NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX IF NOT EXISTS messages_seq ON messages(channel_id, seq);
+CREATE TABLE IF NOT EXISTS polls (
+  id TEXT PRIMARY KEY, channel_id TEXT NOT NULL, question TEXT NOT NULL, options TEXT NOT NULL DEFAULT '[]',
+  multi INTEGER NOT NULL DEFAULT 0, closed INTEGER NOT NULL DEFAULT 0, created_by TEXT NOT NULL, created_at BIGINT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS poll_votes (
+  poll_id TEXT NOT NULL, user_id TEXT NOT NULL, opt INTEGER NOT NULL, at BIGINT NOT NULL, PRIMARY KEY (poll_id, user_id, opt)
+);
 CREATE INDEX IF NOT EXISTS messages_user ON messages(user_id);
 CREATE TABLE IF NOT EXISTS tasks (
   id TEXT PRIMARY KEY, created_by TEXT NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',

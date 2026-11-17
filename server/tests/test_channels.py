@@ -261,3 +261,43 @@ def test_websocket_live(client, ch):  # noqa: F811
     with pytest.raises(Exception):
         with client.websocket_connect("/api/ws?token=bad") as ws:
             ws.receive_json()
+
+
+def test_polls(client, ch):  # noqa: F811
+    """So‘rovnoma: ochish, ovoz, o‘zgartirish, yopish / опрос: создать, голос, смена, закрыть."""
+    import realtime
+    cid = chans(client, ch["m1"])["dd:marhamat:it"]["id"]
+    bad = client.post(f"/api/channels/{cid}/polls", json={"question": "Qachon?", "options": ["Shanba"]}, headers=ch["tit"])
+    assert bad.json()["error"] == "bad_options"
+    r = client.post(f"/api/channels/{cid}/polls", json={"question": "Uchrashuv qaysi kuni?",
+                                                         "options": ["Shanba", "Yakshanba", "Shanba", " "]}, headers=ch["tit"])
+    assert r.status_code == 200, r.text
+    poll = r.json()["attachments"][0]["poll"]
+    assert r.json()["text"] == "Uchrashuv qaysi kuni?" and [o["text"] for o in poll["options"]] == ["Shanba", "Yakshanba"]
+    pid = poll["id"]
+    assert chans(client, ch["m2"])["dd:marhamat:it"]["last"]["kind"] == "poll"
+    # boshqa kanal a’zosi emas / не участник
+    assert client.post(f"/api/polls/{pid}/vote", json={"options": [0]}, headers=ch["o7"]).status_code == 403
+    assert client.post(f"/api/polls/{pid}/vote", json={"options": [0, 1]}, headers=ch["m1"]).json()["error"] == "one_option"
+    sent = []
+    orig = realtime.send
+    realtime.send = lambda ids, ev: sent.append((ids, ev))
+    try:
+        v = client.post(f"/api/polls/{pid}/vote", json={"options": [0]}, headers=ch["m1"]).json()
+    finally:
+        realtime.send = orig
+    assert v["my"] == [0] and v["options"][0]["count"] == 1 and v["voters"] == 1
+    assert sent and sent[0][1]["type"] == "poll.update" and sent[0][1]["poll"]["options"][0]["count"] == 1
+    client.post(f"/api/polls/{pid}/vote", json={"options": [1]}, headers=ch["m2"])
+    v = client.post(f"/api/polls/{pid}/vote", json={"options": [1]}, headers=ch["m1"]).json()  # fikrini o‘zgartirdi
+    assert [o["count"] for o in v["options"]] == [0, 2] and v["my"] == [1]
+    msgs = client.get(f"/api/channels/{cid}/messages", headers=ch["m2"]).json()["messages"]
+    assert msgs[0]["attachments"][0]["poll"]["my"] == [1]
+    # faqat muallif yoki moderator yopadi / закрывает автор или модератор
+    assert client.post(f"/api/polls/{pid}/close", headers=ch["m2"]).status_code == 403
+    assert client.post(f"/api/polls/{pid}/close", headers=ch["tit"]).json()["closed"] is True
+    assert client.post(f"/api/polls/{pid}/vote", json={"options": [0]}, headers=ch["m2"]).json()["error"] == "poll_closed"
+    # o‘quvchi so‘rovnoma ochmaydi; mijoz «poll» biriktirmasini yubora olmaydi
+    r = client.post(f"/api/channels/{cid}/messages", json={"text": "x", "attachments": [{"kind": "poll", "poll_id": pid}]},
+                    headers=ch["m1"])
+    assert r.status_code == 400

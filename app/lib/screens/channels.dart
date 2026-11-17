@@ -15,6 +15,7 @@ import '../widgets.dart';
 import 'audience.dart';
 import 'manage.dart' show channelActions, editChannel, pickChannelPhoto;
 import 'directory.dart' show confirmSheet, showUserSheet;
+import 'poll.dart' show PollView, createPoll;
 import 'media.dart';
 
 // ============================================================ yordamchilar / помощники
@@ -93,6 +94,7 @@ String previewText(AppState s, Json? last) {
     'video' => '🎬 ${s.t('att_video')}',
     'voice' => '🎤 ${s.t('att_voice')}',
     'file' => '📎 ${s.t('att_file')}',
+    'poll' => '📊 ${s.t('poll_label')}',
     _ => '',
   };
   final text = (last['text'] ?? '').toString().replaceAll('\n', ' ');
@@ -357,10 +359,20 @@ class _ChannelScreenState extends State<ChannelScreen> {
               color: const Color(0xFF8E8E93),
               title: '${s.t('att_file')} · ${s.t('max')} 20 MB',
               onTap: () => Navigator.of(ctx).pop('file')),
+          GroupRow(
+              key: const ValueKey('att-poll'),
+              icon: Icons.poll_rounded,
+              color: const Color(0xFF7A4CF0),
+              title: s.t('poll_new'),
+              onTap: () => Navigator.of(ctx).pop('poll')),
         ]),
       ]);
     });
     if (choice == null || !mounted) return;
+    if (choice == 'poll') {
+      if (await createPoll(context, widget.channelId)) _chat.loadMessages(widget.channelId).catchError((_) {});
+      return;
+    }
     final caption = _text.text.trim();
     try {
       switch (choice) {
@@ -707,9 +719,12 @@ class MessageBubble extends StatelessWidget {
     final user = (m['user'] as Map?)?.cast<String, dynamic>() ?? const {};
     final mine = user['id'] == s.me?['id'];
     final deleted = m['deleted'] == true;
-    final text = (m['text'] ?? '').toString();
-    final atts = [for (final a in (m['attachments'] as List? ?? [])) (a as Map).cast<String, dynamic>()];
+    final rawText = (m['text'] ?? '').toString();
+    final allAtts = [for (final a in (m['attachments'] as List? ?? [])) (a as Map).cast<String, dynamic>()];
+    final poll = allAtts.where((a) => a['kind'] == 'poll' && a['poll'] is Map).map((a) => (a['poll'] as Map).cast<String, dynamic>());
+    final atts = allAtts.where((a) => a['kind'] != 'poll').toList();
     final reply = (m['reply'] as Map?)?.cast<String, dynamic>();
+    final text = poll.isEmpty ? rawText : ''; // savol so‘rovnomaning o‘zida / вопрос — внутри опроса
     final dir = user['direction'] as String?;
     final nameColor = dir == null ? c.accentText : (dir == 'lider' ? const Color(0xFFD99A00) : directionColor(dir));
     final fg = mine ? kWhite : c.text;
@@ -768,6 +783,7 @@ class MessageBubble extends StatelessWidget {
             const SizedBox(width: 4),
             Text(s.t('msg_deleted'), style: AppType.subhead.copyWith(color: c.text3, fontStyle: FontStyle.italic)),
           ]),
+        for (final pl in poll) PollView(key: ValueKey('poll-${pl['id']}'), poll: pl, mine: mine),
         for (final a in atts)
           Padding(
             padding: EdgeInsets.only(bottom: text.isEmpty ? 0 : S.x1),
