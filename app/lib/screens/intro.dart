@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -22,8 +24,13 @@ class IntroScreen extends StatefulWidget {
 
 class _IntroScreenState extends State<IntroScreen> with SingleTickerProviderStateMixin {
   static const total = Duration(milliseconds: 5200);
-  late final AnimationController _c = AnimationController(vsync: this, duration: total);
+  late final AnimationController _c = AnimationController(vsync: this, duration: total)
+    ..addStatusListener((st) {
+      if (st == AnimationStatus.completed) _finish();
+    });
   bool _done = false;
+  bool _started = false;
+  StreamSubscription<Duration>? _sync;
 
   @override
   void didChangeDependencies() {
@@ -33,12 +40,34 @@ class _IntroScreenState extends State<IntroScreen> with SingleTickerProviderStat
       // «Harakatni kamaytirish»: yakuniy kadr 1.5 soniya / «уменьшение движения»: финальный кадр 1.5 с
       _c.value = 1;
       Future.delayed(const Duration(milliseconds: 1500), _finish);
-    } else {
-      // Musiqa — bitta fayl: nuqtalar qo‘nishi (1.07 s + i·0.18 s) va akkord (3.04 s) unga yozilgan
-      // (tools/make_sounds.py). Музыка — один файл, ноты совпадают с точками и аккордом.
-      Sfx.intro(DateTime.now());
-      _c.forward().whenComplete(_finish);
+    } else if (!_started) {
+      _started = true;
+      _start();
     }
+  }
+
+  /// Animatsiya musiqaga ergashadi: musiqa haqiqatan boshlangach start, keyin uning joyiga qarab tuzatiladi.
+  /// Notalar (1.07 s + i·0.18 s) va akkord (3.04 s) faylga yozilgan (tools/make_sounds.py).
+  /// Анимация следует за музыкой: старт после реального начала звука, затем подстройка по позиции.
+  Future<void> _start() async {
+    if (!Sfx.introPlayable) {
+      _c.forward(); // ovozsiz — kutmasdan / без звука — без ожидания
+      return;
+    }
+    final withSound = await Sfx.introStart();
+    if (!mounted) return;
+    if (withSound) {
+      // telefon karnayigacha kechikish (~70 ms) / задержка до динамика
+      await Future<void>.delayed(const Duration(milliseconds: 70));
+      if (!mounted) return;
+      final ms = total.inMilliseconds;
+      _sync = Sfx.introPosition?.listen((pos) {
+        if (!_c.isAnimating) return;
+        final target = pos.inMilliseconds / ms;
+        if (target < 1 && ((target - _c.value) * ms).abs() > 90) _c.forward(from: target);
+      });
+    }
+    _c.forward();
   }
 
   void _finish() {
@@ -49,6 +78,7 @@ class _IntroScreenState extends State<IntroScreen> with SingleTickerProviderStat
 
   @override
   void dispose() {
+    _sync?.cancel();
     _c.dispose();
     super.dispose();
   }
