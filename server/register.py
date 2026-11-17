@@ -62,6 +62,14 @@ def register(c, uid, data, consent_version):
     if u["status"] == "blocked":
         raise RegError("blocked")
     name = clean_name(data.get("name"))
+    if data.get("kind") == "staff":
+        # «Boshqa»: lavozim, hudud va vakolatlarni admin beradi / должность, территорию и полномочия задаёт админ
+        if u["role"] == "admin":
+            raise RegError("bad_kind")
+        c.x("UPDATE users SET name=?, kind='staff', level=NULL, place_id=NULL, direction=NULL, class_name='', "
+            "title='', powers='', status='pending', consent_version=?, consent_at=? WHERE id=?",
+            (name, consent_version, db.now(), uid))
+        return c.one("SELECT * FROM users WHERE id=?", (uid,))
     level, place_id, direction = seat_for(data)
     if not place_id or not model.place_chain(c, level, place_id):
         raise RegError("bad_place")
@@ -89,6 +97,8 @@ def decide(c, actor, uid, approve):
         raise RegError("not_pending")
     if not model.can_approve(c, actor, u):
         raise RegError("forbidden")
+    if approve and u.get("kind") == "staff":
+        raise RegError("needs_setup")  # avval lavozim/hudud/vakolat / сначала должность, территория, полномочия
     if approve:
         c.x("UPDATE users SET status='active' WHERE id=?", (uid,))
     else:

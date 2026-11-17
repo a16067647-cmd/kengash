@@ -5,6 +5,9 @@ Rollar / роли (users.kind):
   coordinator — maktab, tuman yoki viloyat koordinatori (8 yo‘nalishdan biri)
   maslahatchi — maktab maslahatchisi (o‘qituvchi), maktabda bitta: direction='maslahatchi'
   student     — oddiy o‘quvchi (bepul), level='school', direction=NULL
+  staff       — «Boshqa»: xodim/rahbar (masalan, Kelajak Markazi direktori). Lavozim (title), hudud
+                (level='district'|'region', place_id) va vakolatlarni (powers) admin beradi. direction=NULL.
+                Сотрудник/руководитель: должность, территорию и полномочия задаёт админ.
 Holat / статус (users.status): new → pending → active | rejected; blocked.
 """
 
@@ -24,7 +27,13 @@ DIRECTIONS = [
 DIRECTION_KEYS = [d[0] for d in DIRECTIONS]
 LIDER = "lider"
 MASLAHATCHI = "maslahatchi"
-KINDS = ("coordinator", "maslahatchi", "student")
+KINDS = ("coordinator", "maslahatchi", "student", "staff")
+# Xodim vakolatlari / полномочия сотрудника:
+#   view     — hududidagi hamma narsani ko‘rish (kanallar, vazifalar, faollik, telefonlar)
+#   plan     — hududidagi koordinatorlarga vazifa va tadbir berish
+#   announce — hududiga e’lon yuborish va Excel hisobotlar
+POWERS = ("view", "plan", "announce")
+STAFF_LEVELS = ("district", "region")
 SEAT_DIRECTIONS = DIRECTION_KEYS + [MASLAHATCHI]
 
 
@@ -49,7 +58,34 @@ def kind_of(direction, level):
         return "maslahatchi"
     if level == "school" and not direction:
         return "student"
+    if not direction:
+        return "staff"
     return "coordinator"
+
+
+def powers(u):
+    """Xodim vakolatlari to‘plami / множество полномочий сотрудника."""
+    if not u or u.get("kind") != "staff":
+        return set()
+    return {p for p in str(u.get("powers") or "").split(",") if p in POWERS}
+
+
+def is_staff(u):
+    return bool(u) and u.get("kind") == "staff" and u.get("status") == "active" and u.get("level") in STAFF_LEVELS
+
+
+def covers(c, actor, level, place_id):
+    """Joy xodim hududidami / место на территории сотрудника?"""
+    if not is_staff(actor):
+        return False
+    chain = place_chain(c, level, place_id) if level else None
+    if not chain:
+        return False
+    return chain.get(actor["level"]) == actor["place_id"]
+
+
+def has_power(u, power):
+    return bool(u) and (u.get("role") == "admin" or (is_staff(u) and power in powers(u)))
 
 
 def is_above(c, actor, level, place_id, direction):
@@ -73,6 +109,13 @@ def is_above(c, actor, level, place_id, direction):
     if not chain:
         return False
     target = kind_of(direction, level)
+    if target == "staff":
+        return False  # xodimlar ustidan faqat admin / над сотрудниками — только админ
+    if actor.get("kind") == "staff":
+        # Xodim: hududidagi koordinator va maslahatchilar (o‘quvchilar — yo‘q), «view» yoki «plan» bo‘lsa
+        # Сотрудник: координаторы и маслахатчи своей территории (не ученики), при «view» или «plan»
+        return target in ("coordinator", "maslahatchi") and bool(powers(actor) & {"view", "plan"}) and \
+            covers(c, actor, level, place_id)
     a_dir, a_lvl, a_pid = actor["direction"], actor["level"], actor["place_id"]
 
     if a_dir == MASLAHATCHI:

@@ -311,7 +311,7 @@ async def events_create(request: Request, authorization: Optional[str] = Header(
             err(403, "forbidden")
         if not core.rate_ok("event:" + u["id"], 30, 3600):
             err(429, "too_many")
-        peers = u["role"] == "admin" or u.get("level") in ("district", "region")
+        peers = u["role"] == "admin" or (u.get("level") in ("district", "region") and u.get("kind") != "staff")
         targets = channels.resolve_audience(c, u, b.get("audience"), b.get("user_ids"), peers=peers)
         if not targets:
             err(400, "no_people")

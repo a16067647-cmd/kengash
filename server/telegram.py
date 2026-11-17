@@ -75,10 +75,20 @@ TXT = {
     "rejected": ("❌ Arizangiz rad etildi. Ma’lumotlarni tekshirib, qaytadan /start bosing.\n\n"
                  "❌ Заявка отклонена. Проверьте данные и нажмите /start ещё раз."),
     "new_request": "🆕 Yangi ariza / Новая заявка:\n\n{summary}",
+    "staff_request": ("🆕 <b>Yangi ariza — «Boshqa»</b> / Новая заявка — «Другое»:\n\n{summary}\n\n"
+                      "«⚙️ Sozlash» ni bosing: lavozimini yozasiz, hududi va vakolatlarini tanlaysiz.\n"
+                      "Нажмите «⚙️ Настроить»: напишете должность, выберете территорию и полномочия."),
+    "st_title": ("✍️ <b>{name}</b> kim? Lavozimini yozing.\nMasalan: <b>Asaka Kelajak Markazi direktori</b>\n\n"
+                 "✍️ Кто это? Напишите должность."),
+    "st_area": "🗺 Hududi / Территория — <b>{title}</b>:",
+    "st_powers": ("🔑 Vakolatlar / Полномочия — <b>{name}</b>, {title} · {area}\n\n"
+                  "Belgilang va «✅ Saqlash» ni bosing. / Отметьте и нажмите «✅ Сохранить»."),
+    "st_done": "✅ <b>{name}</b> — {title} · {area}\n{powers}",
     "use_buttons": "Iltimos, tugmalardan birini bosing. / Пожалуйста, нажмите одну из кнопок.",
     "error": "Xatolik. /start bosing. / Ошибка. Нажмите /start.",
 }
-ROLE_LABELS = {"student": "🎓 O‘quvchi / Ученик", "coordinator": "🧭 Koordinator", "maslahatchi": "👩‍🏫 Maslahatchi"}
+ROLE_LABELS = {"student": "🎓 O‘quvchi / Ученик", "coordinator": "🧭 Koordinator", "maslahatchi": "👩‍🏫 Maslahatchi",
+               "staff": "🏛 Boshqa / Другое"}
 LEVEL_LABELS = {"school": "🏫 Maktab / Школа", "district": "🗺 Tuman / Район", "region": "🏛 Viloyat / Область"}
 LETTERS = ["A", "B", "V", "G", "D", "E"]
 
@@ -164,6 +174,14 @@ def _ensure_user(c, frm, phone):
         if phone:
             c.x("UPDATE users SET phone=? WHERE id=?", (phone, u["id"]))
         return c.one("SELECT * FROM users WHERE id=?", (u["id"],))
+    if phone:
+        # Admin oldindan yaratgan hisob (xodim) — raqam bo‘yicha bog‘lanadi / заранее созданный аккаунт — по номеру
+        digits = "".join(ch for ch in phone if ch.isdigit())
+        for pre in c.q("SELECT * FROM users WHERE tg_id IS NULL AND phone<>''"):
+            if "".join(ch for ch in pre["phone"] if ch.isdigit()) == digits:
+                c.x("UPDATE users SET tg_id=?, tg_username=?, phone=? WHERE id=?",
+                    (frm["id"], frm.get("username") or "", phone, pre["id"]))
+                return c.one("SELECT * FROM users WHERE id=?", (pre["id"],))
     admin = frm["id"] in core.ADMIN_TG_IDS
     uid = core.new_id()
     name = core.clean(f"{frm.get('first_name') or ''} {frm.get('last_name') or ''}", 60)
@@ -223,7 +241,7 @@ def _btn(text, data):
 
 
 def _role_kb():
-    return _kb([[_btn(ROLE_LABELS[k], f"r:role:{k}")] for k in ("student", "coordinator", "maslahatchi")])
+    return _kb([[_btn(ROLE_LABELS[k], f"r:role:{k}")] for k in ("student", "coordinator", "maslahatchi", "staff")])
 
 
 def _level_kb():
@@ -345,6 +363,8 @@ def handle_update(update):
                 u = _ensure_user(c, frm, phone)
                 out.append((chat, "👍", {"remove_keyboard": True}))
                 out += _after_phone(c, frm, u, data, chat)
+        elif step == "st_title" and text and not text.startswith("/"):
+            out += _staff_title(c, frm, data, text, chat)
         elif step == "name" and text:
             import register as reg
             try:
@@ -354,7 +374,7 @@ def handle_update(update):
             else:
                 _save(c, frm["id"], "role", data)
                 out.append((chat, TXT["ask_role"], _role_kb()))
-        elif step in ("role", "level", "district", "school", "grade", "letter", "direction", "confirm"):
+        elif step in ("role", "level", "district", "school", "grade", "letter", "direction", "confirm", "st_area", "st_pow"):
             out.append((chat, TXT["use_buttons"], None))
         else:
             u = c.one("SELECT * FROM users WHERE tg_id=?", (frm["id"],))
@@ -369,7 +389,7 @@ def handle_update(update):
 def _after_phone(c, frm, u, data, chat):
     """Raqam bor: ro‘yxatdan o‘tganmi yoki yo‘qmi / номер есть: зарегистрирован или нет."""
     import model
-    if u["status"] in ("active", "pending") and (u["role"] == "admin" or u["level"]):
+    if u["status"] in ("active", "pending") and (u["role"] == "admin" or u["level"] or u.get("kind") == "staff"):
         prompt = _login_prompt(c, frm, data, chat)
         _clear(c, frm["id"])
         if u["status"] == "pending":
@@ -396,6 +416,8 @@ def handle_callback(q):
         return _decision(frm, data_s, chat, mid)
     if data_s.startswith("lg:"):
         return _login_decision(frm, data_s, chat, mid)
+    if data_s.startswith("st:"):
+        return _staff_step(frm, data_s, chat, mid)
     out_edit, out_send = None, []
     with db.tx() as c:
         step, d = _session(c, frm["id"])
@@ -431,6 +453,8 @@ def _reg_step(c, frm, step, d, data_s, chat):
         return go("district", TXT["ask_district"], _district_kb(c))
     if act == "role" and val in model.KINDS:
         d["kind"] = val
+        if val == "staff":
+            return go("confirm", _confirm_text(c, d), _confirm_kb())
         if val == "coordinator":
             return go("level", TXT["ask_level"], _level_kb())
         d["level"] = "school"
@@ -505,9 +529,14 @@ def _reg_step(c, frm, step, d, data_s, chat):
         who = ", ".join(tg_link(a) for a in apps[:3])
         summary = _summary(c, d) + (f"\n📞 {_esc(u['phone'])}" if u["phone"] else "") + \
             (f"\n💬 @{_esc(u['tg_username'])}" if u["tg_username"] else "")
-        notes = [(a["tg_id"], TXT["new_request"].format(summary=summary),
-                  _kb([[_btn("✅ Tasdiqlash", f"ap:{uid}"), _btn("❌ Rad etish", f"rj:{uid}")]]))
-                 for a in apps if a.get("tg_id")]
+        if u.get("kind") == "staff":
+            notes = [(a["tg_id"], TXT["staff_request"].format(summary=summary),
+                      _kb([[_btn("⚙️ Sozlash / Настроить", f"st:go:{uid}"), _btn("❌ Rad etish", f"rj:{uid}")]]))
+                     for a in apps if a.get("tg_id")]
+        else:
+            notes = [(a["tg_id"], TXT["new_request"].format(summary=summary),
+                      _kb([[_btn("✅ Tasdiqlash", f"ap:{uid}"), _btn("❌ Rad etish", f"rj:{uid}")]]))
+                     for a in apps if a.get("tg_id")]
         return (TXT["pending"].format(who=who), back_button()), notes + prompt
     return (TXT["use_buttons"], None), []
 
@@ -531,7 +560,8 @@ def _decision(frm, data_s, chat, mid):
             u = reg.decide(c, actor, uid, approve)
         except reg.RegError as e:
             edit(chat, mid, {"not_pending": "ℹ️ Bu ariza allaqachon ko‘rib chiqilgan. / Заявка уже рассмотрена.",
-                             "forbidden": "⛔ Ruxsat yo‘q. / Нет прав."}.get(e.code, TXT["error"]))
+                             "forbidden": "⛔ Ruxsat yo‘q. / Нет прав.",
+                             "needs_setup": "⚙️ Avval «Sozlash» ni bosing. / Сначала нажмите «Настроить»."}.get(e.code, TXT["error"]))
             return
         core.seat_changed(c, uid)
         name, tg_id = u["name"], u["tg_id"]
@@ -542,3 +572,101 @@ def _decision(frm, data_s, chat, mid):
 def notify_decision(tg_id, approved):
     if tg_id:
         send(tg_id, TXT["approved"] if approved else TXT["rejected"], back_button() if approved else None)
+
+
+# ------------------------------------------------------------------ xodimni sozlash (admin) / настройка сотрудника (админ)
+def _staff_target(c, frm, uid):
+    actor = c.one("SELECT * FROM users WHERE tg_id=?", (frm["id"],))
+    if not actor or actor["role"] != "admin":
+        return None, None
+    u = c.one("SELECT * FROM users WHERE id=? AND kind='staff' AND status IN ('pending','active')", (uid,))
+    return actor, u
+
+
+def _area_kb(c):
+    rows = c.q("SELECT id, name_uz FROM districts WHERE hidden=0 ORDER BY sort, name_uz")
+    return _kb([[_btn("🏛 Butun viloyat / Вся область", "st:a:region:andijon")]] +
+               _grid([_btn(r["name_uz"], f"st:a:district:{r['id']}") for r in rows], 2))
+
+
+def _powers_kb(chosen):
+    import staff
+    rows = [[_btn(("✅ " if p in chosen else "⬜ ") + staff.POWER_LABELS[p], f"st:p:{p}")] for p in staff.POWER_LABELS]
+    return _kb(rows + [[_btn("💾 Saqlash / Сохранить", "st:save")]])
+
+
+def _staff_title(c, frm, d, text, chat):
+    import app as core
+    _, u = _staff_target(c, frm, d.get("target"))
+    if not u:
+        _clear(c, frm["id"])
+        return [(chat, TXT["error"], None)]
+    title = core.clean(text, 80)
+    if len(title) < 2:
+        return [(chat, TXT["st_title"].format(name=_esc(u["name"])), None)]
+    d["title"] = title
+    _save(c, frm["id"], "st_area", d)
+    return [(chat, TXT["st_area"].format(title=_esc(title)), _area_kb(c))]
+
+
+def _staff_step(frm, data_s, chat, mid):
+    """Admin tugmalari: st:go:<uid> → lavozim (matn) → st:a:<daraja>:<joy> → st:p:<vakolat>… → st:save."""
+    import staff
+    parts = data_s.split(":")
+    act = parts[1] if len(parts) > 1 else ""
+    sends, edit_to = [], None
+    with db.tx() as c:
+        step, d = _session(c, frm["id"])
+        uid = parts[2] if act == "go" and len(parts) > 2 else d.get("target")
+        actor, u = _staff_target(c, frm, uid)
+        if not actor:
+            edit_to = ("⛔ Ruxsat yo‘q. / Нет прав.", None)
+        elif not u:
+            edit_to = ("ℹ️ Bu ariza allaqachon ko‘rib chiqilgan. / Заявка уже рассмотрена.", None)
+        elif act == "go":
+            d = {"target": uid, "powers": sorted(model_powers(u)) or ["view"]}
+            _save(c, frm["id"], "st_title", d)
+            edit_to = (TXT["st_title"].format(name=_esc(u["name"])), None)
+        elif act == "a" and step == "st_area" and len(parts) == 4:
+            try:
+                staff.check_area(c, parts[2], parts[3])
+            except staff.StaffError:
+                edit_to = (TXT["error"], None)
+            else:
+                d["level"], d["place_id"] = parts[2], parts[3]
+                _save(c, frm["id"], "st_pow", d)
+                edit_to = (_powers_text(c, u, d), _powers_kb(d["powers"]))
+        elif act == "p" and step == "st_pow" and len(parts) == 3 and parts[2] in staff.POWER_LABELS:
+            p = parts[2]
+            d["powers"] = [x for x in d["powers"] if x != p] if p in d["powers"] else d["powers"] + [p]
+            _save(c, frm["id"], "st_pow", d)
+            edit_to = (_powers_text(c, u, d), _powers_kb(d["powers"]))
+        elif act == "save" and step == "st_pow":
+            try:
+                u, fresh = staff.setup(c, u["id"], d["title"], d["level"], d["place_id"], d["powers"])
+            except staff.StaffError:
+                edit_to = (TXT["error"], None)
+            else:
+                _clear(c, frm["id"])
+                pw = "\n".join(f"• {staff.POWER_LABELS[p]}" for p in staff.POWER_LABELS if p in d["powers"]) or "—"
+                edit_to = (TXT["st_done"].format(name=_esc(u["name"]), title=_esc(u["title"]),
+                                                 area=_esc(staff.area_name(c, u)), powers=pw), None)
+                if fresh:
+                    staff.notify_ready(c, u)
+        else:
+            edit_to = (TXT["use_buttons"], None)
+    if edit_to:
+        edit(chat, mid, edit_to[0], edit_to[1])
+    for chat_id, t, m in sends:
+        send(chat_id, t, m)
+
+
+def _powers_text(c, u, d):
+    import app as core
+    p = core.place_info(c, d.get("level"), d.get("place_id"))
+    return TXT["st_powers"].format(name=_esc(u["name"]), title=_esc(d.get("title")), area=_esc(p["name_uz"] if p else ""))
+
+
+def model_powers(u):
+    import model
+    return model.powers(u)

@@ -98,6 +98,9 @@ class AppState extends ChangeNotifier {
   bool get isStudent => me?['kind'] == 'student';
   bool get isMaslahatchi => me?['direction'] == 'maslahatchi';
   bool get canGive => me?['can_give'] == true;
+  bool get isStaff => me?['kind'] == 'staff';
+  bool get canViewArea => me?['can_view_area'] == true;
+  bool get canAnnounce => me?['can_announce'] == true;
   bool get canCreateChannels => me?['can_create_channels'] == true;
   String get myName => (me?['name'] ?? '').toString();
   String get myPhoto => photoUrl(me?['photo']);
@@ -152,6 +155,12 @@ class AppState extends ChangeNotifier {
   String seatLine(Json? u) {
     if (u == null) return '';
     if (u['role'] == 'admin' && u['level'] == null) return t('role_admin');
+    if (u['kind'] == 'staff') {
+      // xodim: lavozim · hudud / сотрудник: должность · территория
+      final title = (u['title'] ?? '').toString();
+      final head = title.isEmpty ? t('staff_kind') : title;
+      return u['level'] == null ? head : '$head · ${placeLine(u['place'] as Json?)}';
+    }
     if (u['level'] == null) return t('no_seat');
     if (u['kind'] == 'student') {
       final cls = (u['class_name'] ?? '').toString();

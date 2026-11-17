@@ -8,6 +8,7 @@ import 'admin_more.dart' show BroadcastScreen, FeedbackScreen;
 import 'books.dart' show AdminBooksScreen, BooksShelf;
 import 'onboarding.dart' show ApprovalsScreen;
 import 'channels.dart' show ChannelIcon, channelTitle, openChannel, previewText, timeLabel;
+import 'staff.dart' show AreaScreen;
 import 'tasks.dart' show TaskCard;
 import '../state.dart';
 import '../theme.dart';
@@ -93,6 +94,14 @@ class _TodayTabState extends State<TodayTab> {
           title: s.t('fb_title'),
           value: wide ? null : s.t('fb_short'),
           onTap: () => Navigator.of(context).push(AppRoute(builder: (_) => const FeedbackScreen()))),
+      if (s.isStaff && (s.canViewArea || s.canAnnounce))
+        GroupRow(
+            key: const ValueKey('quick-area'),
+            icon: Icons.space_dashboard_rounded,
+            color: const Color(0xFF0A84D6),
+            title: s.t('my_area'),
+            value: wide ? null : s.t('my_area_sub'),
+            onTap: () => Navigator.of(context).push(AppRoute(builder: (_) => const AreaScreen()))),
       if (s.isAdmin)
         GroupRow(
             key: const ValueKey('quick-admin'),
