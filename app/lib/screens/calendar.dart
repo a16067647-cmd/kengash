@@ -213,6 +213,7 @@ class _EventScreenState extends State<EventScreen> {
       ]));
     }
     final rsvp = e['my_rsvp'] as String?;
+    final live = e['checkin_open'] == true;
     final people = [for (final x in (e['people'] as List? ?? [])) (x as Map).cast<String, dynamic>()];
     Widget rsvpBtn(String v, String label, IconData icon) {
       final on = rsvp == v;
@@ -255,14 +256,16 @@ class _EventScreenState extends State<EventScreen> {
               ],
             ]),
           ),
-          if (rsvp != null)
+          // Davomat ochiq bo‘lsa — bitta asosiy tugma «Keldim»; aks holda faqat Boraman / Bora olmayman.
+          // Когда отметка открыта — одна главная кнопка «Пришёл»; иначе только Иду / Не иду.
+          if (rsvp != null && !(live && e['is_organizer'] != true && e['my_checkin'] != true))
             Row(children: [
               rsvpBtn('yes', s.t('going'), Icons.check_rounded),
               const SizedBox(width: S.x3),
               rsvpBtn('no', s.t('not_going'), Icons.close_rounded),
             ]),
           // QR davomat: mehmon — «Keldim», tashkilotchi — QR / QR-посещаемость: гость — «Пришёл», организатор — QR
-          if (rsvp != null && e['is_organizer'] != true)
+          if (rsvp != null && e['is_organizer'] != true && (live || e['my_checkin'] == true))
             e['my_checkin'] == true
                 ? AppCard(
                     key: const ValueKey('ci-done'),
@@ -277,7 +280,6 @@ class _EventScreenState extends State<EventScreen> {
                 : AppButton(s.t('ci_title'),
                     key: const ValueKey('event-checkin'),
                     icon: Icons.qr_code_scanner_rounded,
-                    kind: BtnKind.success,
                     expand: true,
                     onPressed: () async {
                       final ok = await Navigator.of(context)
@@ -288,6 +290,7 @@ class _EventScreenState extends State<EventScreen> {
             AppButton(s.t('ci_qr_title'),
                 key: const ValueKey('event-qr'),
                 icon: Icons.qr_code_2_rounded,
+                kind: live ? BtnKind.primary : BtnKind.secondary, // tadbir kuni — asosiy / в день события — главная
                 expand: true,
                 onPressed: () async {
                   await Navigator.of(context).push(AppRoute(

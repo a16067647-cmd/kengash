@@ -14,7 +14,7 @@ import 'audience.dart';
 import 'channels.dart' show PresetTile, channelPresets;
 import 'directory.dart' show confirmSheet;
 import 'manage.dart' show planActions;
-import 'media.dart' show PhotoViewer;
+import 'media.dart' show PhotoViewer, VoiceClip, VoicePlayer, VoiceRecorderBar;
 
 // ============================================================ vaqt / время
 String two(int x) => x.toString().padLeft(2, '0');
@@ -265,6 +265,7 @@ class _TaskScreenState extends State<TaskScreen> {
   final _comment = TextEditingController();
   final List<(String, String)> _photos = []; // (yo‘l / путь, '')
   final List<Uint8List> _previews = [];
+  (String, double)? _voice; // ovozli hisobot (yo‘l, soniya) / голосовой отчёт (путь, секунды)
   bool _busy = false;
 
   @override
@@ -314,6 +315,26 @@ class _TaskScreenState extends State<TaskScreen> {
     }
   }
 
+  /// Ovoz yozildi → darhol yuklanadi / голос записан → сразу загружается.
+  Future<void> _addVoice(VoiceClip v) async {
+    final s = AppScope.read(context);
+    setState(() => _busy = true);
+    try {
+      final r = await s.api.post('/api/tasks/${widget.taskId}/voice', {'size': v.bytes.length, 'mime': v.mime, 'duration': v.seconds});
+      final res = await s.api.client
+          .put(Uri.parse(r['upload_url'] as String), headers: {'Content-Type': v.mime, 'x-upsert': 'false'}, body: v.bytes)
+          .timeout(const Duration(minutes: 3));
+      if (res.statusCode >= 300) throw ApiError(res.statusCode, 'upload_failed');
+      if (mounted) setState(() => _voice = (r['path'] as String, v.seconds));
+    } on ApiError catch (e) {
+      s.toast(s.errText(e));
+    } catch (_) {
+      s.toast(s.t('err_conn'));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _submit() async {
     final s = AppScope.read(context);
     final t = _t!;
@@ -325,12 +346,15 @@ class _TaskScreenState extends State<TaskScreen> {
     try {
       await s.api.post('/api/tasks/${widget.taskId}/submit', {
         'comment': _comment.text.trim(),
-        'photos': [for (final p in _photos) p.$1]
+        'photos': [for (final p in _photos) p.$1],
+        if (_voice != null) 'voice': _voice!.$1,
+        if (_voice != null) 'voice_sec': _voice!.$2,
       });
       Sfx.success();
       s.toast(s.t('task_sent'), icon: Icons.check_circle_rounded);
       _photos.clear();
       _previews.clear();
+      _voice = null;
       await _load();
     } on ApiError catch (e) {
       s.toast(s.errText(e));
@@ -410,7 +434,11 @@ class _TaskScreenState extends State<TaskScreen> {
               ),
             if (my['status'] == 'submitted' || my['status'] == 'accepted') ...[
               SectionHeader(s.t('my_report')),
-              _ReportView(comment: my['comment'] as String? ?? '', urls: (my['photo_urls'] as List? ?? []).cast<String>()),
+              _ReportView(
+                  comment: my['comment'] as String? ?? '',
+                  urls: (my['photo_urls'] as List? ?? []).cast<String>(),
+                  voiceUrl: (my['voice_url'] ?? '').toString(),
+                  voiceSec: (my['voice_sec'] as num?)?.toInt() ?? 0),
             ],
             if (canSubmit) ...[
               SectionHeader(my['status'] == 'submitted' ? s.t('report_again') : s.t('report_send')),
@@ -454,6 +482,28 @@ class _TaskScreenState extends State<TaskScreen> {
                         ),
                       ),
                   ]),
+                  const SizedBox(height: S.x3),
+                  // Yozish o‘rniga gapirish: mikrofonni bosing → «15 o‘quvchi keldi» / вместо текста — голосом
+                  if (_voice != null)
+                    Row(children: [
+                      Expanded(child: VoicePlayer(key: const ValueKey('report-voice'), url: '', seconds: _voice!.$2, mine: true)),
+                      IconButton(
+                          key: const ValueKey('report-voice-remove'),
+                          tooltip: s.t('delete'),
+                          icon: Icon(Icons.close_rounded, color: c.text3),
+                          onPressed: () => setState(() => _voice = null)),
+                    ])
+                  else
+                    VoiceRecorderBar(
+                      onDone: _addVoice,
+                      idle: (start) => AppButton(s.t('report_voice'),
+                          key: const ValueKey('report-mic'),
+                          kind: BtnKind.secondary,
+                          icon: Icons.mic_rounded,
+                          height: 44,
+                          expand: true,
+                          onPressed: _busy ? null : start),
+                    ),
                   const SizedBox(height: S.x3),
                   AppTextField(
                       key: const ValueKey('report-comment'),
@@ -540,7 +590,8 @@ class _TaskScreenState extends State<TaskScreen> {
     final s = AppScope.read(context);
     final user = (p['user'] as Map).cast<String, dynamic>();
     final note = TextEditingController();
-    await showAppSheet<void>(context, builder: (ctx) {
+    var returning = false; // «Qaytarish» bosilgandagina izoh maydoni / поле заметки только после «Вернуть»
+    await showAppSheet<void>(context, builder: (ctx) => StatefulBuilder(builder: (ctx, setSheet) {
       final c = AppScope.of(ctx).c;
       Future<void> act(String action) async {
         if (action == 'return' && note.text.trim().isEmpty) {
@@ -550,6 +601,10 @@ class _TaskScreenState extends State<TaskScreen> {
         try {
           await s.api
               .post('/api/tasks/${widget.taskId}/review', {'user_id': user['id'], 'action': action, 'note': note.text.trim()});
+          // Qabul qilish = +1 ball (standart); keyin o‘zgartirish mumkin / Принять = +1 балл по умолчанию
+          if (action == 'accept' && p['can_rate'] == true && ((p['points'] as int?) ?? 0) == 0) {
+            await s.api.post('/api/tasks/${widget.taskId}/rate', {'user_id': user['id'], 'value': 1});
+          }
           if (action == 'accept') Sfx.success();
           if (ctx.mounted) Navigator.of(ctx).pop();
           _load();
@@ -558,6 +613,7 @@ class _TaskScreenState extends State<TaskScreen> {
         }
       }
 
+      final submitted = p['status'] == 'submitted';
       return SingleChildScrollView(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
@@ -567,8 +623,10 @@ class _TaskScreenState extends State<TaskScreen> {
             statusPill(s, p['status'] as String),
           ]),
           const SizedBox(height: S.x4),
-          _ReportView(comment: p['comment'] as String? ?? '', urls: (p['photo_urls'] as List? ?? []).cast<String>()),
-          if (p['can_rate'] == true) ...[
+          _ReportView(comment: p['comment'] as String? ?? '', urls: (p['photo_urls'] as List? ?? []).cast<String>(),
+              voiceUrl: (p['voice_url'] ?? '').toString(), voiceSec: (p['voice_sec'] as num?)?.toInt() ?? 0),
+          // Baho — faqat ko‘rib chiqilgandan keyin (qabul qilish o‘zi +1 beradi) / оценка — только после проверки
+          if (p['can_rate'] == true && !submitted) ...[
             const SizedBox(height: S.x4),
             RateRow(
               value: (p['points'] as int?) ?? 0,
@@ -578,26 +636,42 @@ class _TaskScreenState extends State<TaskScreen> {
               },
             ),
           ],
-          if (p['status'] == 'submitted') ...[
+          if (submitted && !returning) ...[
             const SizedBox(height: S.x4),
             AppButton(s.t('accept'),
                 key: const ValueKey('review-accept'), icon: Icons.check_rounded, expand: true, onPressed: () => act('accept')),
-            const SizedBox(height: S.x4),
-            AppTextField(controller: note, hint: s.t('return_hint'), icon: Icons.edit_note_rounded, maxLength: 500),
             const SizedBox(height: S.x2),
             AppButton(s.t('return_btn'),
-                kind: BtnKind.secondary, icon: Icons.undo_rounded, expand: true, onPressed: () => act('return')),
+                key: const ValueKey('review-return-open'),
+                kind: BtnKind.ghost,
+                icon: Icons.undo_rounded,
+                expand: true,
+                onPressed: () => setSheet(() => returning = true)),
+          ],
+          if (submitted && returning) ...[
+            const SizedBox(height: S.x4),
+            AppTextField(
+                key: const ValueKey('review-note'),
+                controller: note,
+                hint: s.t('return_hint'),
+                icon: Icons.edit_note_rounded,
+                maxLength: 500),
+            const SizedBox(height: S.x2),
+            AppButton(s.t('return_btn'),
+                key: const ValueKey('review-return'), icon: Icons.undo_rounded, expand: true, onPressed: () => act('return')),
           ],
         ]),
       );
-    });
+    }));
   }
 }
 
 class _ReportView extends StatelessWidget {
   final String comment;
   final List<String> urls;
-  const _ReportView({required this.comment, required this.urls});
+  final String voiceUrl;
+  final int voiceSec;
+  const _ReportView({required this.comment, required this.urls, this.voiceUrl = '', this.voiceSec = 0});
 
   @override
   Widget build(BuildContext context) {
@@ -625,11 +699,15 @@ class _ReportView extends StatelessWidget {
                 ),
               ),
           ]),
-        if (comment.isNotEmpty) ...[
+        if (voiceUrl.isNotEmpty) ...[
           if (urls.isNotEmpty) const SizedBox(height: S.x3),
+          VoicePlayer(key: const ValueKey('report-voice-play'), url: voiceUrl, seconds: voiceSec.toDouble()),
+        ],
+        if (comment.isNotEmpty) ...[
+          if (urls.isNotEmpty || voiceUrl.isNotEmpty) const SizedBox(height: S.x3),
           Text(comment, style: AppType.body.copyWith(color: c.text)),
         ],
-        if (comment.isEmpty && urls.isEmpty) Text(s.t('report_empty'), style: AppType.subhead.copyWith(color: c.text3)),
+        if (comment.isEmpty && urls.isEmpty && voiceUrl.isEmpty) Text(s.t('report_empty'), style: AppType.subhead.copyWith(color: c.text3)),
       ]),
     );
   }

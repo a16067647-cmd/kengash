@@ -125,19 +125,38 @@ class ProfileTab extends StatelessWidget {
             title: s.t('sounds'),
             trailing: Switch.adaptive(value: s.sounds, activeTrackColor: c.accent, onChanged: s.setSounds),
           ),
+          // Bezak effektlari — kam kerak, shuning uchun bitta qatorda yashirin / эффекты нужны редко — спрятаны в одну строку
           GroupRow(
-            key: const ValueKey('row-glass'),
+            key: const ValueKey('row-effects'),
             icon: Icons.auto_awesome_rounded,
             color: const Color(0xFF5B2DC9),
-            title: s.t('glass_fx'),
-            trailing: Switch.adaptive(value: s.glassFx, activeTrackColor: c.accent, onChanged: s.setGlassFx),
-          ),
-          GroupRow(
-            key: const ValueKey('row-bg'),
-            icon: Icons.blur_on_rounded,
-            color: const Color(0xFF00A89D),
-            title: s.t('bg_motion'),
-            trailing: Switch.adaptive(value: s.bgMotion, activeTrackColor: c.accent, onChanged: s.setBgMotion),
+            title: s.t('effects'),
+            value: s.t(s.glassFx || s.bgMotion ? 'on' : 'off'),
+            onTap: () => showAppSheet<void>(context, builder: (ctx) {
+              final s2 = AppScope.of(ctx);
+              return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Text(s2.t('effects'), style: AppType.title3.copyWith(color: s2.c.text)),
+                const SizedBox(height: S.x1),
+                Text(s2.t('effects_sub'), style: AppType.footnote.copyWith(color: s2.c.text2)),
+                const SizedBox(height: S.x3),
+                GroupList([
+                  GroupRow(
+                    key: const ValueKey('row-glass'),
+                    icon: Icons.auto_awesome_rounded,
+                    color: const Color(0xFF5B2DC9),
+                    title: s2.t('glass_fx'),
+                    trailing: Switch.adaptive(value: s2.glassFx, activeTrackColor: s2.c.accent, onChanged: s2.setGlassFx),
+                  ),
+                  GroupRow(
+                    key: const ValueKey('row-bg'),
+                    icon: Icons.blur_on_rounded,
+                    color: const Color(0xFF00A89D),
+                    title: s2.t('bg_motion'),
+                    trailing: Switch.adaptive(value: s2.bgMotion, activeTrackColor: s2.c.accent, onChanged: s2.setBgMotion),
+                  ),
+                ]),
+              ]);
+            }),
           ),
         ]),
         SectionHeader(s.t('info')),

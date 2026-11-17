@@ -174,8 +174,8 @@ def remove_user(c, uid):
     c.x("DELETE FROM messages WHERE user_id=?", (uid,))
     c.x("DELETE FROM channel_members WHERE user_id=?", (uid,))
     c.x("DELETE FROM reports WHERE reporter_id=?", (uid,))
-    for r in c.q("SELECT photos FROM task_assignees WHERE user_id=?", (uid,)):
-        paths += json.loads(r["photos"] or "[]")
+    for r in c.q("SELECT photos, voice FROM task_assignees WHERE user_id=?", (uid,)):
+        paths += json.loads(r["photos"] or "[]") + ([r["voice"]] if r["voice"] else [])
     c.x("DELETE FROM task_assignees WHERE user_id=?", (uid,))
     c.x("DELETE FROM event_guests WHERE user_id=?", (uid,))
     c.x("DELETE FROM points WHERE user_id=?", (uid,))

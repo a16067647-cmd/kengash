@@ -436,9 +436,15 @@ void main() {
     expect(find.text('41 / 62'), findsOneWidget);
     await shot(tester, 'phone-dark-ru-task-progress');
     await tap(tester, find.byKey(const ValueKey('person-m59it')));
+    // bitta asosiy tugma; «Qaytarish» — kichik havola / одна главная кнопка; «Вернуть» — маленькая ссылка
+    expect(find.byKey(const ValueKey('review-note')), findsNothing);
+    expect(find.byKey(const ValueKey('rate-plus')), findsNothing);
     await tap(tester, find.byKey(const ValueKey('review-accept')));
-    expect(server.posts.last['path'], '/api/tasks/t1/review');
-    expect(server.posts.last['action'], 'accept');
+    final review = server.posts[server.posts.length - 2];
+    expect(review['path'], '/api/tasks/t1/review');
+    expect(review['action'], 'accept');
+    expect(server.posts.last['path'], '/api/tasks/t1/rate'); // qabul = +1 / принять = +1
+    expect(server.posts.last['value'], 1);
     await back(tester);
     await tap(tester, find.byKey(const ValueKey('nav-calendar')));
     await tap(tester, find.byKey(const ValueKey('new-event')));
@@ -457,11 +463,21 @@ void main() {
     await tap(tester, find.text(tr('uz', 'box_given')));
     await tap(tester, find.byKey(const ValueKey('task-t1')));
     await tap(tester, find.byKey(const ValueKey('person-m59it')));
-    await tap(tester, find.byKey(const ValueKey('rate-plus')));
-    expect(server.posts.last['path'], '/api/tasks/t1/rate');
-    expect(server.posts.last['value'], 1);
+    await shot(tester, 'phone-light-uz-10-task-review');
+    // «Qaytarish» bosilgandagina izoh maydoni chiqadi / поле заметки — только после «Вернуть»
+    await tap(tester, find.byKey(const ValueKey('review-return-open')));
+    expect(find.byKey(const ValueKey('review-note')), findsOneWidget);
+    expect(find.byKey(const ValueKey('review-accept')), findsNothing);
+    await tester.tapAt(const Offset(10, 10));
+    await settle(tester);
+    await back(tester);
+    server.reviewStatus = 'accepted';
+    server.points = 1;
+    await tap(tester, find.byKey(const ValueKey('task-t1')));
+    await tap(tester, find.byKey(const ValueKey('person-m59it')));
     await shot(tester, 'phone-light-uz-10-task-rate');
     await tap(tester, find.byKey(const ValueKey('rate-plus')));
+    expect(server.posts.last['path'], '/api/tasks/t1/rate');
     expect(server.posts.last['value'], 0);
     await tester.tapAt(const Offset(10, 10));
     await settle(tester);

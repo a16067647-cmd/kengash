@@ -240,6 +240,8 @@ COLUMNS = [
     ("event_guests", "checked_at", "BIGINT NOT NULL DEFAULT 0"),
     ("users", "last_rank", "INTEGER NOT NULL DEFAULT 0"),
     ("users", "share_token", "TEXT NOT NULL DEFAULT ''"),
+    ("task_assignees", "voice", "TEXT NOT NULL DEFAULT ''"),       # ovozli hisobot / голосовой отчёт
+    ("task_assignees", "voice_sec", "INTEGER NOT NULL DEFAULT 0"),
 ]
 
 
