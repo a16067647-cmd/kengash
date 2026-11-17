@@ -43,7 +43,15 @@ class _CalendarTabState extends State<CalendarTab> {
   void initState() {
     super.initState();
     _canCreate = AppScope.read(context).canGive;
+    final cached = AppScope.read(context).api.peek('/api/events', query: {'when': 'upcoming'}); // darhol / сразу
+    if (cached != null) _apply(cached);
     _load();
+  }
+
+  void _apply(Json r) {
+    _list = [for (final x in r['events'] as List) (x as Map).cast<String, dynamic>()];
+    _canCreate = r['can_create'] == true;
+    _error = null;
   }
 
   Future<void> _load() async {
@@ -51,11 +59,7 @@ class _CalendarTabState extends State<CalendarTab> {
     try {
       final r = await s.api.get('/api/events', query: {'when': _past ? 'past' : 'upcoming'});
       if (!mounted) return;
-      setState(() {
-        _list = [for (final x in r['events'] as List) (x as Map).cast<String, dynamic>()];
-        _canCreate = r['can_create'] == true;
-        _error = null;
-      });
+      setState(() => _apply(r));
     } on ApiError catch (e) {
       if (mounted) setState(() => _error = s.errText(e));
     }

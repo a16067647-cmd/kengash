@@ -188,11 +188,31 @@ class AppState extends ChangeNotifier {
       Sfx.enabled = sounds;
       sideOpen = p.getBool('side_open') ?? true;
       api.token = p.getString('token');
+      api.cacheRead = (k) => _prefs?.getString('c:$k');
+      api.cacheWrite = (k, v) => _prefs?.setString('c:$k', v);
       final cached = p.getString('meta');
       if (cached != null) _applyMeta(jsonDecode(cached) as Json);
     }
     // Ochilish animatsiyasi har safar ilova ochilganda (egasining talabi) / заставка при каждом запуске (просьба владельца)
     introDone = false;
+    // Tez ochilish: avval kirgan bo‘lsa — oxirgi ma’lumot bilan darhol, internet orqada yangilaydi (3G’da ham kutish yo‘q).
+    // Мгновенный старт: если уже входили — сразу с последними данными, сеть обновляет в фоне (без ожидания на 3G).
+    final cachedMe = p?.getString('me');
+    if (api.token != null && cachedMe != null && districts.isNotEmpty) {
+      try {
+        me = (jsonDecode(cachedMe) as Map).cast<String, dynamic>();
+      } catch (_) {}
+      if (me != null) {
+        ready = true;
+        _syncChat();
+        notifyListeners();
+        unawaited(loadMeta());
+        unawaited(refreshMe()); // eskirgan kirish (401) bo‘lsa — kirish ekrani / если вход устарел (401) — экран входа
+        checkUpdate();
+        runPendingCheckin();
+        return;
+      }
+    }
     notifyListeners();
     await loadMeta();
     if (api.token == null && telegramInitData != null) await _telegramLogin(telegramInitData!);
@@ -222,6 +242,7 @@ class AppState extends ChangeNotifier {
     try {
       final r = await api.post('/api/auth/telegram/webapp', {'init_data': initData});
       if (r['token'] is String) {
+        await _clearCache();
         api.token = r['token'] as String;
         me = (r['me'] as Map).cast<String, dynamic>();
         await _prefs?.setString('token', api.token!);
@@ -403,6 +424,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> setSession(String token, Json user) async {
+    if (me?['id'] != user['id']) await _clearCache();
     api.token = token;
     me = user;
     await _prefs?.setString('token', token);
@@ -420,7 +442,17 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Boshqa odam kirganda eski ma’lumot ko‘rinmasin / чужие данные не должны остаться после выхода.
+  Future<void> _clearCache() async {
+    final p = _prefs;
+    if (p == null) return;
+    for (final k in p.getKeys().where((k) => k.startsWith('c:')).toList()) {
+      await p.remove(k);
+    }
+  }
+
   Future<void> _clearSession() async {
+    await _clearCache();
     api.token = null;
     me = null;
     _syncChat();

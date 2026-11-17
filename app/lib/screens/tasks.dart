@@ -134,7 +134,15 @@ class _TasksTabState extends State<TasksTab> {
     final s = AppScope.read(context);
     _canGive = s.canGive;
     if (s.tasksBox == 'given' && _canGive) _box = 'given';
+    final cached = s.api.peek('/api/tasks', query: {'box': _box}); // darhol / сразу
+    if (cached != null) _apply(cached);
     _load();
+  }
+
+  void _apply(Json r) {
+    _list = [for (final x in r['tasks'] as List) (x as Map).cast<String, dynamic>()];
+    if (r['can_give'] != null) _canGive = r['can_give'] == true;
+    _error = null;
   }
 
   Future<void> _load() async {
@@ -142,11 +150,7 @@ class _TasksTabState extends State<TasksTab> {
     try {
       final r = await s.api.get('/api/tasks', query: {'box': _box});
       if (!mounted) return;
-      setState(() {
-        _list = [for (final x in r['tasks'] as List) (x as Map).cast<String, dynamic>()];
-        if (r['can_give'] != null) _canGive = r['can_give'] == true;
-        _error = null;
-      });
+      setState(() => _apply(r));
     } on ApiError catch (e) {
       if (mounted) setState(() => _error = s.errText(e));
     }
