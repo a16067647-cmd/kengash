@@ -123,33 +123,33 @@ class _IdeasScreenState extends State<IdeasScreen> {
             ? AppIconButton(Icons.add_rounded, key: const ValueKey('idea-add'), tooltip: s.t('idea_new'), color: c.accentText, onPressed: _new)
             : null,
         children: [
-          Row(children: [
-            Expanded(
-              child: Segmented<String>(
-                key: const ValueKey('idea-sort'),
-                values: const ['top', 'new'],
-                labels: [s.t('idea_top'), s.t('idea_fresh')],
-                value: _sort,
-                onChanged: (v) {
-                  setState(() => _sort = v);
-                  _load();
-                },
-              ),
-            ),
-            const SizedBox(width: S.x2),
-            Expanded(
-              child: Segmented<String>(
-                key: const ValueKey('idea-scope'),
-                values: const ['mine', 'all'],
-                labels: [s.t('idea_mine'), s.t('all')],
-                value: _scope,
-                onChanged: (v) {
-                  setState(() => _scope = v);
-                  _load();
-                },
-              ),
-            ),
-          ]),
+          // tor ekranda — ustma-ust, kengida — yonma-yon / на узком экране — друг под другом
+          LayoutBuilder(builder: (context, box) {
+            final sort = Segmented<String>(
+              key: const ValueKey('idea-sort'),
+              values: const ['top', 'new'],
+              labels: [s.t('idea_top'), s.t('idea_fresh')],
+              value: _sort,
+              onChanged: (v) {
+                setState(() => _sort = v);
+                _load();
+              },
+            );
+            final scope = Segmented<String>(
+              key: const ValueKey('idea-scope'),
+              values: const ['mine', 'all'],
+              labels: [s.t('idea_mine'), s.t('all')],
+              value: _scope,
+              onChanged: (v) {
+                setState(() => _scope = v);
+                _load();
+              },
+            );
+            if (box.maxWidth < 440) {
+              return Column(children: [sort, const SizedBox(height: S.x2), scope]);
+            }
+            return Row(children: [Expanded(child: sort), const SizedBox(width: S.x2), Expanded(child: scope)]);
+          }),
           if (_list == null)
             const SkeletonRows(count: 4)
           else if (_list!.isEmpty)

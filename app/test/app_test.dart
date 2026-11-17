@@ -17,7 +17,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_server.dart';
 
-const phone = Size(390, 844);
+// Kichik telefonlarni sinash: flutter test --dart-define=PHONE_W=320 --dart-define=TEXT_SCALE=1.3
+// Проверка маленьких телефонов и крупного шрифта.
+const _pw = int.fromEnvironment('PHONE_W', defaultValue: 390);
+const _ph = int.fromEnvironment('PHONE_H', defaultValue: 844);
+const phone = Size(_pw * 1.0, _ph * 1.0);
+final textScale = double.parse(const String.fromEnvironment('TEXT_SCALE', defaultValue: '1.0'));
 const desktop = Size(1440, 900);
 final shotsDir = Platform.environment['SCREENSHOTS_DIR'];
 
@@ -46,7 +51,9 @@ Future<AppState> boot(WidgetTester tester, FakeServer server,
     {Size size = phone, String lang = 'uz', String theme = 'light', bool loggedIn = true}) async {
   tester.view.physicalSize = size * 2;
   tester.view.devicePixelRatio = 2;
+  tester.platformDispatcher.textScaleFactorTestValue = textScale;
   addTearDown(tester.view.reset);
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
   SharedPreferences.setMockInitialValues({
     'lang': lang,
     'theme': theme,

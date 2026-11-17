@@ -270,7 +270,11 @@ class _AppButtonState extends State<AppButton> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (widget.icon != null) ...[Icon(widget.icon, size: big ? 20 : 18, color: fg), const SizedBox(width: 8)],
-            box.hasBoundedWidth ? Flexible(child: text) : text,
+            // tor joyda avval biroz kichrayadi (o‘qiladi), keyin «…» / на узком месте сначала уменьшается, потом «…»
+            box.hasBoundedWidth
+                ? Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: box.maxWidth * 1.25), child: text)))
+                : text,
           ],
         );
       },
@@ -1199,9 +1203,12 @@ class StatTile extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           IconTile(icon, size: 32),
           const SizedBox(height: S.x3),
-          Text(value, maxLines: 1, style: AppType.number.copyWith(color: c.text)),
+          FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(value, maxLines: 1, style: AppType.number.copyWith(color: c.text))),
           const SizedBox(height: 2),
-          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.caption.copyWith(color: c.text2)),
+          Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.caption.copyWith(color: c.text2)),
         ]),
       ),
     );
@@ -1626,7 +1633,7 @@ class GroupRow extends StatelessWidget {
               },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: S.x4, vertical: 13),
-          child: Row(children: [
+          child: LayoutBuilder(builder: (context, box) => Row(children: [
             Container(
               width: 30,
               height: 30,
@@ -1634,20 +1641,29 @@ class GroupRow extends StatelessWidget {
               child: Icon(icon, size: 18, color: kWhite),
             ),
             const SizedBox(width: S.x3),
+            // tor ekranda ham sig‘sin: qiymat kerakli joyni oladi (qatorning ~45% gacha), nom — qolganini
+            // на узком экране: значение берёт нужное (до ~45% строки), название — остальное
             Expanded(
               child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.body.copyWith(color: c.text)),
             ),
             if (value != null)
-              Padding(
-                padding: const EdgeInsets.only(left: S.x2),
-                child: Text(value!, style: AppType.callout.copyWith(color: c.text2)),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: box.maxWidth * 0.45),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: S.x2),
+                  child: Text(value!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: AppType.callout.copyWith(color: c.text2)),
+                ),
               ),
             if (trailing != null) trailing!,
             if (onTap != null && trailing == null) ...[
               const SizedBox(width: 4),
               Icon(Icons.chevron_right_rounded, size: 22, color: c.text3),
             ],
-          ]),
+          ])),
         ),
       ),
     );
@@ -1871,14 +1887,20 @@ class FloatingNavBar extends StatelessWidget {
                               child: Icon(items[i].$2, size: 23, color: i == index ? c.accentText : c.text2),
                             ),
                             const SizedBox(height: 3),
-                            Text(
-                              items[i].$3,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppType.caption.copyWith(
-                                fontSize: 10.5,
-                                color: i == index ? c.accentText : c.text2,
-                                fontWeight: i == index ? w8 : w7,
+                            // tor ekranda kichrayadi, kesilmaydi / на узком экране уменьшается, не обрезается
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 2),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  items[i].$3,
+                                  maxLines: 1,
+                                  style: AppType.caption.copyWith(
+                                    fontSize: 10.5,
+                                    color: i == index ? c.accentText : c.text2,
+                                    fontWeight: i == index ? w8 : w7,
+                                  ),
+                                ),
                               ),
                             ),
                           ]),
