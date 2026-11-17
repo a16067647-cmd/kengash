@@ -344,7 +344,7 @@ def _mini_user(c, uid, cache):
     return cache[uid]
 
 
-def messages_json(c, rows, sign=True):
+def messages_json(c, rows, sign=True, viewer_id=None):
     cache, out, paths = {}, [], []
     for r in rows:
         atts = [] if r["deleted"] else json.loads(r["attachments"] or "[]")
@@ -357,6 +357,9 @@ def messages_json(c, rows, sign=True):
                 reply = {"id": p["id"], "text": "" if p["deleted"] else p["text"][:140], "deleted": bool(p["deleted"]),
                          "kind": pa[0]["kind"] if pa and not p["deleted"] else "",
                          "user": _mini_user(c, p["user_id"], cache)}
+        for a in atts:
+            if a.get("kind") == "poll":
+                a["poll"] = poll_json(c, a.get("poll_id"), viewer_id)
         out.append({"id": r["id"], "channel_id": r["channel_id"], "seq": r["seq"], "created_at": r["created_at"],
                     "user": _mini_user(c, r["user_id"], cache), "text": "" if r["deleted"] else r["text"],
                     "attachments": atts, "reply": reply, "edited": bool(r["edited_at"]), "deleted": bool(r["deleted"])})
@@ -436,7 +439,7 @@ def channel_get(cid: str, authorization: Optional[str] = Header(default=None)):
         out = channel_json(c, ch, u, m)
         if ch["pinned_msg"]:
             p = c.one("SELECT * FROM messages WHERE id=? AND deleted=0", (ch["pinned_msg"],))
-            out["pinned_message"] = messages_json(c, [p])[0] if p else None
+            out["pinned_message"] = messages_json(c, [p], viewer_id=u["id"])[0] if p else None
         return out
 
 
@@ -594,7 +597,7 @@ def messages_list(cid: str, before: int = 0, limit: int = 50, authorization: Opt
             rows = c.q("SELECT * FROM messages WHERE channel_id=? AND seq<? ORDER BY seq DESC LIMIT ?", (cid, before, limit))
         else:
             rows = c.q("SELECT * FROM messages WHERE channel_id=? ORDER BY seq DESC LIMIT ?", (cid, limit))
-        out = messages_json(c, rows)
+        out = messages_json(c, rows, viewer_id=u["id"])
         if ch["mode"] == "announce" and out:
             reads = [r["last_read"] for r in c.q("SELECT last_read FROM channel_members WHERE channel_id=?", (cid,))]
             for x in out:
@@ -625,6 +628,33 @@ def _valid_attachments(c, cid, atts):
     return out
 
 
+def _insert_message(c, ch, u, text, atts, reply=None):
+    """Xabarni yozadi → (natija, hodisa, a’zolar, ovozsizlar) / записывает сообщение."""
+    cid = ch["id"]
+    seq = ch["msg_seq"] + 1
+    c.x("UPDATE channels SET msg_seq=?, last_msg_at=? WHERE id=?", (seq, db.now(), cid))
+    mid = core.new_id()
+    c.x("INSERT INTO messages (id, channel_id, seq, user_id, created_at, text, reply_to, attachments) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (mid, cid, seq, u["id"], db.now(), text, reply, json.dumps(atts)))
+    c.x("UPDATE channel_members SET last_read=? WHERE channel_id=? AND user_id=?", (seq, cid, u["id"]))
+    row = c.one("SELECT * FROM messages WHERE id=?", (mid,))
+    result = messages_json(c, [row], viewer_id=u["id"])[0]
+    event = _msg_event(c, "message.new", row)
+    ids = member_ids(c, cid)
+    quiet = {r["user_id"] for r in c.q("SELECT user_id FROM channel_members WHERE channel_id=? AND muted=1", (cid,))}
+    return result, event, ids, quiet
+
+
+def _deliver(ch, u, text, atts, event, ids, quiet):
+    realtime.send(ids, event)
+    # Push: ilova ochiq bo‘lmaganlarga / тем, у кого приложение не открыто
+    targets = [x for x in ids if x != u["id"] and x not in quiet and not realtime.online(x)]
+    if targets:
+        kind = {"photo": "📷", "video": "🎬", "voice": "🎤", "file": "📎", "poll": "📊"}.get(atts[0]["kind"], "") if atts else ""
+        push.send(targets, ch["title_uz"], f"{u['name']}: {kind} {text}".strip()[:200],
+                  {"type": "message", "channel_id": ch["id"]})
+
+
 @router.post("/api/channels/{cid}/messages")
 async def message_send(cid: str, request: Request, authorization: Optional[str] = Header(default=None)):
     b = await request.json()
@@ -644,25 +674,111 @@ async def message_send(cid: str, request: Request, authorization: Optional[str] 
         reply = b.get("reply_to")
         if reply and not c.one("SELECT id FROM messages WHERE id=? AND channel_id=?", (str(reply), cid)):
             reply = None
-        seq = ch["msg_seq"] + 1
-        c.x("UPDATE channels SET msg_seq=?, last_msg_at=? WHERE id=?", (seq, db.now(), cid))
-        mid = core.new_id()
-        c.x("INSERT INTO messages (id, channel_id, seq, user_id, created_at, text, reply_to, attachments) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (mid, cid, seq, u["id"], db.now(), text, reply, json.dumps(atts)))
-        c.x("UPDATE channel_members SET last_read=? WHERE channel_id=? AND user_id=?", (seq, cid, u["id"]))
-        row = c.one("SELECT * FROM messages WHERE id=?", (mid,))
-        result = messages_json(c, [row])[0]
-        event = _msg_event(c, "message.new", row)
-        ids = member_ids(c, cid)
-        quiet = {r["user_id"] for r in c.q("SELECT user_id FROM channel_members WHERE channel_id=? AND muted=1", (cid,))}
-    realtime.send(ids, event)
-    # Push: ilova ochiq bo‘lmaganlarga / тем, у кого приложение не открыто
-    targets = [x for x in ids if x != u["id"] and x not in quiet and not realtime.online(x)]
-    if targets:
-        kind = {"photo": "📷", "video": "🎬", "voice": "🎤", "file": "📎"}.get(atts[0]["kind"], "") if atts else ""
-        push.send(targets, ch["title_uz"], f"{u['name']}: {kind} {text}".strip()[:200],
-                  {"type": "message", "channel_id": cid})
+        result, event, ids, quiet = _insert_message(c, ch, u, text, atts, reply)
+    _deliver(ch, u, text, atts, event, ids, quiet)
     return result
+
+
+# ------------------------------------------------------------------ so‘rovnomalar / опросы
+def poll_json(c, pid, viewer_id=None):
+    p = c.one("SELECT * FROM polls WHERE id=?", (pid,)) if pid else None
+    if not p:
+        return None
+    opts = json.loads(p["options"] or "[]")
+    counts = [0] * len(opts)
+    voters = set()
+    mine = []
+    for v in c.q("SELECT user_id, opt FROM poll_votes WHERE poll_id=?", (pid,)):
+        if 0 <= v["opt"] < len(opts):
+            counts[v["opt"]] += 1
+            voters.add(v["user_id"])
+            if v["user_id"] == viewer_id:
+                mine.append(v["opt"])
+    return {"id": p["id"], "question": p["question"], "options": [{"text": t, "count": n} for t, n in zip(opts, counts)],
+            "voters": len(voters), "multi": bool(p["multi"]), "closed": bool(p["closed"]), "created_by": p["created_by"],
+            "my": sorted(mine) if viewer_id else None}
+
+
+@router.post("/api/channels/{cid}/polls")
+async def poll_create(cid: str, request: Request, authorization: Optional[str] = Header(default=None)):
+    """Kanalda so‘rovnoma (2–8 javob) / опрос в канале (2–8 вариантов)."""
+    b = await request.json()
+    question = clean(b.get("question"), 200)
+    options = []
+    for o in (b.get("options") or [])[:8]:
+        t = clean(o, 100)
+        if t and t not in options:
+            options.append(t)
+    if len(question) < 2:
+        err(400, "bad_question")
+    if len(options) < 2:
+        err(400, "bad_options")
+    with db.tx() as c:
+        u = core.current_user(c, authorization)
+        ch, m = access(c, cid, u)
+        if not can_post(ch, m, u):
+            err(403, "read_only")
+        if not media_ok(u):
+            err(403, "text_only")  # o‘quvchilar so‘rovnoma ochmaydi / ученики опросы не создают
+        if not core.rate_ok("poll:" + u["id"], 10, 3600):
+            err(429, "too_many")
+        pid = core.new_id()
+        c.x("INSERT INTO polls (id, channel_id, question, options, multi, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (pid, cid, question, json.dumps(options, ensure_ascii=False), 1 if b.get("multi") else 0, u["id"], db.now()))
+        atts = [{"kind": "poll", "poll_id": pid}]
+        result, event, ids, quiet = _insert_message(c, ch, u, question, atts)
+    _deliver(ch, u, question, atts, event, ids, quiet)
+    return result
+
+
+def _poll_access(c, pid, u):
+    p = c.one("SELECT * FROM polls WHERE id=?", (pid,))
+    if not p:
+        err(404, "not_found")
+    ch, m = access(c, p["channel_id"], u)
+    return p, ch, m
+
+
+def _poll_event(c, p):
+    return {"type": "poll.update", "channel_id": p["channel_id"], "poll": poll_json(c, p["id"])}
+
+
+@router.post("/api/polls/{pid}/vote")
+async def poll_vote(pid: str, request: Request, authorization: Optional[str] = Header(default=None)):
+    """Ovoz berish yoki o‘zgartirish (bo‘sh ro‘yxat — bekor) / голос или смена (пустой список — отмена)."""
+    b = await request.json()
+    with db.tx() as c:
+        u = core.current_user(c, authorization)
+        p, ch, m = _poll_access(c, pid, u)
+        if p["closed"]:
+            err(400, "poll_closed")
+        if m is None or m["role"] == "viewer":
+            err(403, "read_only")
+        n = len(json.loads(p["options"] or "[]"))
+        picks = sorted({int(x) for x in (b.get("options") or []) if isinstance(x, int) and 0 <= x < n})
+        if len(picks) > 1 and not p["multi"]:
+            err(400, "one_option")
+        c.x("DELETE FROM poll_votes WHERE poll_id=? AND user_id=?", (pid, u["id"]))
+        for x in picks:
+            c.x("INSERT INTO poll_votes (poll_id, user_id, opt, at) VALUES (?, ?, ?, ?)", (pid, u["id"], x, db.now()))
+        out = poll_json(c, pid, u["id"])
+        event, ids = _poll_event(c, p), member_ids(c, p["channel_id"])
+    realtime.send(ids, event)
+    return out
+
+
+@router.post("/api/polls/{pid}/close")
+def poll_close(pid: str, authorization: Optional[str] = Header(default=None)):
+    with db.tx() as c:
+        u = core.current_user(c, authorization)
+        p, ch, m = _poll_access(c, pid, u)
+        if p["created_by"] != u["id"] and not is_mod(ch, m, u):
+            err(403, "forbidden")
+        c.x("UPDATE polls SET closed=1 WHERE id=?", (pid,))
+        out = poll_json(c, pid, u["id"])
+        event, ids = _poll_event(c, p), member_ids(c, p["channel_id"])
+    realtime.send(ids, event)
+    return out
 
 
 def _own_message(c, mid, u, mod_ok=True):

@@ -298,6 +298,19 @@ class ChatStore extends ChangeNotifier {
           }
         }
         notifyListeners();
+      case 'poll.update':
+        // natijalar yangilanadi, o‘z tanlovim saqlanadi / обновляем счёт, свой выбор сохраняем
+        final cid = ev['channel_id'] as String;
+        final p = (ev['poll'] as Map?)?.cast<String, dynamic>();
+        for (final m in messages[cid] ?? const <Json>[]) {
+          for (final a in (m['attachments'] as List? ?? const [])) {
+            if (p != null && a is Map && a['kind'] == 'poll' && (a['poll'] as Map?)?['id'] == p['id']) {
+              final old = (a['poll'] as Map).cast<String, dynamic>();
+              a['poll'] = {...p, 'my': old['my']};
+            }
+          }
+        }
+        notifyListeners();
       case 'channel.update':
       case 'channels.changed':
         loadChannels();

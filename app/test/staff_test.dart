@@ -70,6 +70,16 @@ void main() {
     await reveal(tester, find.byKey(const ValueKey('quick-area')));
     await tap(tester, find.byKey(const ValueKey('quick-area')));
     expect(find.byKey(const ValueKey('area-broadcast')), findsOneWidget);
+    expect(find.byKey(const ValueKey('report-card')), findsOneWidget);
+    expect(find.text('77%'), findsOneWidget);
+    await shot(tester, 'phone-light-uz-staff-report');
+    await tap(tester, find.byKey(const ValueKey('rep-send')));
+    expect(find.text(tr('uz', 'rep_sent')), findsOneWidget);
+    await tester.pump(const Duration(seconds: 4));
+    await reveal(tester, find.byKey(const ValueKey('cert-asaka')));
+    await tap(tester, find.byKey(const ValueKey('cert-asaka')));
+    expect(server.posts.last['group'], 'asaka');
+    await tester.pump(const Duration(seconds: 4));
     await reveal(tester, find.byKey(const ValueKey('export-users')));
     expect(find.byKey(const ValueKey('export-books')), findsNothing);
     await shot(tester, 'phone-dark-uz-staff-area');

@@ -22,11 +22,32 @@ class _RatingScreenState extends State<RatingScreen> {
   String? _level;
   String? _district;
   String? _direction;
+  Json? _cert; // o‘tgan chorak g‘olibi bo‘lsam / если я победитель прошлого квартала
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadCert();
+  }
+
+  Future<void> _loadCert() async {
+    final s = AppScope.read(context);
+    try {
+      final r = await s.api.get('/api/certificates/mine');
+      if (mounted) setState(() => _cert = (r['certificate'] as Map?)?.cast<String, dynamic>());
+    } on ApiError catch (_) {}
+  }
+
+  Future<void> _myPdf() async {
+    final s = AppScope.read(context);
+    s.toast(s.t('ex_preparing'), icon: Icons.hourglass_top_rounded);
+    try {
+      final r = await s.api.post('/api/certificates/mine/pdf', null, const Duration(seconds: 60));
+      await s.openUrl(r['url'] as String);
+    } on ApiError catch (e) {
+      s.toast(s.errText(e));
+    }
   }
 
   Future<void> _load() async {
@@ -83,6 +104,26 @@ class _RatingScreenState extends State<RatingScreen> {
       subtitle: d == null ? s.t('rating_sub') : '${d['quarter']} ${s.t('rating_sub')}',
       onRefresh: _load,
       children: [
+        if (_cert != null)
+          AppCard(
+            key: const ValueKey('my-cert'),
+            kind: CardKind.tinted,
+            tint: const Color(0x26E8B628),
+            borderColor: const Color(0x66E8B628),
+            onTap: _myPdf,
+            child: Row(children: [
+              const Icon(Icons.workspace_premium_rounded, color: Color(0xFFE8B628), size: 40),
+              const SizedBox(width: S.x3),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${_cert!['quarter']} · ${_cert!['rank']}-${s.t('rating_place')}',
+                      style: AppType.headline.copyWith(color: c.text)),
+                  Text(s.t('cert_mine'), style: AppType.footnote.copyWith(color: c.text2)),
+                ]),
+              ),
+              Icon(Icons.download_rounded, color: c.accentText),
+            ]),
+          ),
         if (me != null && me['rated'] == true)
           AppCard(
             key: const ValueKey('my-rating'),

@@ -258,6 +258,223 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
 }
 
 // ============================================================ faollik va Excel / активность и Excel
+/// Oylik hisobot: tanlangan oy bo‘yicha xulosa + «Telegram’ga yuborish».
+/// Ежемесячный отчёт: сводка за выбранный месяц + «Отправить в Telegram».
+class ReportCard extends StatefulWidget {
+  const ReportCard({super.key});
+
+  @override
+  State<ReportCard> createState() => _ReportCardState();
+}
+
+class _ReportCardState extends State<ReportCard> {
+  Json? _d;
+  late DateTime _month = () {
+    final n = DateTime.now();
+    return DateTime(n.year, n.month);
+  }();
+
+  String get _key => '${_month.year}-${_month.month.toString().padLeft(2, '0')}';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final s = AppScope.read(context);
+    try {
+      final d = await s.api.get('/api/report', query: {'month': _key});
+      if (mounted) setState(() => _d = d);
+    } on ApiError catch (_) {}
+  }
+
+  void _shift(int by) {
+    final n = DateTime(_month.year, _month.month + by);
+    final now = DateTime.now();
+    if (n.isAfter(DateTime(now.year, now.month))) return;
+    setState(() {
+      _month = n;
+      _d = null;
+    });
+    _load();
+  }
+
+  Future<void> _send() async {
+    final s = AppScope.read(context);
+    try {
+      await s.api.post('/api/report/send', {'month': _key});
+      s.toast(s.t('rep_sent'), icon: Icons.send_rounded);
+    } on ApiError catch (e) {
+      s.toast(s.errText(e));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final c = s.c;
+    final d = _d;
+    String pct(Object? v) => v == null ? '—' : '$v%';
+    final months = s.lang == 'ru'
+        ? const ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
+        : const ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'];
+    final top = [for (final x in (d?['top'] as List? ?? [])) (x as Map).cast<String, dynamic>()];
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SectionHeader('🗓 ${s.t('rep_title')}'),
+      const SizedBox(height: S.x3),
+      AppCard(
+        key: const ValueKey('report-card'),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            AppIconButton(Icons.chevron_left_rounded, key: const ValueKey('rep-prev'), tooltip: '', onPressed: () => _shift(-1)),
+            Expanded(
+              child: Text('${months[_month.month - 1]} ${_month.year}',
+                  textAlign: TextAlign.center, style: AppType.headline.copyWith(color: c.text)),
+            ),
+            AppIconButton(Icons.chevron_right_rounded, key: const ValueKey('rep-next'), tooltip: '', onPressed: () => _shift(1)),
+          ]),
+          const SizedBox(height: S.x3),
+          if (d == null)
+            const SkeletonRows(count: 2)
+          else ...[
+            Row(children: [
+              Expanded(child: _RepNum(value: '${d['people']}', label: s.t('rep_people'))),
+              Expanded(child: _RepNum(value: pct(d['tasks_pct']), label: '${s.t('rep_tasks')} · ${d['tasks']}')),
+              Expanded(child: _RepNum(value: pct(d['came_pct']), label: '${s.t('rep_events')} · ${d['events']}')),
+            ]),
+            if ((d['tasks_late'] as num? ?? 0) > 0 || (d['quiet_count'] as num? ?? 0) > 0) ...[
+              const SizedBox(height: S.x3),
+              Text(
+                  [
+                    if ((d['tasks_late'] as num? ?? 0) > 0) '⏰ ${s.t('rep_late')}: ${d['tasks_late']}',
+                    if ((d['quiet_count'] as num? ?? 0) > 0) '😴 ${s.t('rep_quiet')}: ${d['quiet_count']}',
+                  ].join('  ·  '),
+                  style: AppType.footnote.copyWith(color: c.text2)),
+            ],
+            if (top.isNotEmpty) ...[
+              const SizedBox(height: S.x3),
+              Text('🏆 ${s.t('rep_top')}', style: AppType.subhead.copyWith(color: c.text)),
+              const SizedBox(height: S.x1),
+              for (final p in top.take(3))
+                Text('${p['name']} — +${p['score']}', style: AppType.footnote.copyWith(color: c.text2)),
+            ],
+          ],
+          const SizedBox(height: S.x4),
+          AppButton(s.t('rep_send'),
+              key: const ValueKey('rep-send'), kind: BtnKind.secondary, icon: Icons.send_rounded, expand: true, height: 46,
+              onPressed: _send),
+        ]),
+      ),
+    ]);
+  }
+}
+
+class _RepNum extends StatelessWidget {
+  final String value;
+  final String label;
+  const _RepNum({required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = colorsOf(context);
+    return Column(children: [
+      Text(value, style: AppType.number.copyWith(color: c.accentText)),
+      const SizedBox(height: 2),
+      Text(label, textAlign: TextAlign.center, maxLines: 2, style: AppType.caption.copyWith(color: c.text2)),
+    ]);
+  }
+}
+
+/// Chorak sertifikatlari: guruhlar (tumanlar) va g‘oliblar, PDF yuklab olish.
+/// Квартальные сертификаты: группы (районы) и победители, скачать PDF.
+class CertificatesCard extends StatefulWidget {
+  const CertificatesCard({super.key});
+
+  @override
+  State<CertificatesCard> createState() => _CertificatesCardState();
+}
+
+class _CertificatesCardState extends State<CertificatesCard> {
+  Json? _d;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final s = AppScope.read(context);
+    try {
+      final d = await s.api.get('/api/certificates');
+      if (mounted) setState(() => _d = d);
+    } on ApiError catch (_) {}
+  }
+
+  Future<void> _pdf(String group) async {
+    final s = AppScope.read(context);
+    s.toast(s.t('ex_preparing'), icon: Icons.hourglass_top_rounded);
+    try {
+      final r = await s.api.post('/api/certificates/pdf', {'group': group}, const Duration(seconds: 90));
+      await s.openUrl(r['url'] as String);
+    } on ApiError catch (e) {
+      s.toast(s.errText(e));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final c = s.c;
+    final d = _d;
+    final groups = [
+      for (final g in (d?['groups'] as List? ?? [])) (g as Map).cast<String, dynamic>()
+    ].where((g) => (g['winners'] as List).isNotEmpty).toList();
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SectionHeader('🏅 ${s.t('cert_title')}${d == null ? '' : ' · ${d['quarter']}'}'),
+      const SizedBox(height: S.x3),
+      if (d == null)
+        const SkeletonRows(count: 2)
+      else if (groups.isEmpty)
+        AppCard(child: Text(s.t('cert_none'), style: AppType.subhead.copyWith(color: c.text2)))
+      else
+        GroupList([
+          for (final g in groups)
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                key: ValueKey('cert-${g['id']}'),
+                onTap: () => _pdf(g['id'] as String),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: S.x4, vertical: S.x3),
+                  child: Row(children: [
+                    const Icon(Icons.workspace_premium_rounded, color: Color(0xFFE8B628), size: 28),
+                    const SizedBox(width: S.x3),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text((g['name'] ?? '').toString(), style: AppType.bodyStrong.copyWith(color: c.text)),
+                        Text(
+                            [
+                              for (final w in (g['winners'] as List).cast<Map>())
+                                '${w['rank']}. ${((w['user'] as Map)['name'] ?? '').toString().split(' ').take(2).join(' ')}'
+                            ].join('  ·  '),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppType.footnote.copyWith(color: c.text2)),
+                      ]),
+                    ),
+                    Icon(Icons.picture_as_pdf_rounded, color: c.accentText),
+                  ]),
+                ),
+              ),
+            ),
+        ]),
+    ]);
+  }
+}
+
 class ActivityCard extends StatefulWidget {
   const ActivityCard({super.key});
 
