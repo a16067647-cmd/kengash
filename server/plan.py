@@ -7,6 +7,7 @@ Hisobotni ko‘radi / отчёт видят: vazifa bergan, admin va bajaruvchid
 import asyncio
 import base64
 import json
+import logging
 import threading
 import time
 from typing import Optional
@@ -20,6 +21,7 @@ import push
 import storage
 from model import is_above
 
+log = logging.getLogger("kengash.plan")
 router = APIRouter()
 err = core.err
 clean = core.clean
@@ -476,27 +478,26 @@ def run_reminders():
     return len(out)
 
 
+def background_tick():
+    """Fon ishlarining bitta aylanishi. Xato bo‘lsa — logga yoziladi (Render → Logs), qolganlari davom etadi.
+    Один проход фоновых задач. Ошибка пишется в лог (Render → Logs), остальные задачи продолжаются."""
+    import certificates
+    import digest
+    import report
+    jobs = [("reminders", run_reminders),
+            ("monthly report", report.send_monthly),       # oy boshida rahbarlarga / в начале месяца руководителям
+            ("weekly digest", digest.send_weekly),         # dushanba dayjesti / дайджест понедельника
+            ("certificates", certificates.notify_winners)]  # chorak boshida g‘oliblarga / в начале квартала
+    for name, job in jobs:
+        try:
+            job()
+        except Exception:
+            log.exception("background job failed: %s", name)
+
+
 def start_reminder_loop():
     def loop():
-        import report
         while True:
-            try:
-                run_reminders()
-            except Exception:
-                pass
-            try:
-                report.send_monthly()  # oy boshida rahbarlarga / в начале месяца руководителям
-            except Exception:
-                pass
-            try:
-                import digest
-                digest.send_weekly()  # dushanba dayjesti / дайджест понедельника
-            except Exception:
-                pass
-            try:
-                import certificates
-                certificates.notify_winners()  # chorak boshida g‘oliblarga / в начале квартала победителям
-            except Exception:
-                pass
+            background_tick()
             time.sleep(300)
     threading.Thread(target=loop, daemon=True).start()

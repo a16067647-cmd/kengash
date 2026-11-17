@@ -145,6 +145,10 @@ def now():
 class _Conn:
     """Bir xil interfeys / единый интерфейс: q(), one(), x()."""
 
+    def memo(self, name):
+        """Tranzaksiya ichidagi kesh; har bir x() (yozuv) uni tozalaydi / кэш в транзакции; x() (запись) его сбрасывает."""
+        return self.__dict__.setdefault("_memo", {}).setdefault(name, {})
+
     def __init__(self, raw):
         self.raw = raw
 
@@ -165,6 +169,7 @@ class _Conn:
         return rows[0] if rows else None
 
     def x(self, sql, params=()):
+        self.__dict__.pop("_memo", None)  # yozuvdan keyin kesh eskiradi / после записи кэш сбрасывается
         cur = self.raw.cursor()
         cur.execute(self._sql(sql), tuple(params))
         return cur.rowcount
