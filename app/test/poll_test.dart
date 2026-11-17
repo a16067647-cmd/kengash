@@ -38,4 +38,15 @@ void main() {
     expect(server.posts.last['path'], endsWith('/polls'));
     expect(server.posts.last['options'], ['Robototexnika', 'Dasturlash', 'Sun’iy intellekt']);
   });
+
+  testWidgets('g‘olib: reytingda sertifikat', (tester) async {
+    final server = FakeServer(me: FakeServer.seated('school', 'it'));
+    await boot(tester, server);
+    await tap(tester, find.byKey(const ValueKey('quick-rating')));
+    expect(find.byKey(const ValueKey('my-cert')), findsOneWidget);
+    await shot(tester, 'phone-light-uz-cert-banner');
+    await tap(tester, find.byKey(const ValueKey('my-cert')));
+    expect(server.posts.last['path'], '/api/certificates/mine/pdf');
+    await tester.pump(const Duration(seconds: 4));
+  });
 }

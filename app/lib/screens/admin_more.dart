@@ -387,6 +387,94 @@ class _RepNum extends StatelessWidget {
   }
 }
 
+/// Chorak sertifikatlari: guruhlar (tumanlar) va g‘oliblar, PDF yuklab olish.
+/// Квартальные сертификаты: группы (районы) и победители, скачать PDF.
+class CertificatesCard extends StatefulWidget {
+  const CertificatesCard({super.key});
+
+  @override
+  State<CertificatesCard> createState() => _CertificatesCardState();
+}
+
+class _CertificatesCardState extends State<CertificatesCard> {
+  Json? _d;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final s = AppScope.read(context);
+    try {
+      final d = await s.api.get('/api/certificates');
+      if (mounted) setState(() => _d = d);
+    } on ApiError catch (_) {}
+  }
+
+  Future<void> _pdf(String group) async {
+    final s = AppScope.read(context);
+    s.toast(s.t('ex_preparing'), icon: Icons.hourglass_top_rounded);
+    try {
+      final r = await s.api.post('/api/certificates/pdf', {'group': group}, const Duration(seconds: 90));
+      await s.openUrl(r['url'] as String);
+    } on ApiError catch (e) {
+      s.toast(s.errText(e));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final c = s.c;
+    final d = _d;
+    final groups = [
+      for (final g in (d?['groups'] as List? ?? [])) (g as Map).cast<String, dynamic>()
+    ].where((g) => (g['winners'] as List).isNotEmpty).toList();
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SectionHeader('🏅 ${s.t('cert_title')}${d == null ? '' : ' · ${d['quarter']}'}'),
+      const SizedBox(height: S.x3),
+      if (d == null)
+        const SkeletonRows(count: 2)
+      else if (groups.isEmpty)
+        AppCard(child: Text(s.t('cert_none'), style: AppType.subhead.copyWith(color: c.text2)))
+      else
+        GroupList([
+          for (final g in groups)
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                key: ValueKey('cert-${g['id']}'),
+                onTap: () => _pdf(g['id'] as String),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: S.x4, vertical: S.x3),
+                  child: Row(children: [
+                    const Icon(Icons.workspace_premium_rounded, color: Color(0xFFE8B628), size: 28),
+                    const SizedBox(width: S.x3),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text((g['name'] ?? '').toString(), style: AppType.bodyStrong.copyWith(color: c.text)),
+                        Text(
+                            [
+                              for (final w in (g['winners'] as List).cast<Map>())
+                                '${w['rank']}. ${((w['user'] as Map)['name'] ?? '').toString().split(' ').take(2).join(' ')}'
+                            ].join('  ·  '),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppType.footnote.copyWith(color: c.text2)),
+                      ]),
+                    ),
+                    Icon(Icons.picture_as_pdf_rounded, color: c.accentText),
+                  ]),
+                ),
+              ),
+            ),
+        ]),
+    ]);
+  }
+}
+
 class ActivityCard extends StatefulWidget {
   const ActivityCard({super.key});
 

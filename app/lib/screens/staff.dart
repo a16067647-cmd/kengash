@@ -7,7 +7,7 @@ import '../sound.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
-import 'admin_more.dart' show ActivityCard, BroadcastScreen, ExportCard, ReportCard;
+import 'admin_more.dart' show ActivityCard, BroadcastScreen, CertificatesCard, ExportCard, ReportCard;
 import 'directory.dart' show confirmSheet;
 import 'pickers.dart' show pickDistrict;
 
@@ -374,6 +374,7 @@ class AreaScreen extends StatelessWidget {
               ),
             ]),
           if (s.canViewArea) const ReportCard(),
+          if (s.canViewArea) const CertificatesCard(),
           if (s.canViewArea) const ActivityCard(),
           if (s.canAnnounce) const ExportCard(books: false),
         ],

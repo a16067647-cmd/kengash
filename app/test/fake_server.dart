@@ -459,6 +459,21 @@ class FakeServer {
                 {...student(), 'id': 'st2', 'name': 'Karimova Zuhra', 'class_name': '9-A'},
               ]
             };
+          case 'GET /api/certificates/mine':
+            out = {'certificate': me['level'] == 'school' ? {'rank': 1, 'score': 14, 'quarter': '2026 · III', 'group': 'Asaka tumani'} : null};
+          case 'POST /api/certificates/mine/pdf':
+            posts.add({'path': path});
+            out = {'url': 'https://storage.test/sertifikat.pdf'};
+          case 'GET /api/certificates':
+            out = {'quarter': '2026 · III', 'which': 'prev', 'groups': [
+              {'id': 'asaka', 'level': 'school', 'name': 'Asaka tumani', 'winners': [
+                {'rank': 1, 'score': 14, 'user': person('m59it', 'Karimova Madina', 'school', 'it')},
+                {'rank': 2, 'score': 11, 'user': person('m60it', 'Yusupov Jasur', 'school', 'it')},
+              ]},
+            ]};
+          case 'POST /api/certificates/pdf':
+            posts.add({'path': path, ...body});
+            out = {'url': 'https://storage.test/sertifikat.pdf', 'count': 2, 'quarter': '2026 · III'};
           case 'GET /api/report':
             out = {'month': '2026-11', 'area': 'Asaka tumani', 'people': 512, 'students': 9000, 'joined': 14, 'tasks': 340,
               'tasks_done': 262, 'tasks_pct': 77, 'tasks_late': 12, 'events': 9, 'invited': 410, 'came': 344, 'came_pct': 84,

@@ -488,5 +488,10 @@ def start_reminder_loop():
                 report.send_monthly()  # oy boshida rahbarlarga / в начале месяца руководителям
             except Exception:
                 pass
+            try:
+                import certificates
+                certificates.notify_winners()  # chorak boshida g‘oliblarga / в начале квартала победителям
+            except Exception:
+                pass
             time.sleep(300)
     threading.Thread(target=loop, daemon=True).start()
