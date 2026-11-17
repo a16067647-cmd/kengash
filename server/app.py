@@ -16,6 +16,7 @@ Muhit o‘zgaruvchilari / переменные окружения (Render → En
 import base64
 import hashlib
 import io
+import logging
 import os
 import re
 import secrets
@@ -27,12 +28,15 @@ from typing import Optional
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
+from starlette.concurrency import run_in_threadpool
 
 import db
 import model
 import telegram
 import register as reg
 from model import DIRECTION_KEYS, LEVELS, SEAT_DIRECTIONS, is_above
+
+log = logging.getLogger("kengash.app")
 
 TOKEN_DAYS = 120
 KEY_DAYS = 7
@@ -189,9 +193,17 @@ def school_names(s):
 
 
 def place_info(c, level, place_id):
-    """Joy nomi / название места."""
+    """Joy nomi / название места. Bir so‘rov ichida eslab qolinadi (reytingda yuzlab odam bir xil joyda).
+    Запоминается в пределах одного запроса (в рейтинге сотни людей из одних и тех же мест)."""
     if not level or not place_id:
         return None
+    memo = c.memo("place_info")
+    if (level, place_id) not in memo:
+        memo[(level, place_id)] = _place_info(c, level, place_id)
+    return memo[(level, place_id)]
+
+
+def _place_info(c, level, place_id):
     if level == "region":
         r = c.one("SELECT * FROM regions WHERE id=?", (place_id,))
         return r and {"level": level, "id": r["id"], "name_uz": r["name_uz"], "name_ru": r["name_ru"]}
@@ -386,7 +398,14 @@ async def tg_webhook(request: Request,
                                                                   telegram.WEBHOOK_SECRET):
         err(403, "forbidden")
     update = await request.json()
-    telegram.handle_update(update)
+    # Alohida oqimda: bot javobi (baza + Telegram API) boshqa so‘rovlarni to‘xtatmasin.
+    # Xato bo‘lsa ham 200: aks holda Telegram shu xabarni qayta-qayta yuboradi va keyingilari navbatda qoladi.
+    # В отдельном потоке: обработка (БД + Telegram API) не блокирует другие запросы.
+    # При ошибке всё равно 200: иначе Telegram повторяет это обновление, а следующие ждут в очереди.
+    try:
+        await run_in_threadpool(telegram.handle_update, update)
+    except Exception:
+        log.exception("telegram update %s failed", update.get("update_id"))
     return {"ok": True}
 
 

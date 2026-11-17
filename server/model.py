@@ -39,7 +39,14 @@ SEAT_DIRECTIONS = DIRECTION_KEYS + [MASLAHATCHI]
 
 def place_chain(c, level, place_id):
     """Joyning yuqori zanjiri / цепочка мест вверх: {'school':..., 'district':..., 'region':...}.
-    Joy topilmasa None / None, если места нет."""
+    Joy topilmasa None / None, если места нет. Bir so‘rov ichida eslab qolinadi / запоминается в пределах запроса."""
+    memo = c.memo("place_chain")
+    if (level, place_id) not in memo:
+        memo[(level, place_id)] = _place_chain(c, level, place_id)
+    return memo[(level, place_id)]
+
+
+def _place_chain(c, level, place_id):
     if level == "region":
         r = c.one("SELECT id FROM regions WHERE id=?", (place_id,))
         return {"region": r["id"]} if r else None

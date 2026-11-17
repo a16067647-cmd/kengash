@@ -312,16 +312,29 @@ def media_ok(u):
     return u.get("kind") != "student"
 
 
-def channel_json(c, ch, u, m):
-    last = c.one("SELECT * FROM messages WHERE channel_id=? AND seq=?", (ch["id"], ch["msg_seq"])) if ch["msg_seq"] else None
+_MISS = object()
+
+
+def channel_json(c, ch, u, m, pre=None):
+    """`pre` — ro‘yxat uchun oldindan yig‘ilgan ma’lumot (so‘rovlar soni kanallar soniga bog‘liq emas).
+    `pre` — заранее собранные данные для списка (число запросов не зависит от числа каналов)."""
+    pre = pre or {}
+    last = pre.get("last", {}).get(ch["id"], _MISS)
+    if last is _MISS:
+        last = c.one("SELECT * FROM messages WHERE channel_id=? AND seq=?", (ch["id"], ch["msg_seq"])) if ch["msg_seq"] else None
     preview = None
     if last:
-        author = c.one("SELECT name FROM users WHERE id=?", (last["user_id"],)) if last["user_id"] else None
+        if last["user_id"] and last["user_id"] in pre.get("names", {}):
+            author = {"name": pre["names"][last["user_id"]]}
+        else:
+            author = c.one("SELECT name FROM users WHERE id=?", (last["user_id"],)) if last["user_id"] else None
         atts = json.loads(last["attachments"] or "[]")
         preview = {"text": "" if last["deleted"] else last["text"][:120], "deleted": bool(last["deleted"]),
                    "kind": atts[0]["kind"] if atts and not last["deleted"] else "", "user_name": author["name"] if author else "",
                    "user_id": last["user_id"], "created_at": last["created_at"]}
-    count = c.one("SELECT COUNT(*) AS n FROM channel_members WHERE channel_id=?", (ch["id"],))["n"]
+    count = pre.get("counts", {}).get(ch["id"])
+    if count is None:
+        count = c.one("SELECT COUNT(*) AS n FROM channel_members WHERE channel_id=?", (ch["id"],))["n"]
     return {
         "id": ch["id"], "kind": ch["kind"], "auto_key": ch["auto_key"], "title_uz": ch["title_uz"], "title_ru": ch["title_ru"],
         "description": ch["description"], "icon": ch["icon"], "mode": ch["mode"], "members": count,
@@ -393,10 +406,41 @@ def channels_list(authorization: Optional[str] = Header(default=None)):
         else:
             rows = c.q("SELECT ch.*, cm.role AS m_role FROM channels ch JOIN channel_members cm ON cm.channel_id=ch.id "
                        "WHERE cm.user_id=? ORDER BY ch.last_msg_at DESC, ch.created_at DESC", (u["id"],))
-        out = []
-        for ch in rows:
-            out.append(channel_json(c, ch, u, member(c, ch["id"], u["id"])))
+        pre = _list_data(c, rows, u["id"])
+        out = [channel_json(c, ch, u, pre["members"].get(ch["id"]), pre) for ch in rows]
         return {"channels": out, "can_create": can_create(u)}
+
+
+def _in(ids):
+    return ",".join("?" * len(ids))
+
+
+def _list_data(c, rows, uid):
+    """Ro‘yxat uchun: a’zolik, oxirgi xabar, muallif, a’zolar soni — 4 ta so‘rovda (kanal boshiga emas).
+    Для списка: членство, последнее сообщение, автор, число участников — 4 запроса (не на каждый канал)."""
+    pre = {"members": {}, "last": {}, "names": {}, "counts": {}}
+    ids = [ch["id"] for ch in rows]
+    for i in range(0, len(ids), 500):
+        part = ids[i:i + 500]
+        for m in c.q(f"SELECT * FROM channel_members WHERE user_id=? AND channel_id IN ({_in(part)})", [uid] + part):
+            pre["members"][m["channel_id"]] = m
+        for r in c.q(f"SELECT channel_id, COUNT(*) AS n FROM channel_members WHERE channel_id IN ({_in(part)}) "
+                     "GROUP BY channel_id", part):
+            pre["counts"][r["channel_id"]] = r["n"]
+    for ch in rows:
+        pre["last"][ch["id"]] = None  # xabarsiz kanal / канал без сообщений
+    with_msgs = [ch for ch in rows if ch["msg_seq"]]
+    for i in range(0, len(with_msgs), 250):
+        part = with_msgs[i:i + 250]
+        cond = " OR ".join(["(channel_id=? AND seq=?)"] * len(part))
+        for r in c.q(f"SELECT * FROM messages WHERE {cond}", [v for ch in part for v in (ch["id"], ch["msg_seq"])]):
+            pre["last"][r["channel_id"]] = r
+    authors = sorted({r["user_id"] for r in pre["last"].values() if r and r["user_id"]})
+    for i in range(0, len(authors), 500):
+        part = authors[i:i + 500]
+        for r in c.q(f"SELECT id, name FROM users WHERE id IN ({_in(part)})", part):
+            pre["names"][r["id"]] = r["name"]
+    return pre
 
 
 @router.post("/api/channels")
@@ -631,8 +675,10 @@ def _valid_attachments(c, cid, atts):
 def _insert_message(c, ch, u, text, atts, reply=None):
     """Xabarni yozadi → (natija, hodisa, a’zolar, ovozsizlar) / записывает сообщение."""
     cid = ch["id"]
-    seq = ch["msg_seq"] + 1
-    c.x("UPDATE channels SET msg_seq=?, last_msg_at=? WHERE id=?", (seq, db.now(), cid))
+    # Atomar: ikki xabar bir vaqtda kelsa ham raqam takrorlanmaydi (`ch` eskirgan bo‘lishi mumkin).
+    # Атомарно: при одновременной отправке номер не повторяется (`ch` может быть устаревшим).
+    c.x("UPDATE channels SET msg_seq=msg_seq+1, last_msg_at=? WHERE id=?", (db.now(), cid))
+    seq = c.one("SELECT msg_seq FROM channels WHERE id=?", (cid,))["msg_seq"]
     mid = core.new_id()
     c.x("INSERT INTO messages (id, channel_id, seq, user_id, created_at, text, reply_to, attachments) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (mid, cid, seq, u["id"], db.now(), text, reply, json.dumps(atts)))
