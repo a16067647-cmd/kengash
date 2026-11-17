@@ -20,6 +20,7 @@ class FakeServer {
   int readCount = 41;
   bool booksCovers = false;
   bool feedbackDone = false;
+  bool checkedIn = false;
 
   Map<String, dynamic> task({bool given = false}) => {
         'id': 't1', 'title': 'Robototexnika to‘garagi hisoboti', 'description': 'To‘garakda nechta o‘quvchi borligini yozing.',
@@ -624,12 +625,23 @@ class FakeServer {
             } else if (req.method == 'GET' && path == '/api/events/e1') {
               out = {
                 ...event(),
+                'my_checkin': checkedIn,
                 if (me['level'] != 'school')
                   'people': [
-                    {'user': person('m59it', 'Karimova Madina', 'school', 'it'), 'rsvp': 'yes', 'can_mark': true, 'came': null},
+                    {'user': person('m59it', 'Karimova Madina', 'school', 'it'), 'rsvp': 'yes', 'can_mark': true, 'came': null, 'checked_in': true},
                     {'user': person('m60it', 'Yusupov Jasur', 'school', 'it'), 'rsvp': '', 'can_mark': true, 'came': false},
                   ],
               };
+            } else if (req.method == 'GET' && path == '/api/events/e1/qr') {
+              out = {'code': '482915', 'qr': 'https://a16067647-cmd.github.io/kengash/?checkin=e1&code=482915', 'expires_in': 42,
+                'open': true, 'came': 27, 'total': 62};
+            } else if (req.method == 'POST' && path == '/api/events/e1/checkin') {
+              posts.add({'path': path, ...body});
+              if (body['code'] != '482915') {
+                return http.Response(jsonEncode({'error': 'bad_code'}), 400, headers: {'content-type': 'application/json'});
+              }
+              checkedIn = true;
+              out = {'ok': true, 'already': false, 'title': 'IT koordinatorlar uchrashuvi'};
             } else if (req.method == 'POST' && path == '/api/events/e1/attendance') {
               posts.add({'path': path, ...body});
               out = {'ok': true};

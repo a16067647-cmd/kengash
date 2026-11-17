@@ -4,6 +4,7 @@ import '../api.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'checkin.dart' show CheckinScreen, QrScreen;
 import 'audience.dart';
 import 'channels.dart' show PresetTile, channelPresets;
 import 'directory.dart' show confirmSheet;
@@ -260,6 +261,39 @@ class _EventScreenState extends State<EventScreen> {
               const SizedBox(width: S.x3),
               rsvpBtn('no', s.t('not_going'), Icons.close_rounded),
             ]),
+          // QR davomat: mehmon — «Keldim», tashkilotchi — QR / QR-посещаемость: гость — «Пришёл», организатор — QR
+          if (rsvp != null && e['is_organizer'] != true)
+            e['my_checkin'] == true
+                ? AppCard(
+                    key: const ValueKey('ci-done'),
+                    kind: CardKind.tinted,
+                    tint: const Color(0x2234C759),
+                    child: Row(children: [
+                      const Icon(Icons.verified_rounded, color: Color(0xFF1F9D55)),
+                      const SizedBox(width: S.x3),
+                      Expanded(child: Text(s.t('ci_you_came'), style: AppType.headline.copyWith(color: c.text))),
+                    ]),
+                  )
+                : AppButton(s.t('ci_title'),
+                    key: const ValueKey('event-checkin'),
+                    icon: Icons.qr_code_scanner_rounded,
+                    kind: BtnKind.success,
+                    expand: true,
+                    onPressed: () async {
+                      final ok = await Navigator.of(context)
+                          .push<bool>(AppRoute(builder: (_) => CheckinScreen(eventId: widget.eventId)));
+                      if (ok == true) _load();
+                    }),
+          if (e['is_organizer'] == true)
+            AppButton(s.t('ci_qr_title'),
+                key: const ValueKey('event-qr'),
+                icon: Icons.qr_code_2_rounded,
+                expand: true,
+                onPressed: () async {
+                  await Navigator.of(context).push(AppRoute(
+                      builder: (_) => QrScreen(eventId: widget.eventId, title: (e['title'] ?? '').toString())));
+                  _load();
+                }),
           if (e['is_organizer'] == true) ...[
             AppCard(
               child: Row(children: [
@@ -287,6 +321,11 @@ class _EventScreenState extends State<EventScreen> {
                       Expanded(
                           child: Text(((p['user'] as Map)['name'] ?? '').toString(),
                               maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.body.copyWith(color: c.text))),
+                      if (p['checked_in'] == true)
+                        Padding(
+                          padding: const EdgeInsets.only(right: S.x2),
+                          child: const Icon(Icons.qr_code_rounded, size: 18, color: Color(0xFF1F9D55)),
+                        ),
                       if (p['can_mark'] == true)
                         _Attend(
                           key: ValueKey('attend-${(p['user'] as Map)['id']}'),
