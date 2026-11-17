@@ -177,7 +177,8 @@ jobs:
         run: |
           cp apk/app-release.apk site/Kengash.apk
           MIN=$(tr -dc 0-9 < repo/app/update_min_build.txt 2>/dev/null || true)
-          printf '{"build": %s, "min": %s, "apk": "Kengash.apk"}\n' "${{ github.run_number }}" "${MIN:-0}" > site/version.json
+          SHA=$(sha256sum site/Kengash.apk | cut -d' ' -f1)  # ilova yuklab olgach tekshiradi / приложение проверяет после загрузки
+          printf '{"build": %s, "min": %s, "apk": "Kengash.apk", "sha256": "%s"}\n' "${{ github.run_number }}" "${MIN:-0}" "$SHA" > site/version.json
           cat site/version.json && ls -la site
       - uses: actions/upload-pages-artifact@v3
         with:

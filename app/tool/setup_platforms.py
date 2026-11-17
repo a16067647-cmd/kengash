@@ -41,6 +41,43 @@ def android():
     m.write_text(s, encoding="utf-8")
 
 
+def android_ota():
+    """Ilova ichida yangilash (ota_update): APK’ni ilovaning o‘zi yuklaydi va Android «Yangilash?» oynasini ochadi.
+    Kerak: o‘rnatish ruxsati, FileProvider (fayl yo‘llari bilan), Java desugaring, minSdk ≥ 23.
+    Обновление внутри приложения (ota_update): приложение само качает APK и открывает окно Android «Обновить?»."""
+    m = APP / "android/app/src/main/AndroidManifest.xml"
+    s = m.read_text(encoding="utf-8")
+    if "REQUEST_INSTALL_PACKAGES" not in s:
+        s = s.replace("<application", '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>\n    <application', 1)
+    if "OtaUpdateFileProvider" not in s:
+        s = s.replace("</application>", """    <provider
+            android:name="sk.fourq.otaupdate.OtaUpdateFileProvider"
+            android:authorities="${applicationId}.ota_update_provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/filepaths"/>
+        </provider>
+    </application>""", 1)
+    m.write_text(s, encoding="utf-8")
+    x = APP / "android/app/src/main/res/xml/filepaths.xml"
+    x.parent.mkdir(parents=True, exist_ok=True)
+    x.write_text("""<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <files-path name="internal_apk_storage" path="ota_update/"/>
+</paths>
+""", encoding="utf-8")
+    g = APP / "android/app/build.gradle.kts"
+    if not g.exists():
+        return
+    s = g.read_text(encoding="utf-8")
+    if "isCoreLibraryDesugaringEnabled" not in s:
+        s = s.replace("    compileOptions {", "    compileOptions {\n        isCoreLibraryDesugaringEnabled = true", 1)
+    s = s.replace("minSdk = flutter.minSdkVersion", "minSdk = maxOf(flutter.minSdkVersion, 23)")
+    if "desugar_jdk_libs" not in s:
+        s += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
+    g.write_text(s, encoding="utf-8")
+
+
 def android_signing():
     """Doimiy imzo: android/key.properties bo‘lsa (CI uni GitHub secret dan yozadi) — release kalit, bo‘lmasa debug.
     Har yangilanish bir xil kalit bilan imzolanadi — telefonda eski ilova ustiga o‘rnatiladi.
@@ -110,6 +147,7 @@ if __name__ == "__main__":
         sample.unlink()
     android()
     android_signing()
+    android_ota()
     ios()
     sh(flutter, "pub", "get")
     sh(shutil.which("dart") or "dart", "run", "flutter_launcher_icons")

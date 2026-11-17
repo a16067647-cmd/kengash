@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:ota_update/ota_update.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'sound.dart';
@@ -252,10 +254,61 @@ class AppState extends ChangeNotifier {
 
   /// Yangi APK’ni yuklab olish (Android o‘zi «Yangilash?» deb so‘raydi).
   /// Скачать новый APK (Android сам спросит «Обновить?»).
+  /// Yuklanish (0..1), null — yuklanmayapti / прогресс загрузки (0..1), null — не качается.
+  double? updateProgress;
+  StreamSubscription<OtaEvent>? _ota;
+
+  /// Bir bosishda yangilash: Android’da APK’ni ilovaning o‘zi yuklaydi (foiz bilan), keyin Android «Yangilash?»
+  /// oynasini ochadi — brauzer, «Yuklanmalar» va o‘chirish kerak emas. Boshqa joyda (sayt, iOS) — havola.
+  /// Обновление в одно нажатие: на Android приложение само качает APK (с процентами) и открывает окно
+  /// «Обновить?» — без браузера, «Загрузок» и удаления. В остальных случаях — ссылка.
   Future<void> installUpdate() async {
     final apk = (update?['apk'] ?? 'Kengash.apk').toString();
-    final url = apk.startsWith('https://') ? apk : '$kSiteUrl$apk';
-    await openUrl('$url?v=${update?['build'] ?? ''}');
+    final url = '${apk.startsWith('https://') ? apk : '$kSiteUrl$apk'}?v=${update?['build'] ?? ''}';
+    final android = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    if (!android || testMode) {
+      await openUrl(url);
+      toast(t('upd_how'), icon: Icons.download_rounded);
+      return;
+    }
+    if (updateProgress != null) return; // allaqachon yuklanmoqda / уже качается
+    updateProgress = 0;
+    notifyListeners();
+    final sha = (update?['sha256'] ?? '').toString();
+    void fallback(String msg) {
+      updateProgress = null;
+      notifyListeners();
+      toast(msg, icon: Icons.download_rounded);
+      openUrl(url); // zaxira: brauzer orqali / запасной путь: через браузер
+    }
+
+    try {
+      await _ota?.cancel();
+      _ota = OtaUpdate()
+          .execute(url, destinationFilename: 'kengash-update.apk', sha256checksum: sha.length == 64 ? sha : null)
+          .listen((e) {
+        switch (e.status) {
+          case OtaStatus.DOWNLOADING:
+            updateProgress = ((double.tryParse(e.value ?? '') ?? 0) / 100).clamp(0, 1).toDouble();
+            notifyListeners();
+          case OtaStatus.INSTALLING:
+          case OtaStatus.INSTALLATION_DONE:
+            updateProgress = null;
+            notifyListeners();
+          case OtaStatus.ALREADY_RUNNING_ERROR:
+            break;
+          case OtaStatus.PERMISSION_NOT_GRANTED_ERROR:
+            fallback(t('upd_permission'));
+          case OtaStatus.CANCELED:
+            updateProgress = null;
+            notifyListeners();
+          default:
+            fallback(t('upd_failed'));
+        }
+      }, onError: (_) => fallback(t('upd_failed')));
+    } catch (_) {
+      fallback(t('upd_failed'));
+    }
   }
 
   void _applyMeta(Json m) {

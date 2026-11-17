@@ -57,13 +57,19 @@ class UpdateBanner extends StatelessWidget {
                           Expanded(
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                               Text(s.t('upd_title'), style: AppType.headline.copyWith(color: c.text)),
-                              Text(s.t('upd_sub'),
-                                  maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.footnote.copyWith(color: c.text2)),
+                              if (s.updateProgress != null)
+                                Padding(padding: const EdgeInsets.only(top: 4), child: _Progress(s.updateProgress!))
+                              else
+                                Text(s.t('upd_sub'),
+                                    maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.footnote.copyWith(color: c.text2)),
                             ]),
                           ),
                           const SizedBox(width: S.x2),
                           AppButton(s.t('upd_go'),
-                              key: const ValueKey('update-go'), height: 40, onPressed: () => _install(context)),
+                              key: const ValueKey('update-go'),
+                              height: 40,
+                              loading: s.updateProgress != null,
+                              onPressed: s.updateProgress != null ? null : () => _install(context)),
                           // Navigator ustida Overlay yo‘q — Tooltip’siz oddiy tugma
                           // над Navigator нет Overlay — простая кнопка без Tooltip
                           Semantics(
@@ -90,10 +96,27 @@ class UpdateBanner extends StatelessWidget {
   }
 }
 
-Future<void> _install(BuildContext context) async {
-  final s = AppScope.read(context);
-  await s.installUpdate();
-  s.toast(s.t('upd_how'), icon: Icons.download_rounded);
+Future<void> _install(BuildContext context) => AppScope.read(context).installUpdate();
+
+/// Yuklanish chizig‘i / полоса загрузки.
+class _Progress extends StatelessWidget {
+  final double value;
+  const _Progress(this.value);
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final c = s.c;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+      ClipRRect(
+        borderRadius: R.all(R.pill),
+        child: LinearProgressIndicator(
+            key: const ValueKey('update-progress'), value: value, minHeight: 6, color: c.accent, backgroundColor: c.surfaceAlt),
+      ),
+      const SizedBox(height: 4),
+      Text('${s.t('upd_loading')} ${(value * 100).round()}%', style: AppType.caption.copyWith(color: c.text2)),
+    ]);
+  }
 }
 
 /// Majburiy yangilanish: eski versiya ishlamaydi / обязательное обновление: старая версия не работает.
@@ -124,13 +147,16 @@ class UpdateRequiredScreen extends StatelessWidget {
                 const SizedBox(height: S.x2),
                 Text(s.t('upd_req_sub'), textAlign: TextAlign.center, style: AppType.body.copyWith(color: c.text2)),
                 const SizedBox(height: S.x6),
-                AppButton(s.t('upd_go'),
-                    key: const ValueKey('update-required-go'),
-                    expand: true,
-                    icon: Icons.download_rounded,
-                    onPressed: () => _install(context)),
+                if (s.updateProgress != null)
+                  _Progress(s.updateProgress!)
+                else
+                  AppButton(s.t('upd_go'),
+                      key: const ValueKey('update-required-go'),
+                      expand: true,
+                      icon: Icons.download_rounded,
+                      onPressed: () => _install(context)),
                 const SizedBox(height: S.x3),
-                Text(s.t('upd_how'), textAlign: TextAlign.center, style: AppType.footnote.copyWith(color: c.text3)),
+                Text(s.t('upd_how2'), textAlign: TextAlign.center, style: AppType.footnote.copyWith(color: c.text3)),
               ]),
             ),
           ),
