@@ -19,12 +19,14 @@ import 'screens/rating.dart';
 import 'screens/tasks.dart';
 import 'screens/today.dart';
 import 'screens/update.dart';
+import 'sound.dart';
 import 'state.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  Sfx.preload(); // tovushlar kechikmasin / чтобы звуки не запаздывали
   final state = AppState();
   runApp(KengashApp(state: state));
   state.init();

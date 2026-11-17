@@ -22,24 +22,8 @@ class IntroScreen extends StatefulWidget {
 
 class _IntroScreenState extends State<IntroScreen> with SingleTickerProviderStateMixin {
   static const total = Duration(milliseconds: 5200);
-  late final AnimationController _c = AnimationController(vsync: this, duration: total)..addListener(_sound);
+  late final AnimationController _c = AnimationController(vsync: this, duration: total);
   bool _done = false;
-  int _chimes = 0;
-  bool _chord = false;
-
-  /// Har nuqta halqaga qo‘nganda — bitta shisha nota (ko‘tarilib boradi), belgi tugaganda — akkord.
-  /// Каждая точка садится на кольцо — стеклянная нота (по возрастающей), знак готов — аккорд.
-  void _sound() {
-    final t = _c.value;
-    while (_chimes < 8 && t >= 0.04 + _chimes * 0.035 + 0.30 * 0.55) {
-      Sfx.chime(_chimes);
-      _chimes++;
-    }
-    if (!_chord && t >= 0.585) {
-      _chord = true;
-      Sfx.introChord();
-    }
-  }
 
   @override
   void didChangeDependencies() {
@@ -50,6 +34,9 @@ class _IntroScreenState extends State<IntroScreen> with SingleTickerProviderStat
       _c.value = 1;
       Future.delayed(const Duration(milliseconds: 1500), _finish);
     } else {
+      // Musiqa — bitta fayl: nuqtalar qo‘nishi (1.07 s + i·0.18 s) va akkord (3.04 s) unga yozilgan
+      // (tools/make_sounds.py). Музыка — один файл, ноты совпадают с точками и аккордом.
+      Sfx.intro(DateTime.now());
       _c.forward().whenComplete(_finish);
     }
   }
