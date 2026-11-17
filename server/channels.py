@@ -64,6 +64,8 @@ def auto_specs(c, u):
     out["all"] = ("Kengash e’lonlari", "Объявления Kengash", "announce", "admin" if poster else "member")
     if not lvl:
         return out
+    if u.get("kind") == "staff":
+        return out | _staff_specs(c, u)
     chain = model.place_chain(c, lvl, pid)
     if not chain:
         return out
@@ -96,6 +98,38 @@ def auto_specs(c, u):
         reg = core.place_info(c, "region", pid)
         out[f"rd:{pid}:{d}"] = (f"{reg['name_uz']} · {duz}", f"{reg['name_ru']} · {dru}", "group", "admin")
         out[f"rt:{pid}"] = (f"{reg['name_uz']} jamoasi", f"Команда: {reg['name_ru']}", "group", lead)
+    return out
+
+
+def _staff_specs(c, u):
+    """Xodim («view»): hududidagi tuman/viloyat kanallarini faqat o‘qiydi (viewer).
+    Сотрудник («view»): читает (viewer) районные/областные каналы своей территории."""
+    out = {}
+    if "view" not in model.powers(u) or not model.is_staff(u):
+        return out
+    pid = u["place_id"]
+
+    def district(did):
+        dist = core.place_info(c, "district", did)
+        if not dist:
+            return
+        out[f"dt:{did}"] = (f"{dist['name_uz']} jamoasi", f"Команда: {dist['name_ru']}", "group", "viewer")
+        for d in DIRECTION_KEYS:
+            duz, dru = _dir_names(d)
+            out[f"dd:{did}:{d}"] = (f"{dist['name_uz']} · {duz}", f"{dist['name_ru']} · {dru}", "group", "viewer")
+
+    if u["level"] == "district":
+        district(pid)
+    else:
+        reg = core.place_info(c, "region", pid)
+        if reg:
+            out[f"rt:{pid}"] = (f"{reg['name_uz']} jamoasi", f"Команда: {reg['name_ru']}", "group", "viewer")
+            for d in DIRECTION_KEYS:
+                duz, dru = _dir_names(d)
+                out[f"rd:{pid}:{d}"] = (f"{reg['name_uz']} · {duz}", f"{reg['name_ru']} · {dru}", "group", "viewer")
+        # tumanlar jamoalari (yo‘nalish kanallarisiz — juda ko‘p bo‘lardi) / команды районов
+        for r in c.q("SELECT id, name_uz, name_ru FROM districts WHERE region_id=? AND hidden=0", (pid,)):
+            out[f"dt:{r['id']}"] = (f"{r['name_uz']} jamoasi", f"Команда: {r['name_ru']}", "group", "viewer")
     return out
 
 
@@ -177,7 +211,7 @@ def _delete_channel(c, cid):
 # ------------------------------------------------------------------ auditoriya / аудитория
 def can_create(u):
     """Kanal yarata oladi: admin, tuman/viloyat koordinatorlari, maslahatchi / может создавать каналы."""
-    return u["role"] == "admin" or (u["status"] == "active" and (
+    return u["role"] == "admin" or (u["status"] == "active" and u.get("kind") != "staff" and (
         u.get("level") in ("district", "region") or u.get("direction") == model.MASLAHATCHI))
 
 
@@ -264,7 +298,7 @@ def is_mod(ch, m, u):
 def can_post(ch, m, u):
     if u["role"] == "admin":
         return True
-    if m is None:
+    if m is None or m["role"] == "viewer":  # xodim faqat o‘qiydi / сотрудник только читает
         return False
     return ch["mode"] == "group" or m["role"] in ("owner", "admin") or u["role"] == "admin"
 

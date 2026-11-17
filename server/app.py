@@ -218,7 +218,10 @@ def public_user(c, u, viewer=None):
         "level": u["level"], "place_id": u["place_id"], "direction": u["direction"],
         "place": place_info(c, u["level"], u["place_id"]), "role": u["role"], "status": u["status"],
         "kind": u.get("kind") or "", "class_name": u.get("class_name") or "",
+        "title": u.get("title") or "",
     }
+    if u.get("kind") == "staff":
+        out["powers"] = sorted(model.powers(u))
     if viewer is not None and (viewer["id"] == u["id"] or (u["level"] and is_above(c, viewer, u["level"], u["place_id"], u["direction"]))
                                or viewer["role"] == "admin"):
         out["phone"] = u["phone"]
@@ -232,8 +235,10 @@ def me_json(c, u):
         "consent": u["consent_version"] == LEGAL_VERSION,
         "needs_registration": u["role"] != "admin" and u["status"] in ("new", "rejected"),
         "can_give": can_give(u),
-        "can_create_channels": u["role"] == "admin" or (u["status"] == "active" and (
+        "can_create_channels": u["role"] == "admin" or (u["status"] == "active" and u.get("kind") != "staff" and (
             u["level"] in ("district", "region") or u["direction"] == model.MASLAHATCHI)),
+        "can_view_area": model.has_power(u, "view"),
+        "can_announce": model.has_power(u, "announce"),
         "locked": locked(u),
         "paid_until": u["paid_until"],
         "payments": PAYMENTS_ENABLED,
@@ -249,6 +254,8 @@ def can_give(u):
     Может ли выдавать задачи и мероприятия."""
     if u["role"] == "admin":
         return True
+    if u.get("kind") == "staff":
+        return model.has_power(u, "plan")
     return u["status"] == "active" and bool(u["level"]) and u.get("kind") != "student" and u["direction"] is not None
 
 
@@ -622,7 +629,8 @@ def user_get(uid: str, authorization: Optional[str] = Header(default=None)):
         if not u or not visible_to(c, v, u):
             err(404, "not_found")
         out = public_user(c, u, v)
-        out["can_manage"] = bool(u["level"]) and is_above(c, v, u["level"], u["place_id"], u["direction"])
+        out["can_manage"] = bool(u["level"]) and v.get("kind") != "staff" and \
+            is_above(c, v, u["level"], u["place_id"], u["direction"])
         return out
 
 
@@ -633,7 +641,7 @@ async def seat_free(request: Request, authorization: Optional[str] = Header(defa
     level, place_id, direction = body_seat(b)
     with db.tx() as c:
         v = current_user(c, authorization)
-        if not is_above(c, v, level, place_id, direction):
+        if v.get("kind") == "staff" or not is_above(c, v, level, place_id, direction):
             err(403, "forbidden")
         holder = c.one("SELECT id FROM users WHERE level=? AND place_id=? AND direction=?", (level, place_id, direction))
         c.x("UPDATE users SET level=NULL, place_id=NULL, direction=NULL WHERE level=? AND place_id=? AND direction=?",
@@ -849,6 +857,9 @@ app.include_router(books.router)
 import admin_tools  # noqa: E402
 
 app.include_router(admin_tools.router)
+import staff  # noqa: E402
+
+app.include_router(staff.router)
 
 
 if __name__ == "__main__":

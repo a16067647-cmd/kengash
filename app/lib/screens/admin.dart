@@ -11,6 +11,7 @@ import 'books.dart' show AdminBooksScreen;
 import 'directory.dart' show confirmSheet;
 import 'media.dart' show PhotoViewer;
 import 'pickers.dart';
+import 'staff.dart' show StaffScreen;
 
 /// Admin paneli: statistika, foydalanuvchilar, maktablar.
 /// Панель админа: статистика, пользователи, школы.
@@ -35,6 +36,12 @@ class _AdminScreenState extends State<AdminScreen> {
             tooltip: s.t('bc_title'),
             color: s.c.accentText,
             onPressed: () => Navigator.of(context).push(AppRoute(builder: (_) => const BroadcastScreen()))),
+        const SizedBox(width: S.x2),
+        AppIconButton(Icons.badge_rounded,
+            key: const ValueKey('admin-staff'),
+            tooltip: s.t('staff_title'),
+            color: s.c.accentText,
+            onPressed: () => Navigator.of(context).push(AppRoute(builder: (_) => const StaffScreen()))),
         const SizedBox(width: S.x2),
         AppIconButton(Icons.menu_book_rounded,
             key: const ValueKey('admin-books'),

@@ -12,6 +12,7 @@ import '../theme.dart';
 import '../widgets.dart';
 import '../sound.dart';
 import 'directory.dart' show UserCard;
+import 'staff.dart' show StaffEditScreen;
 
 /// Botda ro‘yxatdan o‘tish: ism yoziladi, qolgani — tugmalar. Tugagach ilova o‘zi ochiladi.
 /// Регистрация в боте: пишется только имя, остальное — кнопки. После этого приложение откроется само.
@@ -236,6 +237,19 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                     ),
                   ]),
                   const SizedBox(height: S.x3),
+                  if (u['kind'] == 'staff')
+                    // «Boshqa»: avval lavozim, hudud, vakolatlar / «Другое»: сначала должность, территория, полномочия
+                    AppButton(s.t('staff_setup'),
+                        key: ValueKey('setup-${u['id']}'),
+                        icon: Icons.tune_rounded,
+                        height: 46,
+                        expand: true,
+                        onPressed: () async {
+                          final ok = await Navigator.of(context)
+                              .push<bool>(AppRoute(builder: (_) => StaffEditScreen(user: u)));
+                          if (ok == true) _load();
+                        })
+                  else
                   Row(children: [
                     Expanded(
                         child: AppButton(s.t('approve'),

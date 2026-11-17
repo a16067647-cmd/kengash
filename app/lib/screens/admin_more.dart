@@ -368,7 +368,8 @@ class _ActivityCardState extends State<ActivityCard> {
 }
 
 class ExportCard extends StatelessWidget {
-  const ExportCard({super.key});
+  final bool books;
+  const ExportCard({super.key, this.books = true});
 
   @override
   Widget build(BuildContext context) {
@@ -398,7 +399,7 @@ class ExportCard extends StatelessWidget {
         row('users', Icons.people_alt_rounded, const Color(0xFF1F9D55)),
         row('tasks', Icons.task_alt_rounded, const Color(0xFF0A84D6)),
         row('rating', Icons.emoji_events_rounded, const Color(0xFFFFBB02)),
-        row('books', Icons.menu_book_rounded, const Color(0xFFD6409F)),
+        if (books) row('books', Icons.menu_book_rounded, const Color(0xFFD6409F)),
       ]),
     ]);
   }

@@ -271,6 +271,23 @@ class FakeServer {
       };
 
 
+  /// Xodim: Asaka Kelajak Markazi direktori / сотрудник: директор Kelajak Markazi Асаки.
+  static Map<String, dynamic> staffUser({List<String> powers = const ['announce', 'plan', 'view']}) => {
+        ...seated('district', 'it'),
+        'id': 'dir1',
+        'name': 'Karimova Dilnoza',
+        'direction': null,
+        'kind': 'staff',
+        'title': 'Asaka Kelajak Markazi direktori',
+        'powers': powers,
+        'can_give': powers.contains('plan'),
+        'can_view_area': powers.contains('view'),
+        'can_announce': powers.contains('announce'),
+        'can_create_channels': false,
+      };
+
+  final List<Map<String, dynamic>> staff = [];
+
   static Map<String, dynamic> admin() => {
         ...newUser(),
         'name': 'Mamajonov Bexruz',
@@ -417,6 +434,16 @@ class FakeServer {
                 {...student(), 'id': 'st2', 'name': 'Karimova Zuhra', 'class_name': '9-A'},
               ]
             };
+          case 'GET /api/admin/staff':
+            out = {'staff': staff};
+          case 'POST /api/admin/staff':
+            lastBody = body;
+            final u = {
+              ...staffUser(powers: [for (final p in body['powers'] as List) p.toString()]),
+              'id': 'new${staff.length}', 'name': body['name'], 'title': body['title'], 'linked': false, 'status': 'active',
+            };
+            staff.add(u);
+            out = u;
           case 'GET /api/approvals':
             out = {'users': approvals};
           case 'POST /api/approvals/p1':
@@ -605,6 +632,11 @@ class FakeServer {
               };
             } else if (req.method == 'POST' && path == '/api/events/e1/attendance') {
               posts.add({'path': path, ...body});
+              out = {'ok': true};
+            } else if (req.method == 'POST' && path.startsWith('/api/admin/staff/')) {
+              lastBody = body;
+              final id = path.split('/').last;
+              approvals.removeWhere((x) => x['id'] == id);
               out = {'ok': true};
             } else if (req.method == 'POST' && path == '/api/events/e1/rsvp') {
               rsvp = body['rsvp'] as String;

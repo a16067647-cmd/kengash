@@ -82,9 +82,44 @@ async def feedback_reply(rid: str, request: Request, authorization: Optional[str
     return {"ok": True}
 
 
+# ------------------------------------------------------------------ xodim hududi / территория сотрудника
+def need_power(u, power):
+    """Admin yoki shu vakolatli xodim / админ или сотрудник с этим полномочием."""
+    if not model.has_power(u, power):
+        err(403, "forbidden")
+
+
+def area_sql(u, alias="u"):
+    """Xodim hududidagi foydalanuvchilar (SQL bo‘lagi, parametrlar). Admin uchun — cheklovsiz.
+    Пользователи территории сотрудника (фрагмент SQL, параметры). Для админа — без ограничений."""
+    if u["role"] == "admin":
+        return "1=1", []
+    a, pid = alias, u["place_id"]
+    if u["level"] == "district":
+        return (f"(({a}.level='district' AND {a}.place_id=?) OR ({a}.level='school' AND {a}.place_id IN "
+                f"(SELECT id FROM schools WHERE district_id=?)))"), [pid, pid]
+    return (f"(({a}.level='region' AND {a}.place_id=?) OR ({a}.level='district' AND {a}.place_id IN "
+            f"(SELECT id FROM districts WHERE region_id=?)) OR ({a}.level='school' AND {a}.place_id IN "
+            f"(SELECT s.id FROM schools s JOIN districts d ON d.id=s.district_id WHERE d.region_id=?)))"), [pid, pid, pid]
+
+
+def staff_scope(u, alias="u"):
+    """Hudud + o‘quvchilarsiz (xodim o‘quvchilarni ko‘rmaydi) / территория, без учеников."""
+    sql, params = area_sql(u, alias)
+    if u["role"] == "admin":
+        return sql, params
+    return f"{sql} AND {alias}.kind IN ('coordinator','maslahatchi')", params
+
+
 # ------------------------------------------------------------------ e’lon tarqatish / рассылка
-def _audience(c, f):
+def _audience(c, f, actor=None):
     where, params = ["u.status='active'", "u.role<>'admin'"], []
+    if actor is not None and actor["role"] != "admin":
+        sql, p = area_sql(actor)  # e’lon o‘quvchilarga ham boradi / объявление доходит и до учеников
+        where.append(sql)
+        params += p
+        where.append("u.id<>?")
+        params.append(actor["id"])
     kind = f.get("kind")
     if kind == "student":
         where.append("u.kind='student'")
@@ -110,8 +145,9 @@ def _audience(c, f):
 async def broadcast_count(request: Request, authorization: Optional[str] = Header(default=None)):
     b = await request.json()
     with db.tx() as c:
-        core.need_admin(core.current_user(c, authorization))
-        return {"count": len(_audience(c, b.get("filter") or {}))}
+        u = core.current_user(c, authorization)
+        need_power(u, "announce")
+        return {"count": len(_audience(c, b.get("filter") or {}, u))}
 
 
 @router.post("/api/admin/broadcast")
@@ -123,11 +159,12 @@ async def broadcast(request: Request, authorization: Optional[str] = Header(defa
     f = b.get("filter") or {}
     with db.tx() as c:
         u = core.current_user(c, authorization)
-        core.need_admin(u)
+        need_power(u, "announce")
         if not core.rate_ok("broadcast:" + u["id"], 10, 3600):
             err(429, "too_many")
-        ids = [r["id"] for r in _audience(c, f)]
-    push.send(ids, "📣 Kengash", text, {"type": "broadcast"})
+        ids = [r["id"] for r in _audience(c, f, u)]
+        title = "📣 Kengash" if u["role"] == "admin" else f"📣 {u['title'] or u['name']}"
+    push.send(ids, title, text, {"type": "broadcast"})
     return {"ok": True, "count": len(ids)}
 
 
@@ -136,14 +173,21 @@ async def broadcast(request: Request, authorization: Optional[str] = Header(defa
 def activity(authorization: Optional[str] = Header(default=None)):
     with db.tx() as c:
         v = core.current_user(c, authorization)
-        core.need_admin(v)
+        need_power(v, "view")
         week, month = db.now() - 7 * 86400, db.now() - 30 * 86400
-        inactive = c.q("SELECT * FROM users WHERE status='active' AND role<>'admin' AND last_seen<? "
-                       "ORDER BY last_seen LIMIT 50", (week,))
-        inactive_n = c.one("SELECT COUNT(*) AS n FROM users WHERE status='active' AND role<>'admin' AND last_seen<?",
-                           (week,))["n"]
+        scope, sp = staff_scope(v)
+        inactive = c.q(f"SELECT * FROM users u WHERE status='active' AND role<>'admin' AND last_seen<? AND {scope} "
+                       "ORDER BY last_seen LIMIT 50", [week] + sp)
+        inactive_n = c.one(f"SELECT COUNT(*) AS n FROM users u WHERE status='active' AND role<>'admin' AND last_seen<? "
+                           f"AND {scope}", [week] + sp)["n"]
         districts = []
-        for d in c.q("SELECT * FROM districts ORDER BY sort"):
+        if v["role"] == "admin":
+            dist_rows = c.q("SELECT * FROM districts ORDER BY sort")
+        elif v["level"] == "district":
+            dist_rows = c.q("SELECT * FROM districts WHERE id=?", (v["place_id"],))
+        else:
+            dist_rows = c.q("SELECT * FROM districts WHERE region_id=? ORDER BY sort", (v["place_id"],))
+        for d in dist_rows:
             sch = "SELECT id FROM schools WHERE district_id=? AND hidden=0"
             tot = c.one(f"SELECT COUNT(*) AS n FROM task_assignees a JOIN tasks t ON t.id=a.task_id JOIN users u ON u.id=a.user_id "
                         f"WHERE t.created_at>? AND ((u.level='district' AND u.place_id=?) OR (u.level='school' AND u.place_id IN ({sch})))",
@@ -162,8 +206,13 @@ def activity(authorization: Optional[str] = Header(default=None)):
                   "WHERE m.created_at>? AND (ch.auto_key LIKE 'chat:%' OR ch.auto_key LIKE 'school:%' OR ch.auto_key LIKE 'news:%') "
                   "GROUP BY ch.auto_key ORDER BY n DESC LIMIT 30", (week,))
         by_school = {}
+        allowed = {d["id"] for d in dist_rows}
         for r in top:
             sid = r["auto_key"].split(":", 1)[1]
+            if v["role"] != "admin":
+                p0 = core.place_info(c, "school", sid)
+                if not p0 or p0["district_id"] not in allowed:
+                    continue
             by_school[sid] = by_school.get(sid, 0) + r["n"]
         top_schools = []
         for sid, n in sorted(by_school.items(), key=lambda x: -x[1])[:5]:
@@ -194,7 +243,7 @@ async def user_edit(uid: str, request: Request, authorization: Optional[str] = H
             except reg.RegError:
                 err(400, "bad_name")
             c.x("UPDATE users SET name=? WHERE id=?", (name, uid))
-        if b.get("kind") in model.KINDS:
+        if b.get("kind") in ("coordinator", "maslahatchi", "student"):  # xodim — /api/admin/staff orqali
             kind = b["kind"]
             level = b.get("level") if kind == "coordinator" else "school"
             place_id = str(b.get("place_id") or "")
@@ -234,7 +283,7 @@ def _place(c, u):
     return (p.get("name_uz", ""), "") if p.get("level") == "district" else ("", "")
 
 
-def build_xlsx(c, what):
+def build_xlsx(c, what, viewer=None):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill
     import rating
@@ -245,7 +294,8 @@ def build_xlsx(c, what):
         ws.title = "Foydalanuvchilar"
         ws.append(["Ism", "Rol", "Daraja", "Tuman", "Maktab", "Sinf", "Yo‘nalish", "Telefon", "Telegram", "Holat",
                    "Oxirgi kirish"])
-        for u in c.q("SELECT * FROM users ORDER BY name"):
+        scope, sp = staff_scope(viewer) if viewer else ("1=1", [])
+        for u in c.q(f"SELECT * FROM users u WHERE {scope} ORDER BY name", sp):
             dist, school = _place(c, u)
             ws.append([u["name"], u["kind"] or u["role"], u["level"] or "", dist, school, u["class_name"],
                        dname.get(u["direction"], ""), u["phone"] or "", ("@" + u["tg_username"]) if u["tg_username"] else "",
@@ -256,8 +306,9 @@ def build_xlsx(c, what):
         for t in c.q("SELECT * FROM tasks ORDER BY created_at DESC LIMIT 500"):
             by = c.one("SELECT name FROM users WHERE id=?", (t["created_by"],))
             pts = rating.points_of(c, "task", t["id"])
-            for a in c.q("SELECT a.*, u.name AS u_name FROM task_assignees a JOIN users u ON u.id=a.user_id WHERE a.task_id=?",
-                         (t["id"],)):
+            scope, sp = staff_scope(viewer) if viewer else ("1=1", [])
+            for a in c.q(f"SELECT a.*, u.name AS u_name FROM task_assignees a JOIN users u ON u.id=a.user_id "
+                         f"WHERE a.task_id=? AND {scope}", [t["id"]] + sp):
                 ws.append([t["title"], by["name"] if by else "", _date(t["deadline"]), a["u_name"], a["status"],
                            a["comment"], _date(a["submitted_at"]), pts.get(a["user_id"], "")])
     elif what == "rating":
@@ -265,8 +316,10 @@ def build_xlsx(c, what):
         start, label = rating.quarter()
         ws.append([f"Chorak: {label}", "", "", "", ""])
         ws.append(["Ism", "Daraja", "Yo‘nalish", "Joy", "Ball"])
+        scope, sp = staff_scope(viewer) if viewer else ("1=1", [])
         rows = c.q("SELECT u.*, COALESCE((SELECT SUM(p.value) FROM points p WHERE p.user_id=u.id AND p.created_at>=?), 0) AS score "
-                   "FROM users u WHERE u.kind='coordinator' AND u.status='active' ORDER BY score DESC, u.name", (start,))
+                   f"FROM users u WHERE u.kind='coordinator' AND u.status='active' AND {scope} ORDER BY score DESC, u.name",
+                   [start] + sp)
         for u in rows:
             dist, school = _place(c, u)
             ws.append([u["name"], u["level"], dname.get(u["direction"], ""), school or dist or "Viloyat", int(u["score"])])
@@ -308,8 +361,11 @@ async def export(request: Request, authorization: Optional[str] = Header(default
     if what not in ("users", "tasks", "rating", "books"):
         err(400, "bad")
     with db.tx() as c:
-        core.need_admin(core.current_user(c, authorization))
-        data = build_xlsx(c, what)
+        u = core.current_user(c, authorization)
+        need_power(u, "announce")
+        if u["role"] != "admin" and what == "books":
+            err(403, "forbidden")
+        data = build_xlsx(c, what, u)
     if not storage.enabled():
         err(503, "storage_off")
     import time
