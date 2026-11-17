@@ -735,10 +735,18 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   @override
   void initState() {
     super.initState();
-    if (presets.isNotEmpty) {
-      _preset = presets.first.$1;
-      _audience = presets.first.$3;
+    // Aqlli standartlar: oxirgi tanlangan guruh, 3 kundan keyin 18:00, rasm sozlamasi — oxirgidek.
+    // Умные значения: последняя группа, срок — через 3 дня в 18:00, фото — как в прошлый раз.
+    final s = AppScope.read(context);
+    final last = s.lastUsed('task_preset');
+    final p = presets.where((x) => x.$1 == last).firstOrNull ?? presets.firstOrNull;
+    if (p != null) {
+      _preset = p.$1;
+      _audience = p.$3;
     }
+    final now = DateTime.now();
+    _deadline = DateTime(now.year, now.month, now.day + 3, 18);
+    _photo = s.lastUsed('task_photo') != 'false';
   }
 
   @override
@@ -765,6 +773,8 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         'photo_required': _photo,
         ..._audience!.toJson(),
       });
+      if (_preset != null && _preset != 'custom') s.rememberUsed('task_preset', _preset!);
+      s.rememberUsed('task_photo', '$_photo');
       s.toast('${s.t('task_created')} · ${r['total']} ${s.t('aud_people')}', icon: Icons.check_circle_rounded);
       if (mounted) Navigator.of(context).pop(true);
     } on ApiError catch (e) {

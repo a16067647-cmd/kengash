@@ -403,10 +403,15 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   @override
   void initState() {
     super.initState();
-    if (presets.isNotEmpty) {
-      _preset = presets.first.$1;
-      _audience = presets.first.$3;
+    // Aqlli standartlar: oxirgi guruh va oxirgi joy / умные значения: последняя группа и последнее место.
+    final s = AppScope.read(context);
+    final last = s.lastUsed('event_preset');
+    final p = presets.where((x) => x.$1 == last).firstOrNull ?? presets.firstOrNull;
+    if (p != null) {
+      _preset = p.$1;
+      _audience = p.$3;
     }
+    _place.text = s.lastUsed('event_place') ?? '';
   }
 
   @override
@@ -434,6 +439,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         'starts_at': toTs(_when!),
         ..._audience!.toJson(),
       });
+      if (_preset != null && _preset != 'custom') s.rememberUsed('event_preset', _preset!);
+      if (_place.text.trim().isNotEmpty) s.rememberUsed('event_place', _place.text.trim());
       s.toast('${s.t('event_created')} · ${r['guests']} ${s.t('aud_people')}', icon: Icons.check_circle_rounded);
       if (mounted) Navigator.of(context).pop(true);
     } on ApiError catch (e) {
@@ -461,7 +468,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   icon: Icons.event_rounded,
                   maxLength: 120),
               const SizedBox(height: S.x3),
-              AppTextField(controller: _place, label: s.t('event_place'), icon: Icons.place_rounded, maxLength: 200),
+              AppTextField(
+                  key: const ValueKey('event-place'),
+                  controller: _place,
+                  label: s.t('event_place'),
+                  icon: Icons.place_rounded,
+                  maxLength: 200),
               const SizedBox(height: S.x3),
               AppTextField(
                   controller: _desc, label: s.t('task_details'), icon: Icons.notes_rounded, maxLines: 4, maxLength: 2000),

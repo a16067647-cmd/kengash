@@ -319,6 +319,10 @@ class AppState extends ChangeNotifier {
     bot = (m['bot'] ?? bot).toString();
   }
 
+  /// Oxirgi tanlovlarni eslab qolish (aqlli standartlar) / запомнить последний выбор (умные значения по умолчанию).
+  String? lastUsed(String key) => _prefs?.getString('last:$key');
+  void rememberUsed(String key, String value) => _prefs?.setString('last:$key', value);
+
   Future<void> loadMeta() async {
     try {
       final m = await api.get('/api/meta', timeout: const Duration(seconds: 75));
