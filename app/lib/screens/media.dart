@@ -64,6 +64,7 @@ class AttachmentView extends StatelessWidget {
                     : Image.network(url,
                         fit: BoxFit.cover,
                         gaplessPlayback: true,
+                        cacheWidth: (320 * MediaQuery.devicePixelRatioOf(context)).round(), // chatdagi kichik ko‘rinish
                         errorBuilder: (_, __, ___) =>
                             Container(color: c.surfaceAlt, child: Icon(Icons.broken_image_rounded, color: c.text3, size: 40))),
               ),

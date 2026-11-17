@@ -113,6 +113,16 @@ CREATE TABLE IF NOT EXISTS books (
   description TEXT NOT NULL DEFAULT '', month TEXT NOT NULL, cover_path TEXT NOT NULL, pdf_path TEXT NOT NULL,
   pdf_size BIGINT NOT NULL DEFAULT 0, created_by TEXT NOT NULL, created_at BIGINT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS ideas (
+  id TEXT PRIMARY KEY, user_id TEXT NOT NULL, district_id TEXT NOT NULL DEFAULT '', title TEXT NOT NULL,
+  body TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'open', reply TEXT NOT NULL DEFAULT '',
+  replied_by TEXT NOT NULL DEFAULT '', created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS idea_votes (idea_id TEXT NOT NULL, user_id TEXT NOT NULL, PRIMARY KEY (idea_id, user_id));
+CREATE TABLE IF NOT EXISTS read_log (
+  user_id TEXT NOT NULL, book_id TEXT NOT NULL, title TEXT NOT NULL, author TEXT NOT NULL DEFAULT '', at BIGINT NOT NULL,
+  PRIMARY KEY (user_id, book_id)
+);
 CREATE TABLE IF NOT EXISTS book_reads (
   book_id TEXT NOT NULL, user_id TEXT NOT NULL, at BIGINT NOT NULL, PRIMARY KEY (book_id, user_id)
 );
@@ -223,6 +233,8 @@ COLUMNS = [
     ("users", "powers", "TEXT NOT NULL DEFAULT ''"),
     ("events", "checkin_key", "TEXT NOT NULL DEFAULT ''"),
     ("event_guests", "checked_at", "BIGINT NOT NULL DEFAULT 0"),
+    ("users", "last_rank", "INTEGER NOT NULL DEFAULT 0"),
+    ("users", "share_token", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 

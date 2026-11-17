@@ -22,6 +22,20 @@ class FakeServer {
   bool feedbackDone = false;
   bool checkedIn = false;
   bool withPoll = false;
+  final List<Map<String, dynamic>> ideas = [
+    {
+      'id': 'i1', 'title': 'Maktab hovlisida kitob javoni', 'body': 'Tanaffusda o‘qish uchun ochiq javon.',
+      'status': 'planned', 'reply': 'Keyingi oy qilamiz', 'replied_by': {'name': 'Asaka Lider', 'title': ''},
+      'author': {'id': 'm60it', 'name': 'Yusupov Jasur', 'photo': '', 'kind': 'coordinator', 'place': null},
+      'district': null, 'votes': 24, 'my_vote': false, 'mine': false, 'can_answer': false, 'created_at': 1763000000,
+    },
+    {
+      'id': 'i2', 'title': 'Robototexnika bo‘yicha tuman tanlovi', 'body': '', 'status': 'open', 'reply': '',
+      'replied_by': null,
+      'author': {'id': 'm59l', 'name': 'Toshpo‘latov Sardorbek', 'photo': '', 'kind': 'coordinator', 'place': null},
+      'district': null, 'votes': 11, 'my_vote': false, 'mine': false, 'can_answer': false, 'created_at': 1763100000,
+    },
+  ];
   Map<String, dynamic> poll = {
     'id': 'pl1', 'question': 'Uchrashuv qaysi kuni bo‘lsin?', 'multi': false, 'closed': false, 'created_by': 'm59l', 'voters': 12,
     'my': <int>[],
@@ -474,6 +488,36 @@ class FakeServer {
           case 'POST /api/certificates/pdf':
             posts.add({'path': path, ...body});
             out = {'url': 'https://storage.test/sertifikat.pdf', 'count': 2, 'quarter': '2026 · III'};
+          case 'GET /api/ideas':
+            out = {'ideas': ideas, 'district': 'asaka'};
+          case 'POST /api/ideas':
+            posts.add({'path': path, ...body});
+            final n = {...ideas.first, 'id': 'i9', 'title': body['title'], 'body': body['body'], 'votes': 0, 'status': 'open',
+              'reply': '', 'replied_by': null, 'mine': true};
+            ideas.insert(0, n);
+            out = n;
+          case 'GET /api/portfolio/me':
+            out = {
+              'user': {'id': me['id'], 'name': me['name'], 'photo': '', 'kind': me['kind'], 'direction': me['direction'],
+                'title': '', 'class_name': '', 'place': me['place'], 'since': 1760000000, 'level': me['level']},
+              'stats': {'tasks': 14, 'events': 6, 'books': 4, 'points': 23, 'rank': 2, 'rank_total': 48, 'quarter_score': 9},
+              'tasks': [
+                {'id': 't1', 'title': 'Robototexnika to‘garagi hisoboti', 'by': 'Asaka IT', 'at': 1763000000, 'accepted': true, 'photo_urls': []},
+              ],
+              'events': [
+                {'id': 'e1', 'title': 'IT koordinatorlar uchrashuvi', 'place': 'Asaka', 'starts_at': 1762500000},
+              ],
+              'books': [
+                {'title': 'Atomic Habits', 'author': 'James Clear', 'at': 1763000000},
+              ],
+              'certificates': [
+                {'quarter': '2026 · III', 'rank': 1, 'score': 14, 'group': 'Asaka tumani'},
+              ],
+              'shared': false, 'share_url': '',
+            };
+          case 'POST /api/portfolio/share':
+            posts.add({'path': path, 'on': req.url.queryParameters['on']});
+            out = {'shared': true, 'share_url': 'https://kengash-api.onrender.com/p/abc123xyz'};
           case 'GET /api/report':
             out = {'month': '2026-11', 'area': 'Asaka tumani', 'people': 512, 'students': 9000, 'joined': 14, 'tasks': 340,
               'tasks_done': 262, 'tasks_pct': 77, 'tasks_late': 12, 'events': 9, 'invited': 410, 'came': 344, 'came_pct': 84,
@@ -702,6 +746,12 @@ class FakeServer {
             } else if (req.method == 'POST' && path.endsWith('/polls')) {
               posts.add({'path': path, ...body});
               out = {'ok': true};
+            } else if (req.method == 'POST' && path.startsWith('/api/ideas/') && path.endsWith('/vote')) {
+              posts.add({'path': path, ...body});
+              final i = ideas.firstWhere((x) => x['id'] == seg[3]);
+              if (i['my_vote'] != body['vote']) i['votes'] = (i['votes'] as int) + (body['vote'] == true ? 1 : -1);
+              i['my_vote'] = body['vote'];
+              out = Map<String, dynamic>.from(i);
             } else if (req.method == 'POST' && path.startsWith('/api/admin/staff/')) {
               lastBody = body;
               final id = path.split('/').last;

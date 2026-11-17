@@ -116,15 +116,11 @@ class BookCard extends StatelessWidget {
       child: SizedBox(
         width: 168,
         child: DecoratedBox(
+          // tekis karta; o‘z yo‘nalishi — rangli chegara / плоская карта; своё направление — цветная рамка
           decoration: BoxDecoration(
             borderRadius: R.all(R.xl),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [col.withValues(alpha: c.isDark ? 0.45 : 0.30), col.withValues(alpha: c.isDark ? 0.12 : 0.06)],
-            ),
-            border: Border.all(color: mine ? col : col.withValues(alpha: 0.25), width: mine ? 2 : 1),
-            boxShadow: [BoxShadow(color: col.withValues(alpha: 0.22), blurRadius: 22, offset: const Offset(0, 10))],
+            color: c.surface,
+            border: Border.all(color: mine ? col.withValues(alpha: 0.7) : c.hairline, width: mine ? 1.5 : 1),
           ),
           child: Padding(
             padding: const EdgeInsets.all(S.x2),

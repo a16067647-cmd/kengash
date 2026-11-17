@@ -217,25 +217,22 @@ class R {
 // ---------------------------------------------------------------- soyalar va yorug‘lik / тени и свечение
 class Shadows {
   /// Karta soyasi / тень карточки.
+  /// Juda yengil: «plita» effekti yo‘q, qorong‘ida — faqat chegara (tezroq chiziladi).
+  /// Очень лёгкая: без эффекта «плиты»; в тёмной теме — только рамка (быстрее рисуется).
   static List<BoxShadow> card(AppColors c) => c.isDark
-      ? const [BoxShadow(color: Color(0x66000000), blurRadius: 30, offset: Offset(0, 14), spreadRadius: -10)]
-      : const [
-          BoxShadow(color: Color(0x141A0F3D), blurRadius: 30, offset: Offset(0, 12), spreadRadius: -8),
-          BoxShadow(color: Color(0x0A000000), blurRadius: 2, offset: Offset(0, 1)),
-        ];
+      ? const []
+      : const [BoxShadow(color: Color(0x0D1A0F3D), blurRadius: 10, offset: Offset(0, 2), spreadRadius: -2)];
 
   /// Yengil ko‘tarilish / лёгкий подъём (кнопки-иконки, таблетки).
   static List<BoxShadow> soft(AppColors c) => c.isDark
-      ? const [BoxShadow(color: Color(0x4D000000), blurRadius: 16, offset: Offset(0, 6), spreadRadius: -6)]
-      : const [BoxShadow(color: Color(0x161A0F3D), blurRadius: 16, offset: Offset(0, 6), spreadRadius: -6)];
+      ? const []
+      : const [BoxShadow(color: Color(0x0F1A0F3D), blurRadius: 8, offset: Offset(0, 2), spreadRadius: -2)];
 
   /// Nur sochuvchi tugma / «светящаяся» кнопка. strength: 0..1
   static List<BoxShadow> glow(Color color, AppColors c, {double strength = 1}) {
-    final a = ((c.isDark ? 0x80 : 0x5C) * strength).round().clamp(0, 255).toInt();
-    return [
-      BoxShadow(color: color.withAlpha(a), blurRadius: 26, offset: const Offset(0, 10), spreadRadius: -8),
-      BoxShadow(color: color.withAlpha((a * 0.5).round()), blurRadius: 8, offset: const Offset(0, 2), spreadRadius: -2),
-    ];
+    // yengil: bitta soya / лёгкое свечение: одна тень
+    final a = ((c.isDark ? 0x40 : 0x33) * strength).round().clamp(0, 255).toInt();
+    return [BoxShadow(color: color.withAlpha(a), blurRadius: 14, offset: const Offset(0, 4), spreadRadius: -6)];
   }
 }
 

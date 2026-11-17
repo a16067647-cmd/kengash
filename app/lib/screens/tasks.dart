@@ -620,6 +620,7 @@ class _ReportView extends StatelessWidget {
                           width: 90,
                           height: 90,
                           fit: BoxFit.cover,
+                          cacheWidth: (90 * MediaQuery.devicePixelRatioOf(context)).round(),
                           errorBuilder: (_, __, ___) => Container(width: 90, height: 90, color: c.surfaceAlt)),
                 ),
               ),

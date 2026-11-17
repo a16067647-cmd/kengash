@@ -106,6 +106,39 @@ async def event_attendance(eid: str, request: Request, authorization: Optional[s
     return {"ok": True}
 
 
+def rank_of(c, u, cache=None):
+    """Standart guruhdagi o‘rin va ball (dayjest, portfolio uchun) / место и баллы в группе по умолчанию.
+    -> (rank | None, score, total). `cache` — guruh natijalari (ko‘p odam uchun) / кэш групп."""
+    if not rated(u):
+        return None, 0, 0
+    level, place_id = _group(c, u, "", "")
+    key = (level, place_id)
+    if cache is not None and key in cache:
+        ranks, total = cache[key]
+        r = ranks.get(u["id"])
+        return (r[0], r[1], total) if r else (None, 0, total)
+    if level == "school":
+        where = "u.place_id IN (SELECT id FROM schools WHERE district_id=?)"
+    elif level == "district":
+        where = "u.place_id IN (SELECT id FROM districts WHERE region_id=?)"
+    else:
+        where = "u.place_id=?"
+    start, _ = quarter()
+    rows = c.q(
+        "SELECT u.id, COALESCE((SELECT SUM(p.value) FROM points p WHERE p.user_id=u.id AND p.created_at>=?), 0) AS score "
+        f"FROM users u WHERE u.level=? AND {where} AND u.status='active' AND u.kind='coordinator' "
+        "ORDER BY score DESC", [start, level, place_id])
+    rank, prev, ranks = 0, None, {}
+    for i, r in enumerate(rows):
+        if r["score"] != prev:
+            rank, prev = i + 1, r["score"]
+        ranks[r["id"]] = (rank, int(r["score"]))
+    if cache is not None:
+        cache[key] = (ranks, len(rows))
+    mine = ranks.get(u["id"])
+    return (mine[0], mine[1], len(rows)) if mine else (None, 0, len(rows))
+
+
 def _group(c, viewer, level, place_id):
     """Standart guruh: o‘z darajasi, bir pog‘ona yuqori joy / группа по умолчанию: свой уровень, место на ступень выше."""
     if level in ("school", "district", "region") and place_id:

@@ -377,16 +377,19 @@ class _Count extends StatelessWidget {
 }
 
 class CreateEventScreen extends StatefulWidget {
-  const CreateEventScreen({super.key});
+  /// Tashabbusdan tadbir: oldindan to‘ldirilgan nom va tavsif / мероприятие из инициативы: предзаполнение.
+  final String? initialTitle;
+  final String? initialDescription;
+  const CreateEventScreen({super.key, this.initialTitle, this.initialDescription});
 
   @override
   State<CreateEventScreen> createState() => _CreateEventScreenState();
 }
 
 class _CreateEventScreenState extends State<CreateEventScreen> {
-  final _title = TextEditingController();
+  late final _title = TextEditingController(text: widget.initialTitle ?? '');
   final _place = TextEditingController();
-  final _desc = TextEditingController();
+  late final _desc = TextEditingController(text: widget.initialDescription ?? '');
   DateTime? _when;
   String? _preset;
   AudiencePick? _audience;

@@ -8,6 +8,7 @@ import 'admin_more.dart' show BroadcastScreen, FeedbackScreen;
 import 'books.dart' show AdminBooksScreen, BooksShelf;
 import 'onboarding.dart' show ApprovalsScreen;
 import 'channels.dart' show ChannelIcon, channelTitle, openChannel, previewText, timeLabel;
+import 'ideas.dart' show IdeasScreen;
 import 'staff.dart' show AreaScreen;
 import 'tasks.dart' show TaskCard;
 import '../state.dart';
@@ -87,6 +88,13 @@ class _TodayTabState extends State<TodayTab> {
             color: const Color(0xFFFFBB02),
             title: s.t('rating'),
             onTap: () => openTool(context, 'rating')),
+      GroupRow(
+          key: const ValueKey('quick-ideas'),
+          icon: Icons.lightbulb_rounded,
+          color: const Color(0xFFFFB800),
+          title: s.t('ideas'),
+          value: wide ? null : s.t('ideas_short'),
+          onTap: () => Navigator.of(context).push(AppRoute(builder: (_) => const IdeasScreen()))),
       GroupRow(
           key: const ValueKey('quick-feedback'),
           icon: Icons.support_agent_rounded,
@@ -252,18 +260,11 @@ class _Greeting extends StatelessWidget {
           ]),
         ),
         const SizedBox(width: S.x4),
+        // oddiy halqa, nur sochmasdan / простое кольцо без свечения
         Container(
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: SweepGradient(colors: [c.accent, kSun, dot, c.accent]),
-            boxShadow: [BoxShadow(color: c.accent.withValues(alpha: 0.25), blurRadius: 24, offset: const Offset(0, 10))],
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(shape: BoxShape.circle, color: c.bg),
-            child: AppAvatar(url: s.myPhoto, name: s.myName, size: wide ? 84 : 62),
-          ),
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: dot, width: 2)),
+          child: AppAvatar(url: s.myPhoto, name: s.myName, size: wide ? 80 : 56),
         ),
       ],
     );
@@ -374,35 +375,22 @@ class _Tile extends StatelessWidget {
     final c = colorsOf(context);
     final v = value;
     final text = emoji ?? (v == null ? '–' : (signed && v > 0 ? '+$v' : '$v'));
-    return Pressable(
+    // Sodda: oq (qorong‘ida — sirt) karta, rangli kichik belgi / просто: карта-поверхность и маленький цветной значок
+    return AppCard(
       onTap: onTap,
-      child: Glass(
-        radius: R.xl,
-        blur: 18,
-        color: Color.alphaBlend(color.withValues(alpha: c.isDark ? 0.16 : 0.08), c.glass),
-        padding: const EdgeInsets.fromLTRB(S.x4, S.x4, S.x4, S.x4),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                    begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [color, Color.lerp(color, kWhite, 0.25)!]),
-                borderRadius: R.all(R.md),
-                boxShadow: [BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 12, offset: const Offset(0, 5))],
-              ),
-              child: Icon(icon, color: kWhite, size: 21),
-            ),
-            const Spacer(),
-            Icon(Icons.arrow_outward_rounded, size: 18, color: c.text3),
-          ]),
+      padding: const EdgeInsets.all(S.x4),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(color: color.withValues(alpha: c.isDark ? 0.22 : 0.12), borderRadius: R.all(R.sm)),
+            child: Icon(icon, color: color, size: 20),
+          ),
           const SizedBox(height: S.x3),
           Text(text, style: AppType.title1.copyWith(color: c.text, height: 1.05, fontSize: emoji != null ? 26 : null)),
           const SizedBox(height: 2),
           Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.footnote.copyWith(color: c.text2)),
-        ]),
-      ),
+      ]),
     );
   }
 }

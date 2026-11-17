@@ -5,6 +5,7 @@ import '../brand.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'portfolio.dart' show PortfolioScreen;
 
 /// Koordinatorlar: viloyat → tumanlar → maktablar, har birida 8 o‘rin.
 /// Координаторы: область → районы → школы, в каждом 8 мест.
@@ -455,6 +456,15 @@ Future<void> showUserSheet(BuildContext context, Json user, {bool canManage = fa
         const SizedBox(height: S.x1),
         Text(s.seatLine(user), textAlign: TextAlign.center, style: AppType.subhead.copyWith(color: c.text2)),
         const SizedBox(height: S.x5),
+        if (user['role'] != 'admin' && user['kind'] != 'staff' && user['id'] != s.me?['id']) ...[
+          AppButton(s.t('pf_title'),
+              key: const ValueKey('user-portfolio'),
+              kind: BtnKind.secondary,
+              icon: Icons.route_rounded,
+              expand: true,
+              onPressed: () => Navigator.of(ctx).push(AppRoute(builder: (_) => PortfolioScreen(userId: user['id'] as String)))),
+          const SizedBox(height: S.x3),
+        ],
         if (tg.isNotEmpty)
           AppButton(s.t('write_tg'),
               key: const ValueKey('sheet-tg'), icon: Icons.send_rounded, expand: true, onPressed: () => s.openTelegram(tg))

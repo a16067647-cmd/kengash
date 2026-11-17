@@ -489,6 +489,11 @@ def start_reminder_loop():
             except Exception:
                 pass
             try:
+                import digest
+                digest.send_weekly()  # dushanba dayjesti / дайджест понедельника
+            except Exception:
+                pass
+            try:
                 import certificates
                 certificates.notify_winners()  # chorak boshida g‘oliblarga / в начале квартала победителям
             except Exception:

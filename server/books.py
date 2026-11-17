@@ -132,11 +132,16 @@ async def book_read(bid: str, request: Request, authorization: Optional[str] = H
     b = await request.json()
     with db.tx() as c:
         u = core.current_user(c, authorization)
-        if not c.one("SELECT id FROM books WHERE id=?", (bid,)):
+        bk = c.one("SELECT * FROM books WHERE id=?", (bid,))
+        if not bk:
             err(404, "not_found")
         c.x("DELETE FROM book_reads WHERE book_id=? AND user_id=?", (bid, u["id"]))
+        # portfolio uchun tarix (kitob almashsa ham qoladi) / история для портфолио (остаётся после замены книги)
+        c.x("DELETE FROM read_log WHERE book_id=? AND user_id=?", (bid, u["id"]))
         if b.get("read", True):
             c.x("INSERT INTO book_reads (book_id, user_id, at) VALUES (?, ?, ?)", (bid, u["id"], db.now()))
+            c.x("INSERT INTO read_log (user_id, book_id, title, author, at) VALUES (?, ?, ?, ?, ?)",
+                (u["id"], bid, bk["title"], bk["author"], db.now()))
         n = c.one("SELECT COUNT(*) AS n FROM book_reads WHERE book_id=?", (bid,))["n"]
     return {"ok": True, "reads": n, "my_read": bool(b.get("read", True))}
 
