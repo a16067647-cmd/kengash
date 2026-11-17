@@ -43,7 +43,15 @@ class _CalendarTabState extends State<CalendarTab> {
   void initState() {
     super.initState();
     _canCreate = AppScope.read(context).canGive;
+    final cached = AppScope.read(context).api.peek('/api/events', query: {'when': 'upcoming'}); // darhol / сразу
+    if (cached != null) _apply(cached);
     _load();
+  }
+
+  void _apply(Json r) {
+    _list = [for (final x in r['events'] as List) (x as Map).cast<String, dynamic>()];
+    _canCreate = r['can_create'] == true;
+    _error = null;
   }
 
   Future<void> _load() async {
@@ -51,11 +59,7 @@ class _CalendarTabState extends State<CalendarTab> {
     try {
       final r = await s.api.get('/api/events', query: {'when': _past ? 'past' : 'upcoming'});
       if (!mounted) return;
-      setState(() {
-        _list = [for (final x in r['events'] as List) (x as Map).cast<String, dynamic>()];
-        _canCreate = r['can_create'] == true;
-        _error = null;
-      });
+      setState(() => _apply(r));
     } on ApiError catch (e) {
       if (mounted) setState(() => _error = s.errText(e));
     }
@@ -213,6 +217,7 @@ class _EventScreenState extends State<EventScreen> {
       ]));
     }
     final rsvp = e['my_rsvp'] as String?;
+    final live = e['checkin_open'] == true;
     final people = [for (final x in (e['people'] as List? ?? [])) (x as Map).cast<String, dynamic>()];
     Widget rsvpBtn(String v, String label, IconData icon) {
       final on = rsvp == v;
@@ -255,14 +260,16 @@ class _EventScreenState extends State<EventScreen> {
               ],
             ]),
           ),
-          if (rsvp != null)
+          // Davomat ochiq bo‘lsa — bitta asosiy tugma «Keldim»; aks holda faqat Boraman / Bora olmayman.
+          // Когда отметка открыта — одна главная кнопка «Пришёл»; иначе только Иду / Не иду.
+          if (rsvp != null && !(live && e['is_organizer'] != true && e['my_checkin'] != true))
             Row(children: [
               rsvpBtn('yes', s.t('going'), Icons.check_rounded),
               const SizedBox(width: S.x3),
               rsvpBtn('no', s.t('not_going'), Icons.close_rounded),
             ]),
           // QR davomat: mehmon — «Keldim», tashkilotchi — QR / QR-посещаемость: гость — «Пришёл», организатор — QR
-          if (rsvp != null && e['is_organizer'] != true)
+          if (rsvp != null && e['is_organizer'] != true && (live || e['my_checkin'] == true))
             e['my_checkin'] == true
                 ? AppCard(
                     key: const ValueKey('ci-done'),
@@ -277,7 +284,6 @@ class _EventScreenState extends State<EventScreen> {
                 : AppButton(s.t('ci_title'),
                     key: const ValueKey('event-checkin'),
                     icon: Icons.qr_code_scanner_rounded,
-                    kind: BtnKind.success,
                     expand: true,
                     onPressed: () async {
                       final ok = await Navigator.of(context)
@@ -288,6 +294,7 @@ class _EventScreenState extends State<EventScreen> {
             AppButton(s.t('ci_qr_title'),
                 key: const ValueKey('event-qr'),
                 icon: Icons.qr_code_2_rounded,
+                kind: live ? BtnKind.primary : BtnKind.secondary, // tadbir kuni — asosiy / в день события — главная
                 expand: true,
                 onPressed: () async {
                   await Navigator.of(context).push(AppRoute(
@@ -400,10 +407,15 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   @override
   void initState() {
     super.initState();
-    if (presets.isNotEmpty) {
-      _preset = presets.first.$1;
-      _audience = presets.first.$3;
+    // Aqlli standartlar: oxirgi guruh va oxirgi joy / умные значения: последняя группа и последнее место.
+    final s = AppScope.read(context);
+    final last = s.lastUsed('event_preset');
+    final p = presets.where((x) => x.$1 == last).firstOrNull ?? presets.firstOrNull;
+    if (p != null) {
+      _preset = p.$1;
+      _audience = p.$3;
     }
+    _place.text = s.lastUsed('event_place') ?? '';
   }
 
   @override
@@ -431,6 +443,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         'starts_at': toTs(_when!),
         ..._audience!.toJson(),
       });
+      if (_preset != null && _preset != 'custom') s.rememberUsed('event_preset', _preset!);
+      if (_place.text.trim().isNotEmpty) s.rememberUsed('event_place', _place.text.trim());
       s.toast('${s.t('event_created')} · ${r['guests']} ${s.t('aud_people')}', icon: Icons.check_circle_rounded);
       if (mounted) Navigator.of(context).pop(true);
     } on ApiError catch (e) {
@@ -458,7 +472,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   icon: Icons.event_rounded,
                   maxLength: 120),
               const SizedBox(height: S.x3),
-              AppTextField(controller: _place, label: s.t('event_place'), icon: Icons.place_rounded, maxLength: 200),
+              AppTextField(
+                  key: const ValueKey('event-place'),
+                  controller: _place,
+                  label: s.t('event_place'),
+                  icon: Icons.place_rounded,
+                  maxLength: 200),
               const SizedBox(height: S.x3),
               AppTextField(
                   controller: _desc, label: s.t('task_details'), icon: Icons.notes_rounded, maxLines: 4, maxLength: 2000),

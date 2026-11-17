@@ -16,11 +16,13 @@ class FakeServer {
   String myStatus = 'new';
   final List<Map<String, dynamic>> approvals = [];
   int points = 0;
+  String reviewStatus = 'submitted'; // m59it hisoboti / отчёт m59it
   bool iRead = false;
   int readCount = 41;
   bool booksCovers = false;
   bool feedbackDone = false;
   bool checkedIn = false;
+  bool checkinOpen = false; // davomat ochiqmi / открыта ли отметка
   bool withPoll = false;
   final List<Map<String, dynamic>> ideas = [
     {
@@ -59,6 +61,7 @@ class FakeServer {
         'id': 'e1', 'title': 'IT koordinatorlar uchrashuvi', 'description': '', 'place': 'Asaka, Yoshlar markazi',
         'starts_at': DateTime.now().add(const Duration(days: 2)).millisecondsSinceEpoch ~/ 1000, 'ends_at': 0,
         'by': {'id': 'ait', 'name': 'Asaka IT'}, 'is_organizer': me['level'] != 'school', 'guests': 62, 'yes': 40, 'no': 3, 'my_rsvp': rsvp,
+        'checkin_open': checkinOpen,
       };
 
   static Map<String, dynamic> ch(String id, String key, String uz, String ru,
@@ -166,7 +169,8 @@ class FakeServer {
         'reply': {'id': 'x3', 'text': 'Kim tanlovga tayyor?', 'user': madina},
         'edited': false,
         'deleted': false,
-        'seen': 9
+        'seen': 9,
+        'seen_of': 12
       },
       {
         'id': 'x4',
@@ -433,6 +437,11 @@ class FakeServer {
             };
           case 'POST /api/auth/telegram/start':
             out = {'id': 'r1', 'url': 'https://t.me/KengashAppBot?start=login_r1'};
+          case 'GET /api/schools/s59/invite':
+            posts.add({'path': path});
+            out = {'url': 'https://t.me/KengashAppBot?start=join_s59', 'share_url': 'https://t.me/share/url?url=x'};
+          case 'POST /api/auth/telegram/webapp':
+            out = body['init_data'] == 'good' ? {'token': 'tok', 'me': me} : {'need_bot': true, 'bot': 'KengashAppBot'};
           case 'GET /api/auth/telegram/status':
             statusPolls++;
             out = statusPolls < 2 ? {'status': 'waiting'} : {'status': 'done', 'token': 'tok', 'me': me};
@@ -700,7 +709,7 @@ class FakeServer {
                 'people': me['level'] == 'school'
                     ? []
                     : [
-                        {'user': person('m59it', 'Karimova Madina', 'school', 'it'), 'status': 'submitted', 'comment': '15 o‘quvchi qatnashdi',
+                        {'user': person('m59it', 'Karimova Madina', 'school', 'it'), 'status': reviewStatus, 'comment': '15 o‘quvchi qatnashdi',
                           'review_note': '', 'photos': [], 'photo_urls': [], 'submitted_at': 0, 'can_rate': true, 'points': points},
                         {'user': person('m60it', 'Yusupov Jasur', 'school', 'it'), 'status': 'new', 'comment': '', 'review_note': '',
                           'photos': [], 'photo_urls': [], 'submitted_at': 0, 'can_rate': true, 'points': 0},
@@ -710,6 +719,7 @@ class FakeServer {
               posts.add({'path': path, ...body});
               if (path.endsWith('/submit')) myStatus = 'submitted';
               if (path.endsWith('/rate')) points = body['value'] as int;
+              if (path.endsWith('/review')) reviewStatus = body['action'] == 'accept' ? 'accepted' : 'returned';
               out = {'ok': true};
             } else if (req.method == 'GET' && path == '/api/events/e1') {
               out = {
@@ -789,7 +799,7 @@ class FakeServer {
               out = m;
             } else {
               if (req.method == 'POST') posts.add({'path': path, ...body});
-              out = {'ok': true, 'count': 37};
+              out = {'ok': true, 'count': 37, if (path.endsWith('/remind')) 'sent': 3};
             }
         }
         return http.Response.bytes(utf8.encode(jsonEncode(out)), 200, headers: {'content-type': 'application/json'});

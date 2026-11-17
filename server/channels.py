@@ -174,8 +174,8 @@ def remove_user(c, uid):
     c.x("DELETE FROM messages WHERE user_id=?", (uid,))
     c.x("DELETE FROM channel_members WHERE user_id=?", (uid,))
     c.x("DELETE FROM reports WHERE reporter_id=?", (uid,))
-    for r in c.q("SELECT photos FROM task_assignees WHERE user_id=?", (uid,)):
-        paths += json.loads(r["photos"] or "[]")
+    for r in c.q("SELECT photos, voice FROM task_assignees WHERE user_id=?", (uid,)):
+        paths += json.loads(r["photos"] or "[]") + ([r["voice"]] if r["voice"] else [])
     c.x("DELETE FROM task_assignees WHERE user_id=?", (uid,))
     c.x("DELETE FROM event_guests WHERE user_id=?", (uid,))
     c.x("DELETE FROM points WHERE user_id=?", (uid,))
@@ -643,10 +643,37 @@ def messages_list(cid: str, before: int = 0, limit: int = 50, authorization: Opt
             rows = c.q("SELECT * FROM messages WHERE channel_id=? ORDER BY seq DESC LIMIT ?", (cid, limit))
         out = messages_json(c, rows, viewer_id=u["id"])
         if ch["mode"] == "announce" and out:
-            reads = [r["last_read"] for r in c.q("SELECT last_read FROM channel_members WHERE channel_id=?", (cid,))]
+            # Ko‘rdi: muallifdan boshqa a’zolar / Просмотры: участники, кроме автора
+            reads = [(r["user_id"], r["last_read"]) for r in c.q(
+                "SELECT user_id, last_read FROM channel_members WHERE channel_id=?", (cid,))]
             for x in out:
-                x["seen"] = sum(1 for r in reads if r >= x["seq"])
+                author = (x.get("user") or {}).get("id")
+                others = [lr for uid_, lr in reads if uid_ != author]
+                x["seen"] = sum(1 for lr in others if lr >= x["seq"])
+                x["seen_of"] = len(others)
         return {"messages": out, "has_more": len(rows) == limit, "my_read": m["last_read"] if m else ch["msg_seq"]}
+
+
+@router.post("/api/messages/{mid}/remind")
+def message_remind(mid: str, authorization: Optional[str] = Header(default=None)):
+    """E’lonni hali ko‘rmaganlarga BIR MARTA eslatish / ОДИН раз напомнить тем, кто не видел объявление."""
+    with db.tx() as c:
+        u = core.current_user(c, authorization)
+        msg = c.one("SELECT * FROM messages WHERE id=? AND deleted=0", (mid,))
+        if not msg:
+            err(404, "not_found")
+        ch, m = access(c, msg["channel_id"], u)
+        if ch["mode"] != "announce" or not (msg["user_id"] == u["id"] or is_mod(ch, m, u)):
+            err(403, "forbidden")
+        if not push.once(c, f"remind:{mid}"):
+            err(409, "already_reminded")
+        targets = [r["user_id"] for r in c.q(
+            "SELECT user_id FROM channel_members WHERE channel_id=? AND last_read<? AND muted=0 AND user_id<>?",
+            (ch["id"], msg["seq"], msg["user_id"] or ""))]
+    if targets:
+        text = (msg["text"] or "").strip() or "📎"
+        push.send(targets, f"🔔 {ch['title_uz']}", text[:200], {"type": "remind", "channel_id": ch["id"]})
+    return {"sent": len(targets)}
 
 
 def _valid_attachments(c, cid, atts):

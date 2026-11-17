@@ -59,6 +59,7 @@ TXT = {
     "no_schools": ("Bu tumanda maktablar hali qo‘shilmagan. Adminga yozing yoki boshqa tumanni tanlang.\n\n"
                    "В этом районе школы ещё не добавлены. Напишите админу или выберите другой район."),
     "ask_grade": "Nechanchi sinfda o‘qiysiz? / В каком классе вы учитесь?",
+    "join_school": "🏫 {school} — siz shu maktab o‘quvchisi sifatida qo‘shilyapsiz. / Вы присоединяетесь как ученик этой школы.",
     "ask_letter": "Sinf harfi / Буква класса:",
     "ask_direction": "Yo‘nalishingiz / Ваше направление:",
     "taken": ("⚠️ Bu o‘rin band: <b>{holder}</b>.\nAgar bu siz bo‘lsangiz yoki xato bo‘lsa, yozing: {contact}\n\n"
@@ -136,6 +137,10 @@ def setup_webhook():
     threading.Thread(target=lambda: api("setWebhook", {
         "url": f"{PUBLIC_URL}/api/telegram/webhook", "secret_token": WEBHOOK_SECRET,
         "allowed_updates": ["message", "callback_query"], "drop_pending_updates": True,
+    }), daemon=True).start()
+    # Bot menyusidagi tugma ilovani Telegram ichida ochadi (Mini App) / кнопка меню бота открывает приложение в Telegram
+    threading.Thread(target=lambda: api("setChatMenuButton", {
+        "menu_button": {"type": "web_app", "text": "Kengash", "web_app": {"url": APP_URL}},
     }), daemon=True).start()
 
 
@@ -346,6 +351,11 @@ def handle_update(update):
                 else:
                     data["login"] = rid
                     c.x("UPDATE login_requests SET status='bot', tg_id=? WHERE id=?", (frm["id"], rid))
+            elif payload.startswith("join_"):
+                # maktab taklif havolasi: maktabni so‘ramaymiz / ссылка-приглашение школы: школу не спрашиваем
+                sch = c.one("SELECT id FROM schools WHERE id=? AND hidden=0", (payload[5:][:40],))
+                if sch:
+                    data["join"] = sch["id"]
             u = c.one("SELECT * FROM users WHERE tg_id=?", (frm["id"],))
             if not u or not u["phone"]:
                 _save(c, frm["id"], "contact", data)
@@ -372,8 +382,16 @@ def handle_update(update):
             except reg.RegError:
                 out.append((chat, TXT["bad_name"], None))
             else:
-                _save(c, frm["id"], "role", data)
-                out.append((chat, TXT["ask_role"], _role_kb()))
+                p = core_place(c, data.get("join"))
+                if p:
+                    # Taklif orqali: o‘quvchi, maktab tayyor → darhol sinf / по приглашению: ученик, школа известна → класс
+                    data.update(kind="student", level="school", district_id=p["district_id"], school_id=p["id"])
+                    _save(c, frm["id"], "grade", data)
+                    out.append((chat, TXT["join_school"].format(school=_esc(p["name_uz"])) + "\n\n" + TXT["ask_grade"],
+                                _grade_kb()))
+                else:
+                    _save(c, frm["id"], "role", data)
+                    out.append((chat, TXT["ask_role"], _role_kb()))
         elif step in ("role", "level", "district", "school", "grade", "letter", "direction", "confirm", "st_area", "st_pow"):
             out.append((chat, TXT["use_buttons"], None))
         else:
@@ -384,6 +402,13 @@ def handle_update(update):
                 out.append((chat, TXT["hello"], back_button()))
     for chat_id, t, m in out:
         send(chat_id, t, m)
+
+
+def core_place(c, sid):
+    if not sid:
+        return None
+    import app as core
+    return core.place_info(c, "school", sid)
 
 
 def _after_phone(c, frm, u, data, chat):

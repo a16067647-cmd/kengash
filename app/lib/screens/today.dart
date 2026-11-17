@@ -47,6 +47,7 @@ class _TodayTabState extends State<TodayTab> {
     final s = AppScope.of(context);
     if (s.todayVersion != _version) {
       _version = s.todayVersion;
+      _today ??= s.api.peek('/api/today'); // darhol oxirgisini ko‘rsatamiz / сразу показываем последнее
       _load();
     }
   }

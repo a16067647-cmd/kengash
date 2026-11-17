@@ -33,8 +33,30 @@ void main() {
     await back(tester);
   });
 
-  testWidgets('mehmon: kodni yozadi → keldi', (tester) async {
+  testWidgets('mehmon: tadbirdan oldin faqat Boraman / Bora olmayman (QR yo‘q)', (tester) async {
     final server = FakeServer(me: FakeServer.seated('school', 'it'))..rsvp = 'yes';
+    await boot(tester, server);
+    await tap(tester, find.byKey(const ValueKey('nav-calendar')));
+    await tap(tester, find.byKey(const ValueKey('event-e1')));
+    expect(find.byKey(const ValueKey('event-checkin')), findsNothing);
+    expect(find.text(tr('uz', 'going')), findsWidgets);
+  });
+
+  testWidgets('mehmon: tadbir kuni — bitta asosiy tugma «Keldim»', (tester) async {
+    final server = FakeServer(me: FakeServer.seated('school', 'it'))
+      ..rsvp = 'yes'
+      ..checkinOpen = true;
+    await boot(tester, server);
+    await tap(tester, find.byKey(const ValueKey('nav-calendar')));
+    await tap(tester, find.byKey(const ValueKey('event-e1')));
+    expect(find.byKey(const ValueKey('event-checkin')), findsOneWidget);
+    expect(find.text(tr('uz', 'not_going')), findsNothing);
+  });
+
+  testWidgets('mehmon: kodni yozadi → keldi', (tester) async {
+    final server = FakeServer(me: FakeServer.seated('school', 'it'))
+      ..rsvp = 'yes'
+      ..checkinOpen = true;
     await boot(tester, server, theme: 'dark');
     await tap(tester, find.byKey(const ValueKey('nav-calendar')));
     await tap(tester, find.byKey(const ValueKey('event-e1')));

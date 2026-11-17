@@ -47,6 +47,15 @@ class ChatStore extends ChangeNotifier {
 
   // ---------------------------------------------------------------- yuklash / загрузка
   Future<void> loadChannels() async {
+    if (channels == null) {
+      // darhol oxirgi ro‘yxat, keyin yangilanadi / сразу последний список, затем обновление
+      final cached = api.peek('/api/channels');
+      if (cached != null) {
+        channels = [for (final c in cached['channels'] as List) (c as Map).cast<String, dynamic>()];
+        canCreate = cached['can_create'] == true;
+        notifyListeners();
+      }
+    }
     try {
       final r = await api.get('/api/channels');
       channels = [for (final c in r['channels'] as List) (c as Map).cast<String, dynamic>()];

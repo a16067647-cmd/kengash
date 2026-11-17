@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../api.dart';
 import '../brand.dart';
@@ -325,6 +326,20 @@ class _SeatCard extends StatelessWidget {
 }
 
 /// Maktab o‘quvchilari (sinflar bo‘yicha) / ученики школы (по классам).
+/// O‘quvchilarni taklif qilish: Telegram’da guruhni tanlash oynasi ochiladi, havola nusxalanadi.
+/// Пригласить учеников: открывается выбор чата в Telegram, ссылка копируется.
+Future<void> inviteStudents(BuildContext context, String schoolId) async {
+  final s = AppScope.read(context);
+  try {
+    final r = await s.api.get('/api/schools/$schoolId/invite');
+    await Clipboard.setData(ClipboardData(text: r['url'] as String));
+    s.toast(s.t('invite_copied'), icon: Icons.link_rounded);
+    await s.openUrl(r['share_url'] as String);
+  } on ApiError catch (e) {
+    s.toast(s.errText(e));
+  }
+}
+
 class StudentsScreen extends StatefulWidget {
   final String schoolId;
   final String title;
@@ -369,6 +384,11 @@ class _StudentsScreenState extends State<StudentsScreen> {
         subtitle: '${widget.title} · ${_list?.length ?? 0}',
         onRefresh: _load,
         children: [
+          AppButton(s.t('invite_students'),
+              key: const ValueKey('invite-students'),
+              icon: Icons.person_add_alt_1_rounded,
+              expand: true,
+              onPressed: () => inviteStudents(context, widget.schoolId)),
           AppTextField(hint: s.t('search_people'), icon: Icons.search_rounded, onChanged: (v) => setState(() => _q = v.trim().toLowerCase())),
           if (_list == null)
             const SkeletonRows(count: 5)

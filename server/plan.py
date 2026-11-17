@@ -67,7 +67,8 @@ def task_json(c, t, viewer, mine=None):
            "overdue": t["deadline"] < db.now()}
     if mine:
         out["my"] = {"status": mine["status"], "comment": mine["comment"], "review_note": mine["review_note"],
-                     "photos": json.loads(mine["photos"] or "[]"), "submitted_at": mine["submitted_at"]}
+                     "photos": json.loads(mine["photos"] or "[]"), "submitted_at": mine["submitted_at"],
+                     "voice": mine.get("voice") or "", "voice_sec": mine.get("voice_sec") or 0}
     return out
 
 
@@ -132,7 +133,7 @@ def task_get(tid: str, authorization: Optional[str] = Header(default=None)):
         mine = c.one("SELECT * FROM task_assignees WHERE task_id=? AND user_id=?", (tid, u["id"]))
         out = task_json(c, t, u, mine)
         rows = c.q("SELECT u.*, a.user_id AS a_user, a.status AS a_status, a.comment AS a_comment, a.photos AS a_photos, "
-                   "a.review_note AS a_note, a.submitted_at AS a_sub FROM task_assignees a JOIN users u ON u.id=a.user_id WHERE a.task_id=? "
+                   "a.review_note AS a_note, a.submitted_at AS a_sub, a.voice AS a_voice, a.voice_sec AS a_vsec FROM task_assignees a JOIN users u ON u.id=a.user_id WHERE a.task_id=? "
                    "ORDER BY CASE a.status WHEN 'submitted' THEN 0 WHEN 'returned' THEN 1 WHEN 'new' THEN 2 ELSE 3 END, u.name",
                    (tid,))
         visible = [r for r in rows if can_review(c, u, t, r)]
@@ -145,17 +146,20 @@ def task_get(tid: str, authorization: Optional[str] = Header(default=None)):
         pts = rating.points_of(c, "task", tid) if giver else {}
         for r in visible:
             photos = json.loads(r["a_photos"] or "[]")
-            paths += photos
+            paths += photos + ([r["a_voice"]] if r["a_voice"] else [])
             people.append({"user": _mini(c, r["a_user"]), "status": r["a_status"], "comment": r["a_comment"],
                            "review_note": r["a_note"], "photos": photos, "submitted_at": r["a_sub"],
-                           "can_rate": giver and rating.rated(r), "points": pts.get(r["a_user"], 0)})
+                           "can_rate": giver and rating.rated(r), "points": pts.get(r["a_user"], 0),
+                           "voice": r["a_voice"] or "", "voice_sec": r["a_vsec"] or 0})
         if mine:
-            paths += out["my"]["photos"]
+            paths += out["my"]["photos"] + ([out["my"]["voice"]] if out["my"]["voice"] else [])
         urls = _sign_photos(paths)
         for p in people:
             p["photo_urls"] = [urls.get(x, "") for x in p["photos"]]
+            p["voice_url"] = urls.get(p["voice"], "") if p["voice"] else ""
         if mine:
             out["my"]["photo_urls"] = [urls.get(x, "") for x in out["my"]["photos"]]
+            out["my"]["voice_url"] = urls.get(out["my"]["voice"], "") if out["my"]["voice"] else ""
         out["people"] = people
         out["can_review"] = bool(visible)
         return out
@@ -184,6 +188,32 @@ async def task_photo(tid: str, request: Request, authorization: Optional[str] = 
     return {"path": path, "w": w, "h": h}
 
 
+@router.post("/api/tasks/{tid}/voice")
+async def task_voice(tid: str, request: Request, authorization: Optional[str] = Header(default=None)):
+    """Ovozli hisobot uchun imzolangan yuklash havolasi / ссылка загрузки для голосового отчёта."""
+    from channels import VOICE_MAX, VOICE_SECONDS
+    b = await request.json()
+    size = int(b.get("size") or 0)
+    mime = str(b.get("mime") or "").lower()
+    if not mime.startswith("audio/"):
+        err(400, "bad_type")
+    if size <= 0 or size > VOICE_MAX:
+        err(413, "too_large")
+    if float(b.get("duration") or 0) > VOICE_SECONDS + 2:
+        err(400, "too_long")
+    with db.tx() as c:
+        u = core.current_user(c, authorization)
+        if not c.one("SELECT 1 AS x FROM task_assignees WHERE task_id=? AND user_id=?", (tid, u["id"])):
+            err(403, "forbidden")
+        if not core.rate_ok("upload:" + u["id"], 30, 3600):
+            err(429, "too_many")
+    if not storage.enabled():
+        err(503, "storage_off")
+    ext = "webm" if "webm" in mime else "m4a"
+    path = f"tasks/{tid}/{u['id']}/{core.new_id()}.{ext}"
+    return {"path": path, "upload_url": await asyncio.to_thread(storage.upload_url, path)}
+
+
 @router.post("/api/tasks/{tid}/submit")
 async def task_submit(tid: str, request: Request, authorization: Optional[str] = Header(default=None)):
     b = await request.json()
@@ -199,12 +229,17 @@ async def task_submit(tid: str, request: Request, authorization: Optional[str] =
         for p in photos:
             if not p.startswith(f"tasks/{tid}/{u['id']}/") or ".." in p:
                 err(400, "bad_attachment")
+        voice = str(b.get("voice") or "")
+        if voice and (not voice.startswith(f"tasks/{tid}/{u['id']}/") or ".." in voice):
+            err(400, "bad_attachment")
+        voice_sec = max(0, min(int(float(b.get("voice_sec") or 0)), 600)) if voice else 0
         if t["photo_required"] and not photos:
             err(400, "photo_required")
-        old = json.loads(a["photos"] or "[]")
-        c.x("UPDATE task_assignees SET status='submitted', comment=?, photos=?, submitted_at=? WHERE task_id=? AND user_id=?",
-            (str(b.get("comment") or "").strip()[:1000], json.dumps(photos), db.now(), tid, u["id"]))
-    storage.remove([p for p in old if p not in photos])
+        old = json.loads(a["photos"] or "[]") + ([a["voice"]] if a.get("voice") else [])
+        c.x("UPDATE task_assignees SET status='submitted', comment=?, photos=?, voice=?, voice_sec=?, submitted_at=? "
+            "WHERE task_id=? AND user_id=?",
+            (str(b.get("comment") or "").strip()[:1000], json.dumps(photos), voice, voice_sec, db.now(), tid, u["id"]))
+    storage.remove([p for p in old if p not in photos and p != voice])
     push.send([t["created_by"]], f"✅ {t['title']}", f"{u['name']}: bajarildi · выполнено", {"type": "task", "id": tid})
     return {"ok": True}
 
@@ -266,8 +301,8 @@ def task_delete(tid: str, authorization: Optional[str] = Header(default=None)):
         if t["created_by"] != u["id"] and u["role"] != "admin":
             err(403, "forbidden")
         paths = []
-        for r in c.q("SELECT photos FROM task_assignees WHERE task_id=?", (tid,)):
-            paths += json.loads(r["photos"] or "[]")
+        for r in c.q("SELECT photos, voice FROM task_assignees WHERE task_id=?", (tid,)):
+            paths += json.loads(r["photos"] or "[]") + ([r["voice"]] if r["voice"] else [])
         c.x("DELETE FROM task_assignees WHERE task_id=?", (tid,))
         c.x("DELETE FROM tasks WHERE id=?", (tid,))
     storage.remove(paths)
@@ -282,7 +317,9 @@ def event_json(c, e, viewer):
             "starts_at": e["starts_at"], "ends_at": e["ends_at"], "by": _mini(c, e["created_by"]),
             "is_organizer": e["created_by"] == viewer["id"] or viewer["role"] == "admin",
             "guests": len(rows), "yes": sum(1 for r in rows if r["rsvp"] == "yes"),
-            "no": sum(1 for r in rows if r["rsvp"] == "no"), "my_rsvp": mine}
+            "no": sum(1 for r in rows if r["rsvp"] == "no"), "my_rsvp": mine,
+            # «Keldim» faqat davomat ochiq paytda (1 soat oldin — tugaguncha) / «Пришёл» только пока отметка открыта
+            "checkin_open": e["starts_at"] - 3600 <= db.now() <= (e["ends_at"] or e["starts_at"] + 4 * 3600)}
 
 
 @router.get("/api/events")
