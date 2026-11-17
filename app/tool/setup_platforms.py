@@ -49,6 +49,16 @@ def android_ota():
     s = m.read_text(encoding="utf-8")
     if "REQUEST_INSTALL_PACKAGES" not in s:
         s = s.replace("<application", '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>\n    <application', 1)
+    # Kutubxona so‘raydigan, bizga keraksiz ruxsatlarni olib tashlaymiz: tizim ruxsati (INSTALL_PACKAGES) ba’zi
+    # telefonlarda (Xiaomi/HyperOS) o‘rnatishni buzadi; xotiraga yozish kerak emas (fayl ilova ichida saqlanadi).
+    # Убираем лишние разрешения библиотеки: системное INSTALL_PACKAGES мешает установке на некоторых телефонах.
+    if 'xmlns:tools=' not in s:
+        s = s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android"',
+                      '<manifest xmlns:android="http://schemas.android.com/apk/res/android"\n    xmlns:tools="http://schemas.android.com/tools"', 1)
+    for perm in ("INSTALL_PACKAGES", "WRITE_EXTERNAL_STORAGE"):
+        tag = f'<uses-permission android:name="android.permission.{perm}" tools:node="remove"/>'
+        if tag not in s:
+            s = s.replace("<application", tag + "\n    <application", 1)
     if "OtaUpdateFileProvider" not in s:
         s = s.replace("</application>", """    <provider
             android:name="sk.fourq.otaupdate.OtaUpdateFileProvider"
