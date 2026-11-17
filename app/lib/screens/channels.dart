@@ -48,7 +48,11 @@ class ChannelIcon extends StatelessWidget {
       return ClipRRect(
         borderRadius: R.all(size * 0.3),
         child: Image.network(AppScope.of(context).photoUrl(photo),
-            width: size, height: size, fit: BoxFit.cover, errorBuilder: (_, __, ___) => SizedBox(width: size, height: size)),
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
+            errorBuilder: (_, __, ___) => SizedBox(width: size, height: size)),
       );
     }
     final icon = (ch['icon'] ?? '').toString();

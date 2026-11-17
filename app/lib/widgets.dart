@@ -468,25 +468,6 @@ class AppCard extends StatelessWidget {
         ),
         child: child,
       );
-      if (c.isDark && kind == CardKind.solid && gradient == null) {
-        // Yuqori chetdagi nozik yorug‘lik / тонкий блик по верхней кромке.
-        body = Stack(children: [
-          body,
-          Positioned(
-            top: 0,
-            left: radius,
-            right: radius,
-            child: IgnorePointer(
-              child: Container(
-                height: 1,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(colors: [Color(0x00FFFFFF), Color(0x24FFFFFF), Color(0x00FFFFFF)]),
-                ),
-              ),
-            ),
-          ),
-        ]);
-      }
     }
     return onTap == null && onLongPress == null
         ? body
@@ -778,8 +759,10 @@ class AppAvatar extends StatelessWidget {
     if (bytes != null && bytes!.isNotEmpty) {
       img = Image.memory(bytes!, fit: BoxFit.cover, gaplessPlayback: true, errorBuilder: (_, __, ___) => fallback);
     } else if (url != null && url!.isNotEmpty) {
-      img =
-          Image.network(url!, headers: headers, fit: BoxFit.cover, gaplessPlayback: true, errorBuilder: (_, __, ___) => fallback);
+      // ekrandagi o‘lchamda dekodlash (to‘liq suratni emas) — ro‘yxatlar tez / декодируем в размер экрана — списки быстрее
+      final px = (size * MediaQuery.devicePixelRatioOf(context)).round();
+      img = Image.network(url!,
+          headers: headers, fit: BoxFit.cover, gaplessPlayback: true, cacheWidth: px, errorBuilder: (_, __, ___) => fallback);
     } else {
       img = fallback;
     }
@@ -824,7 +807,6 @@ class IconTile extends StatelessWidget {
         borderRadius: circle ? null : BorderRadius.circular(size * 0.32),
         gradient: vivid ? c.accentGradient : null,
         color: vivid ? null : (bg ?? c.accentSoft),
-        boxShadow: vivid ? Shadows.glow(c.accent, c, strength: 0.5) : null,
       ),
       child: Icon(icon, size: size * 0.5, color: vivid ? kWhite : (color ?? c.accentText)),
     );
@@ -1639,7 +1621,6 @@ class GroupRow extends StatelessWidget {
             ? null
             : () {
                 HapticFeedback.selectionClick();
-                Sfx.tap();
                 Sfx.tap();
                 onTap!();
               },
