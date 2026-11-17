@@ -84,7 +84,7 @@ def ios():
     s = re.sub(r"(<key>CFBundleDisplayName</key>\s*<string>)[^<]*", rf"\g<1>{NAME}", s)
     extra = {
         "NSPhotoLibraryUsageDescription": "Profil surati va kanalga rasm yuborish uchun / Для фото профиля и отправки в канал",
-        "NSCameraUsageDescription": "Surat va video yuborish uchun / Для отправки фото и видео",
+        "NSCameraUsageDescription": "Surat, video va QR davomat uchun / Для фото, видео и QR-посещаемости",
         "NSMicrophoneUsageDescription": "Ovozli xabar uchun / Для голосовых сообщений",
         "LSApplicationQueriesSchemes": None,
     }

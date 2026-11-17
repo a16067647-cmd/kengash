@@ -338,12 +338,17 @@ def event_get(eid: str, authorization: Optional[str] = Header(default=None)):
         out = event_json(c, e, u)
         if out["is_organizer"]:
             import rating
-            rows = c.q("SELECT g.rsvp, g.user_id AS g_user, u.* FROM event_guests g JOIN users u ON u.id=g.user_id "
+            rows = c.q("SELECT g.rsvp, g.checked_at AS g_checked, g.user_id AS g_user, u.* FROM event_guests g "
+                       "JOIN users u ON u.id=g.user_id "
                        "WHERE g.event_id=? ORDER BY u.name", (eid,))
             pts = rating.points_of(c, "event", eid)
             started = e["starts_at"] <= db.now()
             out["people"] = [{"user": _mini(c, r["g_user"]), "rsvp": r["rsvp"], "can_mark": started and rating.rated(r),
-                              "came": None if r["g_user"] not in pts else pts[r["g_user"]] > 0} for r in rows]
+                              "came": None if r["g_user"] not in pts else pts[r["g_user"]] > 0,
+                              "checked_in": bool(r["g_checked"])} for r in rows]
+        if guest:
+            out["my_checkin"] = bool(c.one("SELECT checked_at FROM event_guests WHERE event_id=? AND user_id=?",
+                                           (eid, u["id"]))["checked_at"])
         return out
 
 

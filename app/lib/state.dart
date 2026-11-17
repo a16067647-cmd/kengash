@@ -60,6 +60,8 @@ class AppState extends ChangeNotifier {
   bool updateCheckOn = !kIsWeb && defaultTargetPlatform == TargetPlatform.android && kAppBuild > 0;
   Future<String?> Function(Uri url)? fetchText; // testlar uchun / для тестов
   Json? update; // yangi versiya haqida / о новой версии
+  /// Saytda telefon kamerasi bilan skanerlangan QR havolasi / ссылка QR, отсканированная камерой телефона на сайте
+  ({String eid, String code})? pendingCheckin = _webCheckin();
   bool updateHidden = false; // «Keyinroq» bosildi (shu ochilishgacha) / нажали «Позже» (до перезапуска)
   DateTime? _updateCheckedAt;
   bool get updateAvailable => update != null && !updateHidden && !updateRequired;
@@ -195,6 +197,28 @@ class AppState extends ChangeNotifier {
     ready = true;
     notifyListeners();
     checkUpdate();
+    runPendingCheckin();
+  }
+
+  static ({String eid, String code})? _webCheckin() {
+    if (!kIsWeb) return null;
+    final q = Uri.base.queryParameters;
+    final eid = q['checkin'], code = q['code'];
+    if (eid == null || code == null || !RegExp(r'^\d{6}$').hasMatch(code)) return null;
+    return (eid: eid, code: code);
+  }
+
+  /// Kirgandan keyin QR davomatini yuborish / после входа отправить QR-отметку.
+  Future<void> runPendingCheckin() async {
+    final p = pendingCheckin;
+    if (p == null || !loggedIn || me?['status'] != 'active') return;
+    pendingCheckin = null;
+    try {
+      final r = await api.post('/api/events/${p.eid}/checkin', {'code': p.code});
+      toast(r['already'] == true ? t('ci_already') : '${t('ci_done')} ${r['title'] ?? ''}', icon: Icons.check_circle_rounded);
+    } on ApiError catch (e) {
+      toast(errText(e));
+    }
   }
 
   /// Saytdagi version.json bilan solishtiradi (soatiga ko‘pi bilan 1 marta).
@@ -299,6 +323,7 @@ class AppState extends ChangeNotifier {
     tab = 'today';
     _syncChat();
     notifyListeners();
+    runPendingCheckin();
   }
 
   void setMe(Json user) {
