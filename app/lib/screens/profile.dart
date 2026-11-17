@@ -7,7 +7,7 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'portfolio.dart' show PortfolioScreen;
 import 'admin_more.dart' show FeedbackScreen;
-import 'directory.dart' show confirmSheet;
+import 'directory.dart' show confirmSheet, inviteStudents;
 import 'legal.dart';
 import 'onboarding.dart' show PhotoEditor;
 
@@ -73,6 +73,14 @@ class ProfileTab extends StatelessWidget {
                 color: c.accent,
                 title: s.t('directory'),
                 onTap: () => openTool(context, 'directory')),
+            // Maktab koordinatori: o‘quvchilarni bitta havola bilan taklif qilish / пригласить учеников одной ссылкой
+            if (s.me?['level'] == 'school' && s.me?['kind'] != 'student' && (s.me?['place_id'] ?? '').toString().isNotEmpty)
+              GroupRow(
+                  key: const ValueKey('row-invite'),
+                  icon: Icons.person_add_alt_1_rounded,
+                  color: const Color(0xFF229ED9),
+                  title: s.t('invite_students'),
+                  onTap: () => inviteStudents(context, s.me!['place_id'] as String)),
             if (s.isAdmin)
               GroupRow(
                   key: const ValueKey('row-admin'),

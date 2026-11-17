@@ -648,6 +648,25 @@ def school_students(sid: str, authorization: Optional[str] = Header(default=None
         return {"students": [public_user(c, r, v) for r in rows]}
 
 
+@app.get("/api/schools/{sid}/invite")
+def school_invite(sid: str, authorization: Optional[str] = Header(default=None)):
+    """Maktab uchun bitta taklif havolasi: o‘quvchi bosadi → bot maktabni o‘zi tanlaydi.
+    Одна ссылка-приглашение для школы: ученик нажимает → бот сам выбирает школу."""
+    from urllib.parse import quote
+    with db.tx() as c:
+        v = current_user(c, authorization)
+        if not is_above(c, v, "school", sid, None):
+            err(403, "forbidden")
+        p = place_info(c, "school", sid)
+        if not p:
+            err(404, "not_found")
+    url = f"https://t.me/{telegram.BOT_USERNAME}?start=join_{sid}"
+    text = (f"{p['name_uz']} o‘quvchilari! Kengash ilovasiga qo‘shiling — havolani bosing 👇\n"
+            f"Ученики: {p['name_ru']}! Присоединяйтесь к Kengash — нажмите ссылку 👇")
+    return {"url": url, "share_url": f"https://t.me/share/url?url={quote(url, safe='')}&text={quote(text, safe='')}",
+            "school": p}
+
+
 # ------------------------------------------------------------------ tasdiqlash / подтверждение
 @app.get("/api/approvals")
 def approvals(authorization: Optional[str] = Header(default=None)):

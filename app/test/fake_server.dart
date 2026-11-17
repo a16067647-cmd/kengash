@@ -437,6 +437,9 @@ class FakeServer {
             };
           case 'POST /api/auth/telegram/start':
             out = {'id': 'r1', 'url': 'https://t.me/KengashAppBot?start=login_r1'};
+          case 'GET /api/schools/s59/invite':
+            posts.add({'path': path});
+            out = {'url': 'https://t.me/KengashAppBot?start=join_s59', 'share_url': 'https://t.me/share/url?url=x'};
           case 'POST /api/auth/telegram/webapp':
             out = body['init_data'] == 'good' ? {'token': 'tok', 'me': me} : {'need_bot': true, 'bot': 'KengashAppBot'};
           case 'GET /api/auth/telegram/status':

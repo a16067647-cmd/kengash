@@ -101,3 +101,39 @@ def test_announcement_seen_and_single_reminder(client, w):  # noqa: F811
     assert push.SENT[-1]["users"] == [uid(client, w["m2"])]  # faqat ko‘rmagan / только не видевший
     # ikkinchi marta — yo‘q (bezovta qilmaymiz) / второй раз — нет (не надоедаем)
     assert client.post(f"/api/messages/{mid}/remind", headers=w["tit"]).status_code == 409
+
+
+# --- Maktab taklif havolasi / ссылка-приглашение школы -------------------------------------------------------------
+def test_school_invite_link(client, w, monkeypatch):  # noqa: F811
+    import telegram
+    sent = []
+    monkeypatch.setattr(telegram, "api", lambda m, p: sent.append((m, p)))
+    monkeypatch.setattr(telegram, "WEBHOOK_SECRET", "s3cret")
+    hdr = {"X-Telegram-Bot-Api-Secret-Token": "s3cret"}
+    # havola: faqat o‘sha maktab koordinatori / ссылка: только координатор этой школы
+    assert client.get(f"/api/schools/{w['s1']}/invite", headers=w["m2"]).status_code == 403
+    inv = client.get(f"/api/schools/{w['s1']}/invite", headers=w["m1"]).json()
+    assert inv["url"].endswith(f"?start=join_{w['s1']}") and inv["share_url"].startswith("https://t.me/share/url?url=")
+
+    frm = {"id": 8801, "first_name": "Laylo", "is_bot": False}
+
+    def msg(**kw):
+        client.post("/api/telegram/webhook", json={"message": {"from": frm, "chat": {"id": 8801, "type": "private"}, **kw}},
+                    headers=hdr)
+
+    def press(data):
+        client.post("/api/telegram/webhook", json={"callback_query": {
+            "id": "q", "from": frm, "data": data, "message": {"chat": {"id": 8801}, "message_id": 5}}}, headers=hdr)
+
+    msg(text=f"/start join_{w['s1']}")
+    msg(contact={"user_id": 8801, "phone_number": "998907770011"})
+    msg(text="Karimova Laylo")
+    last = sent[-1][1]
+    # rol, tuman, maktab so‘ralmaydi — darhol sinf / роль, район, школа не спрашиваются — сразу класс
+    assert "o‘quvchisi sifatida" in last["text"]
+    assert "r:g:7" in str(last["reply_markup"])
+    press("r:g:7")
+    press("r:l:A")
+    press("r:ok")
+    u = client.get("/api/users/search", params={"q": "Laylo"}, headers=w["admin"]).json()["users"][0]
+    assert u["kind"] == "student" and u["place_id"] == w["s1"] and u["class_name"] == "7-A"

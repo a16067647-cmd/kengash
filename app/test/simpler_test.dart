@@ -86,4 +86,18 @@ void main() {
     await tap(tester, find.byKey(const ValueKey('act-remind')));
     expect(server.posts.last['path'], '/api/messages/x5/remind');
   });
+
+  testWidgets('maktab koordinatori: «O‘quvchilarni taklif qilish» — bir bosish', (tester) async {
+    final server = FakeServer(me: FakeServer.seated('school', 'it'));
+    await boot(tester, server);
+    await tap(tester, find.byKey(const ValueKey('nav-profile')));
+    await tap(tester, find.byKey(const ValueKey('row-invite')));
+    expect(server.posts.last['path'], '/api/schools/s59/invite');
+  });
+
+  testWidgets('o‘quvchi: taklif tugmasi yo‘q', (tester) async {
+    await boot(tester, FakeServer(me: FakeServer.student()));
+    await tap(tester, find.byKey(const ValueKey('nav-profile')));
+    expect(find.byKey(const ValueKey('row-invite')), findsNothing);
+  });
 }
