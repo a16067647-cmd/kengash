@@ -5,6 +5,7 @@ import '../main.dart' show openTool;
 import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'portfolio.dart' show PortfolioScreen;
 import 'admin_more.dart' show FeedbackScreen;
 import 'directory.dart' show confirmSheet;
 import 'legal.dart';
@@ -46,6 +47,23 @@ class ProfileTab extends StatelessWidget {
             child: Text(s.t('edit_profile'), style: AppType.callout.copyWith(color: c.accentText)),
           ),
         ]),
+        if (!s.isAdmin && !s.isStaff)
+          AppCard(
+            key: const ValueKey('row-portfolio'),
+            kind: CardKind.tinted,
+            onTap: () => Navigator.of(context).push(AppRoute(builder: (_) => const PortfolioScreen())),
+            child: Row(children: [
+              Icon(Icons.route_rounded, color: c.accentText, size: 30),
+              const SizedBox(width: S.x3),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(s.t('pf_title'), style: AppType.headline.copyWith(color: c.text)),
+                  Text(s.t('pf_sub'), style: AppType.footnote.copyWith(color: c.text2)),
+                ]),
+              ),
+              Icon(Icons.chevron_right_rounded, color: c.text3),
+            ]),
+          ),
         if (!wide) ...[
           SectionHeader(s.t('side_tools')),
           GroupList([

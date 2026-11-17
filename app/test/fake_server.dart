@@ -474,6 +474,28 @@ class FakeServer {
           case 'POST /api/certificates/pdf':
             posts.add({'path': path, ...body});
             out = {'url': 'https://storage.test/sertifikat.pdf', 'count': 2, 'quarter': '2026 · III'};
+          case 'GET /api/portfolio/me':
+            out = {
+              'user': {'id': me['id'], 'name': me['name'], 'photo': '', 'kind': me['kind'], 'direction': me['direction'],
+                'title': '', 'class_name': '', 'place': me['place'], 'since': 1760000000, 'level': me['level']},
+              'stats': {'tasks': 14, 'events': 6, 'books': 4, 'points': 23, 'rank': 2, 'rank_total': 48, 'quarter_score': 9},
+              'tasks': [
+                {'id': 't1', 'title': 'Robototexnika to‘garagi hisoboti', 'by': 'Asaka IT', 'at': 1763000000, 'accepted': true, 'photo_urls': []},
+              ],
+              'events': [
+                {'id': 'e1', 'title': 'IT koordinatorlar uchrashuvi', 'place': 'Asaka', 'starts_at': 1762500000},
+              ],
+              'books': [
+                {'title': 'Atomic Habits', 'author': 'James Clear', 'at': 1763000000},
+              ],
+              'certificates': [
+                {'quarter': '2026 · III', 'rank': 1, 'score': 14, 'group': 'Asaka tumani'},
+              ],
+              'shared': false, 'share_url': '',
+            };
+          case 'POST /api/portfolio/share':
+            posts.add({'path': path, 'on': req.url.queryParameters['on']});
+            out = {'shared': true, 'share_url': 'https://kengash-api.onrender.com/p/abc123xyz'};
           case 'GET /api/report':
             out = {'month': '2026-11', 'area': 'Asaka tumani', 'people': 512, 'students': 9000, 'joined': 14, 'tasks': 340,
               'tasks_done': 262, 'tasks_pct': 77, 'tasks_late': 12, 'events': 9, 'invited': 410, 'came': 344, 'came_pct': 84,

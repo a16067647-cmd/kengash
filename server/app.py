@@ -85,7 +85,8 @@ async def _limits(request: Request, call_next):
     h["X-Frame-Options"] = "DENY"
     h["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     h["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-    h["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+    if "Content-Security-Policy" not in h:  # ochiq portfolio sahifasi o‘zinikini beradi / страница портфолио задаёт свою
+        h["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
     if path.startswith("/api/") and "photo" not in path and "Cache-Control" not in h:
         h["Cache-Control"] = "no-store"  # shaxsiy javoblar keshlanmaydi / личные ответы не кэшируются
     return resp
@@ -860,6 +861,9 @@ app.include_router(admin_tools.router)
 import staff  # noqa: E402
 
 app.include_router(staff.router)
+import portfolio  # noqa: E402
+
+app.include_router(portfolio.router)
 import checkin  # noqa: E402
 
 app.include_router(checkin.router)
