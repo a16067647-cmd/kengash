@@ -1,8 +1,15 @@
-// Ilova tovushlari (original, sintez qilingan): shisha qo‘ng‘iroqchalar va yumshoq raqamli ovozlar.
-// Звуки приложения (оригинальные, синтезированные): стеклянные колокольчики и мягкие цифровые звуки.
+// Ilova tovushlari (original, sintez qilingan): marimba, selesta, yumshoq «tok», havoli «vush».
+// Звуки приложения (оригинальные, синтезированные): маримба, челеста, мягкий «ток», воздушный «вжух».
+// Generator: tools/make_sounds.py
+//
+// Kechikmasligi uchun: ilova ochilishi bilan hamma tovush oldindan yuklanadi (preload); ochilish musiqasi —
+// bitta fayl, animatsiya boshlangan vaqtdan hisoblab sinxron chalinadi.
+// Без задержек: всё загружается заранее при запуске; музыка интро — один файл, синхронно с анимацией.
 //
 // Hammasi past ovozda; Profil → «Ovozlar» o‘chirsa — jim. Brauzer foydalanuvchi bosmaguncha ovozni bloklaydi.
 // Всё тихо; Профиль → «Звуки» выключает. Браузер блокирует звук до первого нажатия пользователя.
+import 'dart:async';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 
@@ -15,65 +22,96 @@ class Sfx {
   /// Testlarda platforma kanali yo‘q / в тестах нет платформенного канала.
   static bool muted = false;
 
-  static const double _volume = 0.32;
-  static final Map<String, AudioPlayer> _fixed = {};
+  static const double _volume = 0.35;
+  static const _short = ['tap', 'send', 'receive', 'success'];
+  static final Map<String, AudioPlayer> _players = {};
+  static final Map<String, Future<void>> _ready = {};
+  static AudioPlayer? _intro;
+  static Future<void>? _introReady;
   static DateTime _lastTap = DateTime.fromMillisecondsSinceEpoch(0);
 
   static bool get _on => enabled && !muted;
 
-  /// Tez-tez chalinadiganlar uchun bitta qayta ishlatiladigan pleyer / один переиспользуемый плеер для частых звуков.
-  static Future<void> _playFixed(String name, double volume) async {
+  /// Ilova ochilishi bilan (runApp’dan oldin) — fayllarni oldindan tayyorlash.
+  /// При запуске (до runApp) — заранее подготовить файлы.
+  static void preload() {
+    if (muted) return;
+    _introReady = () async {
+      final p = AudioPlayer(playerId: 'sfx-intro');
+      await p.setReleaseMode(ReleaseMode.stop);
+      await p.setSource(AssetSource('sounds/intro.m4a'));
+      await p.setVolume(_volume * 1.1);
+      _intro = p;
+    }()
+        .catchError((Object e) {
+      if (kDebugMode) debugPrint('sfx intro: $e');
+    });
+    for (final name in _short) {
+      _ready[name] = () async {
+        final p = AudioPlayer(playerId: 'sfx-$name');
+        await p.setReleaseMode(ReleaseMode.stop);
+        if (!kIsWeb) await p.setPlayerMode(PlayerMode.lowLatency); // Android: SoundPool — darhol / мгновенно
+        await p.setSource(AssetSource('sounds/$name.wav'));
+        _players[name] = p;
+      }()
+          .catchError((Object e) {
+        if (kDebugMode) debugPrint('sfx $name: $e');
+      });
+    }
+  }
+
+  static Future<void> _play(String name, double volume) async {
     try {
-      final p = _fixed.putIfAbsent(name, () => AudioPlayer(playerId: 'sfx-$name')..setReleaseMode(ReleaseMode.stop));
+      await (_ready[name] ?? Future<void>.value());
+      final p = _players[name];
+      if (p == null) return;
       await p.stop();
-      await p.play(AssetSource('sounds/$name.wav'), volume: volume, mode: PlayerMode.lowLatency);
+      await p.setVolume(volume);
+      await p.resume();
     } catch (e) {
       if (kDebugMode) debugPrint('sfx $name: $e');
     }
   }
 
-  /// Ustma-ust chalinadiganlar (qo‘ng‘iroqchalar) / накладывающиеся звуки (колокольчики).
-  static Future<void> _playOnce(String name, double volume) async {
-    try {
-      final p = AudioPlayer();
-      p.onPlayerComplete.first.then((_) => p.dispose());
-      await p.play(AssetSource('sounds/$name.wav'), volume: volume);
-    } catch (e) {
-      if (kDebugMode) debugPrint('sfx $name: $e');
-    }
-  }
-
-  /// Har bir bosish — juda past «tik» (60 ms ichida takrorlanmaydi) / каждый тап — очень тихий «тик».
+  /// Har bir bosish — juda past, yumshoq «tok» (60 ms ichida takrorlanmaydi) / мягкий тихий «ток».
   static void tap() {
     if (!_on) return;
     final now = DateTime.now();
     if (now.difference(_lastTap).inMilliseconds < 60) return;
     _lastTap = now;
-    _playFixed('tap', _volume * 0.55);
+    _play('tap', _volume * 0.5);
   }
 
-  /// Xabar yuborildi (iPhone kabi «vush») / сообщение отправлено («вжух» как на iPhone).
+  /// Xabar yuborildi — havoli «vush» / сообщение отправлено — воздушный «вжух».
   static void send() {
-    if (_on) _playFixed('send', _volume);
+    if (_on) _play('send', _volume * 0.9);
   }
 
-  /// Ochiq chatga yangi xabar / новое сообщение в открытом чате.
+  /// Ochiq chatga yangi xabar — ikki nozik nota / новое сообщение — две тонкие ноты.
   static void receive() {
-    if (_on) _playFixed('receive', _volume * 0.85);
+    if (_on) _play('receive', _volume * 0.8);
   }
 
-  /// Muhim amal bajarildi: tasdiqlash, hisobot, «O‘qidim», +1 / важное действие выполнено.
+  /// Muhim amal bajarildi — marimba arpedjiosi / важное действие — арпеджио маримбы.
   static void success() {
-    if (_on) _playOnce('success', _volume);
+    if (_on) _play('success', _volume);
   }
 
-  /// Ochilish: har nuqta qo‘nishida bitta nota (0..7) / интро: нота на приземление каждой точки.
-  static void chime(int i) {
-    if (_on) _playOnce('chime${i.clamp(0, 7)}', _volume * 0.9);
-  }
-
-  /// Ochilish: belgi paydo bo‘lganda akkord / интро: аккорд при появлении знака.
-  static void introChord() {
-    if (_on) _playOnce('intro_chord', _volume);
+  /// Ochilish musiqasi: animatsiya [startedAt] da boshlangan — fayl kech tayyor bo‘lsa, o‘sha joydan davom etadi,
+  /// shuning uchun notalar nuqtalar bilan bir vaqtda. Juda kech bo‘lsa (akkorddan keyin) — chalinmaydi.
+  /// Музыка интро: если файл готов позже старта анимации, играем с нужного места — ноты совпадают с точками.
+  static Future<void> intro(DateTime startedAt) async {
+    if (!_on) return;
+    try {
+      await (_introReady ?? Future<void>.value());
+      final p = _intro;
+      if (p == null || !_on) return;
+      final late = DateTime.now().difference(startedAt);
+      if (late > const Duration(milliseconds: 2800)) return;
+      if (late > const Duration(milliseconds: 40)) await p.seek(late);
+      await p.resume();
+    } catch (e) {
+      if (kDebugMode) debugPrint('sfx intro: $e');
+    }
   }
 }
