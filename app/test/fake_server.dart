@@ -435,6 +435,12 @@ class FakeServer {
                 {...student(), 'id': 'st2', 'name': 'Karimova Zuhra', 'class_name': '9-A'},
               ]
             };
+          case 'GET /api/report':
+            out = {'month': '2026-11', 'area': 'Asaka tumani', 'people': 512, 'students': 9000, 'joined': 14, 'tasks': 340,
+              'tasks_done': 262, 'tasks_pct': 77, 'tasks_late': 12, 'events': 9, 'invited': 410, 'came': 344, 'came_pct': 84,
+              'top': [{'name': 'Karimova Madina', 'score': 9}, {'name': 'Yusupov Jasur', 'score': 7}], 'quiet': [], 'quiet_count': 21};
+          case 'POST /api/report/send':
+            out = {'ok': true};
           case 'GET /api/admin/staff':
             out = {'staff': staff};
           case 'POST /api/admin/staff':

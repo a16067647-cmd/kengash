@@ -478,9 +478,14 @@ def run_reminders():
 
 def start_reminder_loop():
     def loop():
+        import report
         while True:
             try:
                 run_reminders()
+            except Exception:
+                pass
+            try:
+                report.send_monthly()  # oy boshida rahbarlarga / в начале месяца руководителям
             except Exception:
                 pass
             time.sleep(300)

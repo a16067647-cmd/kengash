@@ -863,6 +863,9 @@ app.include_router(staff.router)
 import checkin  # noqa: E402
 
 app.include_router(checkin.router)
+import report  # noqa: E402
+
+app.include_router(report.router)
 
 
 if __name__ == "__main__":

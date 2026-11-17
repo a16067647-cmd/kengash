@@ -134,6 +134,8 @@ class _StatsState extends State<_Stats> {
           ),
       ]),
       const SizedBox(height: S.x5),
+      const ReportCard(),
+      const SizedBox(height: S.x5),
       const ActivityCard(),
       const SizedBox(height: S.x5),
       const ExportCard(),
