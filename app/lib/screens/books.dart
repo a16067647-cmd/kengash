@@ -55,17 +55,24 @@ class _BooksShelfState extends State<BooksShelf> {
       Padding(
         padding: const EdgeInsets.only(left: S.x1, bottom: S.x3),
         child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text('📚 ${s.t('books_title')}', style: AppType.title3.copyWith(color: c.text)),
+          Flexible(
+            child: Text('📚 ${s.t('books_title')}',
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.title3.copyWith(color: c.text)),
+          ),
           const SizedBox(width: S.x2),
           if (month.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: Text(month, style: AppType.footnote.copyWith(color: c.text3)),
+            Flexible(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text(month,
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.footnote.copyWith(color: c.text3)),
+              ),
             ),
         ]),
       ),
       SizedBox(
-        height: 330,
+        // katta shrift bo‘lsa — javon ham balandroq / при крупном шрифте полка выше
+        height: 268 + 62 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.6),
         child: ListView.separated(
           key: const ValueKey('books-shelf'),
           scrollDirection: Axis.horizontal,
@@ -427,15 +434,27 @@ class _BookScreenState extends State<BookScreen> with TickerProviderStateMixin {
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(color: accent.withValues(alpha: 0.18), borderRadius: R.all(R.pill)),
-                      child: Text('${bookEmoji(dir)} ${s.dirName(dir)}',
-                          style: AppType.caption.copyWith(color: c.text, fontWeight: FontWeight.w700)),
+                    Flexible(
+                      flex: 3,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(color: accent.withValues(alpha: 0.18), borderRadius: R.all(R.pill)),
+                        child: Text('${bookEmoji(dir)} ${s.dirName(dir)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppType.caption.copyWith(color: c.text, fontWeight: FontWeight.w700)),
+                      ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: S.x2),
                     if ((_b['month'] ?? '').toString().isNotEmpty)
-                      Text((_b['month']).toString(), style: AppType.footnote.copyWith(color: c.text3)),
+                      Expanded(
+                        flex: 2,
+                        child: Text((_b['month']).toString(),
+                            textAlign: TextAlign.end,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppType.footnote.copyWith(color: c.text3)),
+                      ),
                   ]),
                   const SizedBox(height: S.x3),
                   Text((_b['title'] ?? '').toString(),

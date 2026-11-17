@@ -46,33 +46,17 @@ class UpdateBanner extends StatelessWidget {
                             BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 24, offset: const Offset(0, 8)),
                           ],
                         ),
-                        child: Row(children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(color: c.accentSoft, shape: BoxShape.circle),
-                            child: Icon(Icons.system_update_rounded, color: c.accent, size: 22),
-                          ),
-                          const SizedBox(width: S.x3),
-                          Expanded(
-                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                              Text(s.t('upd_title'), style: AppType.headline.copyWith(color: c.text)),
-                              if (s.updateProgress != null)
-                                Padding(padding: const EdgeInsets.only(top: 4), child: _Progress(s.updateProgress!))
-                              else
-                                Text(s.t('upd_sub'),
-                                    maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.footnote.copyWith(color: c.text2)),
-                            ]),
-                          ),
-                          const SizedBox(width: S.x2),
-                          AppButton(s.t('upd_go'),
+                        // tor ekranda tugma pastga tushadi — matn bo‘linmaydi / на узком экране кнопка снизу — текст не ломается
+                        child: LayoutBuilder(builder: (context, box) {
+                          final narrow = box.maxWidth < 380;
+                          final go = AppButton(s.t('upd_go'),
                               key: const ValueKey('update-go'),
                               height: 40,
+                              expand: narrow,
                               loading: s.updateProgress != null,
-                              onPressed: s.updateProgress != null ? null : () => _install(context)),
-                          // Navigator ustida Overlay yo‘q — Tooltip’siz oddiy tugma
-                          // над Navigator нет Overlay — простая кнопка без Tooltip
-                          Semantics(
+                              onPressed: s.updateProgress != null ? null : () => _install(context));
+                          // Navigator ustida Overlay yo‘q — Tooltip’siz oddiy tugma / над Navigator нет Overlay
+                          final close = Semantics(
                             button: true,
                             label: s.t('upd_later'),
                             child: InkResponse(
@@ -84,8 +68,32 @@ class UpdateBanner extends StatelessWidget {
                                 child: Icon(Icons.close_rounded, color: c.text3, size: 20),
                               ),
                             ),
-                          ),
-                        ]),
+                          );
+                          final texts = Expanded(
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                              Text(s.t('upd_title'), style: AppType.headline.copyWith(color: c.text)),
+                              if (s.updateProgress != null)
+                                Padding(padding: const EdgeInsets.only(top: 4), child: _Progress(s.updateProgress!))
+                              else
+                                Text(s.t('upd_sub'),
+                                    maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.footnote.copyWith(color: c.text2)),
+                            ]),
+                          );
+                          final icon = Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(color: c.accentSoft, shape: BoxShape.circle),
+                            child: Icon(Icons.system_update_rounded, color: c.accent, size: 22),
+                          );
+                          if (narrow) {
+                            return Column(mainAxisSize: MainAxisSize.min, children: [
+                              Row(children: [icon, const SizedBox(width: S.x3), texts, close]),
+                              const SizedBox(height: S.x2),
+                              Padding(padding: const EdgeInsets.only(right: S.x2), child: go),
+                            ]);
+                          }
+                          return Row(children: [icon, const SizedBox(width: S.x3), texts, const SizedBox(width: S.x2), go, close]);
+                        }),
                       ),
                     ),
                   ),

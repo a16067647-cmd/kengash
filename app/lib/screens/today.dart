@@ -389,7 +389,7 @@ class _Tile extends StatelessWidget {
           const SizedBox(height: S.x3),
           Text(text, style: AppType.title1.copyWith(color: c.text, height: 1.05, fontSize: emoji != null ? 26 : null)),
           const SizedBox(height: 2),
-          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.footnote.copyWith(color: c.text2)),
+          Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.footnote.copyWith(color: c.text2, height: 1.2)),
       ]),
     );
   }

@@ -88,10 +88,14 @@ class _KengashAppState extends State<KengashApp> with WidgetsBindingObserver {
           themeAnimationCurve: Motion.curve,
           // bitta umumiy fon barcha sahifalar ostida / один общий фон под всеми страницами
           // yangi versiya banneri hamma ekranlar ustida / баннер новой версии поверх всех экранов
-          builder: (context, child) => AppBackground(
-              global: true,
-              motion: MotionLevel.normal,
-              child: Stack(fit: StackFit.expand, children: [child!, const UpdateBanner()])),
+          // Telefon shrifti juda katta bo‘lsa — 1.3× bilan cheklanadi (o‘qiladi, lekin sahifa buzilmaydi)
+          // Очень крупный системный шрифт ограничен 1.3× (читаемо, но вёрстка не ломается)
+          builder: (context, child) => MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.3,
+              child: AppBackground(
+                  global: true,
+                  motion: MotionLevel.normal,
+                  child: Stack(fit: StackFit.expand, children: [child!, const UpdateBanner()]))),
           home: const RootScreen(),
         );
       }),
