@@ -22,6 +22,20 @@ class FakeServer {
   bool feedbackDone = false;
   bool checkedIn = false;
   bool withPoll = false;
+  final List<Map<String, dynamic>> ideas = [
+    {
+      'id': 'i1', 'title': 'Maktab hovlisida kitob javoni', 'body': 'Tanaffusda o‘qish uchun ochiq javon.',
+      'status': 'planned', 'reply': 'Keyingi oy qilamiz', 'replied_by': {'name': 'Asaka Lider', 'title': ''},
+      'author': {'id': 'm60it', 'name': 'Yusupov Jasur', 'photo': '', 'kind': 'coordinator', 'place': null},
+      'district': null, 'votes': 24, 'my_vote': false, 'mine': false, 'can_answer': false, 'created_at': 1763000000,
+    },
+    {
+      'id': 'i2', 'title': 'Robototexnika bo‘yicha tuman tanlovi', 'body': '', 'status': 'open', 'reply': '',
+      'replied_by': null,
+      'author': {'id': 'm59l', 'name': 'Toshpo‘latov Sardorbek', 'photo': '', 'kind': 'coordinator', 'place': null},
+      'district': null, 'votes': 11, 'my_vote': false, 'mine': false, 'can_answer': false, 'created_at': 1763100000,
+    },
+  ];
   Map<String, dynamic> poll = {
     'id': 'pl1', 'question': 'Uchrashuv qaysi kuni bo‘lsin?', 'multi': false, 'closed': false, 'created_by': 'm59l', 'voters': 12,
     'my': <int>[],
@@ -474,6 +488,14 @@ class FakeServer {
           case 'POST /api/certificates/pdf':
             posts.add({'path': path, ...body});
             out = {'url': 'https://storage.test/sertifikat.pdf', 'count': 2, 'quarter': '2026 · III'};
+          case 'GET /api/ideas':
+            out = {'ideas': ideas, 'district': 'asaka'};
+          case 'POST /api/ideas':
+            posts.add({'path': path, ...body});
+            final n = {...ideas.first, 'id': 'i9', 'title': body['title'], 'body': body['body'], 'votes': 0, 'status': 'open',
+              'reply': '', 'replied_by': null, 'mine': true};
+            ideas.insert(0, n);
+            out = n;
           case 'GET /api/portfolio/me':
             out = {
               'user': {'id': me['id'], 'name': me['name'], 'photo': '', 'kind': me['kind'], 'direction': me['direction'],
@@ -724,6 +746,12 @@ class FakeServer {
             } else if (req.method == 'POST' && path.endsWith('/polls')) {
               posts.add({'path': path, ...body});
               out = {'ok': true};
+            } else if (req.method == 'POST' && path.startsWith('/api/ideas/') && path.endsWith('/vote')) {
+              posts.add({'path': path, ...body});
+              final i = ideas.firstWhere((x) => x['id'] == seg[3]);
+              if (i['my_vote'] != body['vote']) i['votes'] = (i['votes'] as int) + (body['vote'] == true ? 1 : -1);
+              i['my_vote'] = body['vote'];
+              out = Map<String, dynamic>.from(i);
             } else if (req.method == 'POST' && path.startsWith('/api/admin/staff/')) {
               lastBody = body;
               final id = path.split('/').last;

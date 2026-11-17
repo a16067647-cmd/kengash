@@ -273,6 +273,9 @@ def delete_user_everything(c, uid):
     paths = channels.remove_user(c, uid)
     c.x("DELETE FROM tokens WHERE user_id=?", (uid,))
     c.x("DELETE FROM photos WHERE user_id=?", (uid,))
+    c.x("DELETE FROM idea_votes WHERE user_id=? OR idea_id IN (SELECT id FROM ideas WHERE user_id=?)", (uid, uid))
+    c.x("DELETE FROM ideas WHERE user_id=?", (uid,))
+    c.x("DELETE FROM read_log WHERE user_id=?", (uid,))
     c.x("DELETE FROM users WHERE id=?", (uid,))
     return paths
 
@@ -864,6 +867,9 @@ app.include_router(staff.router)
 import portfolio  # noqa: E402
 
 app.include_router(portfolio.router)
+import ideas  # noqa: E402
+
+app.include_router(ideas.router)
 import checkin  # noqa: E402
 
 app.include_router(checkin.router)

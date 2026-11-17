@@ -8,6 +8,7 @@ import 'admin_more.dart' show BroadcastScreen, FeedbackScreen;
 import 'books.dart' show AdminBooksScreen, BooksShelf;
 import 'onboarding.dart' show ApprovalsScreen;
 import 'channels.dart' show ChannelIcon, channelTitle, openChannel, previewText, timeLabel;
+import 'ideas.dart' show IdeasScreen;
 import 'staff.dart' show AreaScreen;
 import 'tasks.dart' show TaskCard;
 import '../state.dart';
@@ -87,6 +88,13 @@ class _TodayTabState extends State<TodayTab> {
             color: const Color(0xFFFFBB02),
             title: s.t('rating'),
             onTap: () => openTool(context, 'rating')),
+      GroupRow(
+          key: const ValueKey('quick-ideas'),
+          icon: Icons.lightbulb_rounded,
+          color: const Color(0xFFFFB800),
+          title: s.t('ideas'),
+          value: wide ? null : s.t('ideas_short'),
+          onTap: () => Navigator.of(context).push(AppRoute(builder: (_) => const IdeasScreen()))),
       GroupRow(
           key: const ValueKey('quick-feedback'),
           icon: Icons.support_agent_rounded,
