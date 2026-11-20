@@ -1,0 +1,69 @@
+No Visual Studio installation found with the requested Microsoft.VisualStudio.Component.VC.Tools.x86.x64 component.
+
+
+::group::✅ Passing tests
+✅ /home/runner/work/kengash/kengash/app/test/simpler_test.dart: vazifa: faqat nomini yozish yetarli (muddat — 3 kundan keyin 18:00)
+✅ /home/runner/work/kengash/kengash/app/test/books_test.dart: Oy kitobi: Bugun javoni, kitob, O‘qidim
+✅ /home/runner/work/kengash/kengash/app/test/simpler_test.dart: tadbir: oxirgi joy eslab qolinadi
+✅ /home/runner/work/kengash/kengash/app/test/simpler_test.dart: profil: effektlar bitta qatorda yashirin
+✅ /home/runner/work/kengash/kengash/app/test/simpler_test.dart: hisobot: «Ovoz bilan aytish» tugmasi bor
+✅ /home/runner/work/kengash/kengash/app/test/simpler_test.dart: Telegram ichida ochilsa — darhol kiradi
+✅ /home/runner/work/kengash/kengash/app/test/simpler_test.dart: Telegram ichida, lekin ro‘yxatdan o‘tmagan — oddiy kirish ekrani
+✅ /home/runner/work/kengash/kengash/app/test/books_test.dart: o‘quvchi ham Oy kitobini ko‘radi; admin kitob qo‘shadi
+✅ /home/runner/work/kengash/kengash/app/test/simpler_test.dart: e’lon: muallif «Ko‘rdi 9/12» ni ko‘radi va bir marta eslatadi
+✅ /home/runner/work/kengash/kengash/app/test/simpler_test.dart: maktab koordinatori: «O‘quvchilarni taklif qilish» — bir bosish
+✅ /home/runner/work/kengash/kengash/app/test/simpler_test.dart: o‘quvchi: taklif tugmasi yo‘q
+✅ /home/runner/work/kengash/kengash/app/test/update_test.dart: yangi versiya: banner, Keyinroq
+✅ /home/runner/work/kengash/kengash/app/test/update_test.dart: majburiy yangilanish: eski versiya ishlamaydi
+✅ /home/runner/work/kengash/kengash/app/test/portfolio_test.dart: portfolio: statistika, sertifikat, ochiq havola
+✅ /home/runner/work/kengash/kengash/app/test/checkin_test.dart: QR havolasini o‘qish / разбор ссылки QR
+✅ /home/runner/work/kengash/kengash/app/test/checkin_test.dart: tashkilotchi: QR davomat
+✅ /home/runner/work/kengash/kengash/app/test/checkin_test.dart: mehmon: tadbirdan oldin faqat Boraman / Bora olmayman (QR yo‘q)
+✅ /home/runner/work/kengash/kengash/app/test/checkin_test.dart: mehmon: tadbir kuni — bitta asosiy tugma «Keldim»
+✅ /home/runner/work/kengash/kengash/app/test/checkin_test.dart: mehmon: kodni yozadi → keldi
+✅ /home/runner/work/kengash/kengash/app/test/small_screen_test.dart: kichik ekran: maktab koordinatori, uz
+✅ /home/runner/work/kengash/kengash/app/test/small_screen_test.dart: kichik ekran: maktab koordinatori, ru
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: i18n uz va ru kalitlari bir xil / одинаковые ключи
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: i18n o‘zbekchada oddiy apostrof yo‘q / нет простого апострофа
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: i18n koddagi barcha kalitlar lug‘atda bor / все ключи из кода есть в словаре
+✅ /home/runner/work/kengash/kengash/app/test/small_screen_test.dart: kichik ekran: admin, uz
+✅ /home/runner/work/kengash/kengash/app/test/small_screen_test.dart: kichik ekran: admin, ru
+✅ /home/runner/work/kengash/kengash/app/test/small_screen_test.dart: kichik ekran: o‘quvchi, uz
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: to‘liq kirish: Telegram → bot orqali ro‘yxat → Bugun
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: tasdiq kutilmoqda: kim tasdiqlashi ko‘rinadi
+✅ /home/runner/work/kengash/kengash/app/test/small_screen_test.dart: kichik ekran: o‘quvchi, ru
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: maslahatchi arizani tasdiqlaydi va o‘quvchilarni ko‘radi
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: o‘quvchi: faqat o‘z maktabi, vazifa bera olmaydi
+✅ /home/runner/work/kengash/kengash/app/test/poll_test.dart: kanal: so‘rovnoma — ovoz va yangi
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: admin ekranlari phone-light-uz
+✅ /home/runner/work/kengash/kengash/app/test/poll_test.dart: g‘olib: reytingda sertifikat
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: admin ekranlari phone-dark-ru
+✅ /home/runner/work/kengash/kengash/app/test/ideas_test.dart: tashabbuslar: ovoz va yangi g‘oya
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: admin ekranlari desktop-light-uz
+✅ /home/runner/work/kengash/kengash/app/test/offline_test.dart: avval kirgan: internetsiz ham darhol ochiladi
+✅ /home/runner/work/kengash/kengash/app/test/offline_test.dart: chiqishda saqlangan ma’lumot o‘chadi
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: admin ekranlari desktop-dark-ru
+✅ /home/runner/work/kengash/kengash/app/test/admin_tools_test.dart: o‘quvchi adminga taklif yuboradi
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: ochilish animatsiyasi phone: tugmasiz, o‘zi tugaydi
+✅ /home/runner/work/kengash/kengash/app/test/admin_tools_test.dart: admin: shikoyatga javob, e’lon, faollik, Excel, tahrirlash
+✅ /home/runner/work/kengash/kengash/app/test/admin_tools_test.dart: uzoq bosish: kanal, vazifa, tadbir
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: ochilish animatsiyasi desktop: tugmasiz, o‘zi tugaydi
+✅ /home/runner/work/kengash/kengash/app/test/photo_viewer_test.dart: surat to‘liq ekranda ochiladi / фото открывается на весь экран
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: kanallar phone: ro‘yxat, suhbat, yozish, amallar
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: kanallar desktop: ro‘yxat, suhbat, yozish, amallar
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: tuman koordinatori kanal yaratadi
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: maktab koordinatori: bugungi vazifa, hisobot, tadbir
+✅ /home/runner/work/kengash/kengash/app/test/staff_test.dart: admin: yangi xodim (raqam, lavozim, hudud, vakolatlar)
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: tuman koordinatori vazifa beradi va hisobotni ko‘radi
+✅ /home/runner/work/kengash/kengash/app/test/staff_test.dart: admin: «Boshqa» arizasi — Sozlash
+✅ /home/runner/work/kengash/kengash/app/test/staff_test.dart: xodim: Hududim — faollik, e’lon, hisobot (kitoblarsiz)
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: reyting: vazifaga baho, yig‘ilishga davomat, ochiq reyting
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: o‘quvchi: chatda faqat matn va ovoz, reyting yo‘q
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: admin hamma kanallarni ko‘radi
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: admin shikoyatlarni ko‘radi
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: ochilish animatsiyasi har safar ko‘rinadi
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: maktab koordinatori: admin yo‘q, chiqish ishlaydi
+✅ /home/runner/work/kengash/kengash/app/test/app_test.dart: tuman koordinatori: admin yo‘q
+::endgroup::
+
+🎉 62 tests passed.
